@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ndp-ep-api
+    ports:
+      - "8003:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/code/logs
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
