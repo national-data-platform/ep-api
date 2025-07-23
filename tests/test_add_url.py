@@ -26,12 +26,11 @@ def test_reserved_keys_constant():
 
 
 @patch("api.services.url_services.add_url.ckan_settings")
-@patch("api.services.url_services.add_url.dxspaces_settings")
 class TestAddUrl:
     """Test cases for add_url function."""
 
     def test_add_url_minimal_parameters(
-        self, mock_dxspaces_settings, mock_ckan_settings
+        self, mock_ckan_settings
     ):
         """Test add_url with minimal required parameters."""
         # Setup mocks
@@ -39,7 +38,6 @@ class TestAddUrl:
         mock_ckan.action.package_create.return_value = {"id": "package-123"}
         mock_ckan.action.resource_create.return_value = None
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         result = add_url(
             resource_name="test_resource",
@@ -52,14 +50,13 @@ class TestAddUrl:
         mock_ckan.action.package_create.assert_called_once()
         mock_ckan.action.resource_create.assert_called_once()
 
-    def test_add_url_all_parameters(self, mock_dxspaces_settings, mock_ckan_settings):
+    def test_add_url_all_parameters(self, mock_ckan_settings):
         """Test add_url with all parameters provided."""
         # Setup mocks
         mock_ckan = MagicMock()
         mock_ckan.action.package_create.return_value = {"id": "package-456"}
         mock_ckan.action.resource_create.return_value = None
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         result = add_url(
             resource_name="full_resource",
@@ -101,14 +98,13 @@ class TestAddUrl:
         assert resource_data["format"] == "url"
 
     def test_add_url_custom_ckan_instance(
-        self, mock_dxspaces_settings, mock_ckan_settings
+        self, mock_ckan_settings
     ):
         """Test add_url with custom CKAN instance."""
         # Setup custom mock
         custom_ckan = MagicMock()
         custom_ckan.action.package_create.return_value = {"id": "custom-789"}
         custom_ckan.action.resource_create.return_value = None
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         result = add_url(
             resource_name="custom_resource",
@@ -124,94 +120,11 @@ class TestAddUrl:
         # Default CKAN should not be called
         mock_ckan_settings.ckan.action.package_create.assert_not_called()
 
-    def test_add_url_netcdf_with_dxspaces(
-        self, mock_dxspaces_settings, mock_ckan_settings
-    ):
-        """Test add_url with NetCDF file type and dxspaces registration."""
-        # Setup mocks
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "netcdf-123"}
-        mock_ckan.action.resource_create.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
-
-        # Setup dxspaces mocks
-        mock_dxspaces_settings.registration_methods = {"url": True}
-        mock_dxspaces = MagicMock()
-        mock_staging_handle = MagicMock()
-        mock_staging_handle.model_dump_json.return_value = '{"handle": "staging_123"}'
-        mock_dxspaces.Register.return_value = mock_staging_handle
-        mock_dxspaces_settings.dxspaces = mock_dxspaces
-        mock_dxspaces_settings.dxspaces_url = "http://dxspaces.example.com"
-
-        result = add_url(
-            resource_name="netcdf_resource",
-            resource_title="NetCDF Resource",
-            owner_org="test_org",
-            resource_url="http://example.com/data.nc",
-            file_type="NetCDF",
-        )
-
-        assert result == "netcdf-123"
-
-        # Verify dxspaces registration was called
-        mock_dxspaces.Register.assert_called_once_with(
-            "url", "netcdf_resource", {"url": "http://example.com/data.nc"}
-        )
-
-        # Verify staging extras were added
-        package_call = mock_ckan.action.package_create.call_args
-        extras_dict = {
-            extra["key"]: extra["value"] for extra in package_call[1]["extras"]
-        }
-        assert extras_dict["staging_socket"] == "http://dxspaces.example.com"
-        assert extras_dict["staging_handle"] == '{"handle": "staging_123"}'
-        assert extras_dict["file_type"] == "NetCDF"
-
-    def test_add_url_netcdf_with_existing_extras(
-        self, mock_dxspaces_settings, mock_ckan_settings
-    ):
-        """Test add_url with NetCDF and existing extras."""
-        # Setup mocks
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "netcdf-456"}
-        mock_ckan.action.resource_create.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
-
-        # Setup dxspaces mocks
-        mock_dxspaces_settings.registration_methods = {"url": True}
-        mock_dxspaces = MagicMock()
-        mock_staging_handle = MagicMock()
-        mock_staging_handle.model_dump_json.return_value = '{"handle": "staging_456"}'
-        mock_dxspaces.Register.return_value = mock_staging_handle
-        mock_dxspaces_settings.dxspaces = mock_dxspaces
-        mock_dxspaces_settings.dxspaces_url = "http://dxspaces.example.com"
-
-        result = add_url(
-            resource_name="netcdf_resource_extra",
-            resource_title="NetCDF Resource with Extras",
-            owner_org="test_org",
-            resource_url="http://example.com/data.nc",
-            file_type="NetCDF",
-            extras={"existing_field": "existing_value"},
-        )
-
-        assert result == "netcdf-456"
-
-        # Verify all extras are present
-        package_call = mock_ckan.action.package_create.call_args
-        extras_dict = {
-            extra["key"]: extra["value"] for extra in package_call[1]["extras"]
-        }
-        assert extras_dict["existing_field"] == "existing_value"
-        assert extras_dict["staging_socket"] == "http://dxspaces.example.com"
-        assert extras_dict["staging_handle"] == '{"handle": "staging_456"}'
-        assert extras_dict["file_type"] == "NetCDF"
 
     def test_add_url_invalid_extras_type(
-        self, mock_dxspaces_settings, mock_ckan_settings
+        self, mock_ckan_settings
     ):
         """Test add_url with invalid extras type."""
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         with pytest.raises(ValueError, match="Extras must be a dictionary or None"):
             add_url(
@@ -223,10 +136,9 @@ class TestAddUrl:
             )
 
     def test_add_url_extras_with_reserved_keys(
-        self, mock_dxspaces_settings, mock_ckan_settings
+        self, mock_ckan_settings
     ):
         """Test add_url with extras containing reserved keys."""
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         with pytest.raises(KeyError, match="Extras contain reserved keys"):
             add_url(
@@ -238,7 +150,7 @@ class TestAddUrl:
             )
 
     def test_add_url_package_create_error(
-        self, mock_dxspaces_settings, mock_ckan_settings
+        self, mock_ckan_settings
     ):
         """Test add_url when package creation fails."""
         # Setup mock to raise exception
@@ -247,7 +159,6 @@ class TestAddUrl:
             "Package creation failed"
         )
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         with pytest.raises(Exception, match="Error creating resource package"):
             add_url(
@@ -258,7 +169,7 @@ class TestAddUrl:
             )
 
     def test_add_url_resource_create_error(
-        self, mock_dxspaces_settings, mock_ckan_settings
+        self, mock_ckan_settings
     ):
         """Test add_url when resource creation fails."""
         # Setup mock where package creation succeeds but resource creation fails
@@ -268,7 +179,6 @@ class TestAddUrl:
             "Resource creation failed"
         )
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         with pytest.raises(Exception, match="Error creating resource"):
             add_url(
@@ -279,14 +189,13 @@ class TestAddUrl:
             )
 
     def test_add_url_no_package_id_returned(
-        self, mock_dxspaces_settings, mock_ckan_settings
+        self, mock_ckan_settings
     ):
         """Test add_url when package creation returns no ID."""
         # Setup mock to return None or empty dict
         mock_ckan = MagicMock()
         mock_ckan.action.package_create.return_value = {}  # No ID returned
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         # The actual behavior: KeyError is caught and re-raised as package creation error
         with pytest.raises(Exception, match="Error creating resource package"):
@@ -298,7 +207,7 @@ class TestAddUrl:
             )
 
     def test_add_url_mapping_and_processing_serialization(
-        self, mock_dxspaces_settings, mock_ckan_settings
+        self, mock_ckan_settings
     ):
         """Test that mapping and processing are properly serialized to JSON."""
         # Setup mocks
@@ -306,7 +215,6 @@ class TestAddUrl:
         mock_ckan.action.package_create.return_value = {"id": "json-test"}
         mock_ckan.action.resource_create.return_value = None
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         mapping_data = {"field1": "col1", "field2": "col2"}
         processing_data = {"delimiter": ",", "header_line": 0, "start_line": 1}
@@ -336,14 +244,13 @@ class TestAddUrl:
         processing_json = json.loads(extras_dict["processing"])
         assert processing_json == processing_data
 
-    def test_add_url_empty_file_type(self, mock_dxspaces_settings, mock_ckan_settings):
+    def test_add_url_empty_file_type(self, mock_ckan_settings):
         """Test add_url with empty file_type (default value)."""
         # Setup mocks
         mock_ckan = MagicMock()
         mock_ckan.action.package_create.return_value = {"id": "empty-file-type"}
         mock_ckan.action.resource_create.return_value = None
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         result = add_url(
             resource_name="empty_type_resource",
@@ -362,14 +269,13 @@ class TestAddUrl:
         }
         assert extras_dict["file_type"] == ""
 
-    def test_add_url_empty_notes(self, mock_dxspaces_settings, mock_ckan_settings):
+    def test_add_url_empty_notes(self, mock_ckan_settings):
         """Test add_url with empty notes (default value)."""
         # Setup mocks
         mock_ckan = MagicMock()
         mock_ckan.action.package_create.return_value = {"id": "empty-notes"}
         mock_ckan.action.resource_create.return_value = None
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         result = add_url(
             resource_name="empty_notes_resource",
@@ -385,14 +291,13 @@ class TestAddUrl:
         package_call = mock_ckan.action.package_create.call_args
         assert package_call[1]["notes"] == ""
 
-    def test_add_url_none_extras(self, mock_dxspaces_settings, mock_ckan_settings):
+    def test_add_url_none_extras(self, mock_ckan_settings):
         """Test add_url with None extras (default value)."""
         # Setup mocks
         mock_ckan = MagicMock()
         mock_ckan.action.package_create.return_value = {"id": "none-extras"}
         mock_ckan.action.resource_create.return_value = None
         mock_ckan_settings.ckan = mock_ckan
-        mock_dxspaces_settings.registration_methods = {"url": False}
 
         result = add_url(
             resource_name="none_extras_resource",

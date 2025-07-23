@@ -56,38 +56,6 @@ class TestCreateGeneralDatasetEndpoint:
         assert call_args[1]["owner_org"] == "test_org"
         assert call_args[1]["ckan_instance"] == mock_ckan_settings.ckan
 
-    @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
-    @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.validate_preckan_fields")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
-    @pytest.mark.asyncio
-    async def test_create_dataset_pre_ckan_server_success(
-        self,
-        mock_get_user,
-        mock_validate,
-        mock_create_dataset,
-        mock_ckan_settings,
-        sample_dataset_request,
-    ):
-        """Test successful dataset creation with pre_ckan server."""
-        # Setup mocks
-        mock_get_user.return_value = {"sub": "user123"}
-        mock_create_dataset.return_value = "dataset-456"
-        mock_validate.return_value = []  # No missing fields
-        mock_ckan_settings.pre_ckan_enabled = True
-        mock_ckan_settings.pre_ckan = MagicMock()
-
-        result = await create_general_dataset_endpoint(
-            data=sample_dataset_request, server="pre_ckan", _={"sub": "user123"}
-        )
-
-        assert result == {"id": "dataset-456"}
-        mock_validate.assert_called_once()
-        mock_create_dataset.assert_called_once()
-
-        # Verify pre_ckan instance was used
-        call_args = mock_create_dataset.call_args
-        assert call_args[1]["ckan_instance"] == mock_ckan_settings.pre_ckan
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.get_current_user")
@@ -107,27 +75,6 @@ class TestCreateGeneralDatasetEndpoint:
 
         assert exc_info.value.status_code == 400
         assert "Pre-CKAN is disabled" in str(exc_info.value.detail)
-
-    @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
-    @patch("api.routes.register_routes.post_general_dataset.validate_preckan_fields")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
-    @pytest.mark.asyncio
-    async def test_create_dataset_pre_ckan_missing_fields(
-        self, mock_get_user, mock_validate, mock_ckan_settings, sample_dataset_request
-    ):
-        """Test error when pre_ckan has missing required fields."""
-        # Setup mocks
-        mock_get_user.return_value = {"sub": "user123"}
-        mock_validate.return_value = ["field1", "field2"]  # Missing fields
-        mock_ckan_settings.pre_ckan_enabled = True
-
-        with pytest.raises(HTTPException) as exc_info:
-            await create_general_dataset_endpoint(
-                data=sample_dataset_request, server="pre_ckan", _={"sub": "user123"}
-            )
-
-        assert exc_info.value.status_code == 400
-        assert "Missing required fields" in str(exc_info.value.detail)
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")

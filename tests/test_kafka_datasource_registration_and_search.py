@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.config.ckan_settings import ckan_settings
-from api.config.keycloak_settings import keycloak_settings
+from api.config.swagger_settings import swagger_settings
 from api.main import app
 
 client = TestClient(app)
@@ -23,7 +23,7 @@ def test_kafka_datasource_registration_and_search():
     3. Register a new Kafka datasource.
     4. Search the newly registered datasource to confirm it's available.
     """
-    headers = {"Authorization": f"Bearer {keycloak_settings.test_username}"}
+    headers = {"Authorization": f"Bearer {swagger_settings.test_token}"}
 
     # Step 1: Verify CKAN accessibility
     try:
