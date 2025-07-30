@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     use_jupyterlab: bool = False
     jupyter_url: str = "https://jupyter.org/try-jupyter/lab/"
     test_token: str = "testing_token"
-    auth_api_url: str = "https://idp-test.nationaldataplatform.org/client_admin/information"
+    auth_api_url: str = "https://idp.nationaldataplatform.org/temp/information"
     model_config = {
         "env_file": ".env",
         "extra": "allow",
