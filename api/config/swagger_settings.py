@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     swagger_title: str = "API Documentation"
     swagger_description: str = "This is the API documentation."
-    swagger_version: str = "1.0.0"
+    swagger_version: str = "0.1.0"
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"
     organization: str = "Unknown Organization"
@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     jupyter_url: str = "https://jupyter.org/try-jupyter/lab/"
     test_token: str = "testing_token"
     auth_api_url: str = "https://idp.nationaldataplatform.org/temp/information"
+    enable_organization_based_access: bool = False
+
     model_config = {
         "env_file": ".env",
         "extra": "allow",

@@ -103,7 +103,7 @@ def patch_kafka(
 ):
     """
     Partially update a Kafka dataset on CKAN.
-    
+
     Only updates the fields that are provided, leaving others unchanged.
     If ckan_instance is None, defaults to ckan_settings.ckan.
     """
@@ -143,7 +143,7 @@ def patch_kafka(
         current_extras["mapping"] = json.dumps(mapping)
     if processing is not None:
         current_extras["processing"] = json.dumps(processing)
-    
+
     # Update Kafka-specific extras if provided
     if kafka_host is not None:
         current_extras["host"] = kafka_host

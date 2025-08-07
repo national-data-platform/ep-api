@@ -127,7 +127,7 @@ async def patch_url(
 ):
     """
     Partially update an existing URL resource in CKAN.
-    
+
     Only updates the fields that are provided, leaving others unchanged.
     If ckan_instance is None, defaults to ckan_settings.ckan.
     """

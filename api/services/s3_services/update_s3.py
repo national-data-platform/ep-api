@@ -80,7 +80,7 @@ async def patch_s3(
 ):
     """
     Partially update an existing S3 resource in CKAN.
-    
+
     Only updates the fields that are provided, leaving others unchanged.
     If ckan_instance is None, defaults to ckan_settings.ckan.
     """

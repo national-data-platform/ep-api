@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import ckan_settings
 from api.models.request_kafka_model import KafkaDataSourceRequest
 from api.services import kafka_services
-from api.services.auth_services import get_current_user
+from api.services.auth_services import get_user_for_write_operation
 
 router = APIRouter()
 
@@ -34,6 +34,10 @@ router = APIRouter()
         "### Selecting the Server\n"
         "Pass `?server=local` or `?server=pre_ckan` in the query string.\n"
         "If not provided, defaults to 'local'.\n\n"
+        "### Authorization\n"
+        "This endpoint requires authentication. If organization-based "
+        "access control is enabled, only users belonging to the configured "
+        "organization can create Kafka datasets.\n\n"
         "### Example Payload\n"
         "{\n"
         '    "dataset_name": "kafka_topic_example",\n'
@@ -63,6 +67,25 @@ router = APIRouter()
             "content": {
                 "application/json": {
                     "example": {"id": "12345678-abcd-efgh-ijkl-1234567890ab"}
+                }
+            },
+        },
+        401: {
+            "description": "Unauthorized - Authentication required",
+            "content": {
+                "application/json": {"example": {"detail": "Invalid or expired token"}}
+            },
+        },
+        403: {
+            "description": "Forbidden - Organization membership required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": (
+                            "Access forbidden: write operations require "
+                            "membership in organization 'Research Group'"
+                        )
+                    }
                 }
             },
         },
@@ -97,7 +120,7 @@ async def create_kafka_datasource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_current_user),
+    _: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Add a Kafka topic and its associated metadata to the system.
@@ -109,7 +132,7 @@ async def create_kafka_datasource(
     server : Literal['local', 'pre_ckan']
         If not provided, defaults to 'local'.
     _ : Dict[str, Any]
-        Keycloak user auth (unused).
+        User authentication and authorization (unused).
 
     Returns
     -------
@@ -119,6 +142,8 @@ async def create_kafka_datasource(
     Raises
     ------
     HTTPException
+        - 401: Authentication required
+        - 403: Organization membership required (if enabled)
         - 409: Duplicate dataset
         - 400: Other errors (including "No scheme supplied" for pre_ckan)
     """
@@ -128,7 +153,6 @@ async def create_kafka_datasource(
                 raise HTTPException(
                     status_code=400, detail="Pre-CKAN is disabled and cannot be used."
                 )
-
 
             ckan_instance = ckan_settings.pre_ckan
         else:

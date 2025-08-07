@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.config import ckan_settings
 from api.models.s3request_model import S3Request
-from api.services.auth_services import get_current_user
+from api.services.auth_services import get_user_for_write_operation
 from api.services.s3_services.add_s3 import add_s3
 
 router = APIRouter()
@@ -18,7 +18,11 @@ router = APIRouter()
     description=(
         "Create a new S3 resource.\n\n"
         "Use `?server=local` or `?server=pre_ckan` to choose the CKAN "
-        "instance. Defaults to 'local' if not provided."
+        "instance. Defaults to 'local' if not provided.\n\n"
+        "### Authorization\n"
+        "This endpoint requires authentication. If organization-based "
+        "access control is enabled, only users belonging to the configured "
+        "organization can create S3 resources."
     ),
     responses={
         201: {
@@ -26,6 +30,25 @@ router = APIRouter()
             "content": {
                 "application/json": {
                     "example": {"id": "12345678-abcd-efgh-ijkl-1234567890ab"}
+                }
+            },
+        },
+        401: {
+            "description": "Unauthorized - Authentication required",
+            "content": {
+                "application/json": {"example": {"detail": "Invalid or expired token"}}
+            },
+        },
+        403: {
+            "description": "Forbidden - Organization membership required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": (
+                            "Access forbidden: write operations require "
+                            "membership in organization 'Research Group'"
+                        )
+                    }
                 }
             },
         },
@@ -44,7 +67,7 @@ async def create_s3_resource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_current_user),
+    _: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Add an S3 resource to CKAN.
@@ -60,7 +83,7 @@ async def create_s3_resource(
     server : Literal['local', 'pre_ckan']
         Optional query param. Defaults to 'local'.
     _ : Dict[str, Any]
-        User authentication details from Keycloak (unused).
+        User authentication and authorization (unused).
 
     Returns
     -------
@@ -70,6 +93,8 @@ async def create_s3_resource(
     Raises
     ------
     HTTPException
+        - 401: Authentication required
+        - 403: Organization membership required (if enabled)
         - 400: If there's an error creating the resource or invalid param.
     """
     try:

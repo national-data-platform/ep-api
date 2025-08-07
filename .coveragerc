@@ -1,0 +1,16 @@
+[run]
+source = api
+omit = 
+    */migrations/*
+    */tests/*
+    */venv/*
+    */__pycache__/*
+    */config.py
+    */settings.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError

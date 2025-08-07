@@ -124,9 +124,7 @@ def update_service(
         current_extras.update(extras)
         current_extras.update(service_extras)
 
-        service["extras"] = [
-            {"key": k, "value": v} for k, v in current_extras.items()
-        ]
+        service["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
     else:
         # Handle service-specific fields even if no user extras
         current_extras = {

@@ -5,7 +5,6 @@ import logging
 from api.config.ckan_settings import ckan_settings
 from api.services import status_services
 
-
 logger = logging.getLogger(__name__)
 
 

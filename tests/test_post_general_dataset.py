@@ -27,7 +27,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_local_server_success(
         self,
@@ -56,9 +56,8 @@ class TestCreateGeneralDatasetEndpoint:
         assert call_args[1]["owner_org"] == "test_org"
         assert call_args[1]["ckan_instance"] == mock_ckan_settings.ckan
 
-
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_pre_ckan_disabled(
         self, mock_get_user, mock_ckan_settings, sample_dataset_request
@@ -78,7 +77,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_value_error(
         self,
@@ -103,7 +102,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_key_error(
         self,
@@ -128,7 +127,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_no_scheme_error(
         self,
@@ -153,7 +152,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_duplicate_name_error(
         self,
@@ -178,7 +177,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_duplicate_url_error(
         self,
@@ -203,7 +202,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_generic_error(
         self,
@@ -228,7 +227,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_current_user")
+    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
     @pytest.mark.asyncio
     async def test_create_dataset_with_resources(
         self, mock_get_user, mock_create_dataset, mock_ckan_settings

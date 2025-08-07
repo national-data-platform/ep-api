@@ -29,9 +29,7 @@ def test_reserved_keys_constant():
 class TestAddUrl:
     """Test cases for add_url function."""
 
-    def test_add_url_minimal_parameters(
-        self, mock_ckan_settings
-    ):
+    def test_add_url_minimal_parameters(self, mock_ckan_settings):
         """Test add_url with minimal required parameters."""
         # Setup mocks
         mock_ckan = MagicMock()
@@ -97,9 +95,7 @@ class TestAddUrl:
         assert resource_data["name"] == "full_resource"
         assert resource_data["format"] == "url"
 
-    def test_add_url_custom_ckan_instance(
-        self, mock_ckan_settings
-    ):
+    def test_add_url_custom_ckan_instance(self, mock_ckan_settings):
         """Test add_url with custom CKAN instance."""
         # Setup custom mock
         custom_ckan = MagicMock()
@@ -120,10 +116,7 @@ class TestAddUrl:
         # Default CKAN should not be called
         mock_ckan_settings.ckan.action.package_create.assert_not_called()
 
-
-    def test_add_url_invalid_extras_type(
-        self, mock_ckan_settings
-    ):
+    def test_add_url_invalid_extras_type(self, mock_ckan_settings):
         """Test add_url with invalid extras type."""
 
         with pytest.raises(ValueError, match="Extras must be a dictionary or None"):
@@ -135,9 +128,7 @@ class TestAddUrl:
                 extras="invalid_extras",  # Should be dict or None
             )
 
-    def test_add_url_extras_with_reserved_keys(
-        self, mock_ckan_settings
-    ):
+    def test_add_url_extras_with_reserved_keys(self, mock_ckan_settings):
         """Test add_url with extras containing reserved keys."""
 
         with pytest.raises(KeyError, match="Extras contain reserved keys"):
@@ -149,9 +140,7 @@ class TestAddUrl:
                 extras={"name": "reserved", "custom": "allowed"},
             )
 
-    def test_add_url_package_create_error(
-        self, mock_ckan_settings
-    ):
+    def test_add_url_package_create_error(self, mock_ckan_settings):
         """Test add_url when package creation fails."""
         # Setup mock to raise exception
         mock_ckan = MagicMock()
@@ -168,9 +157,7 @@ class TestAddUrl:
                 resource_url="http://example.com/data",
             )
 
-    def test_add_url_resource_create_error(
-        self, mock_ckan_settings
-    ):
+    def test_add_url_resource_create_error(self, mock_ckan_settings):
         """Test add_url when resource creation fails."""
         # Setup mock where package creation succeeds but resource creation fails
         mock_ckan = MagicMock()
@@ -188,9 +175,7 @@ class TestAddUrl:
                 resource_url="http://example.com/data",
             )
 
-    def test_add_url_no_package_id_returned(
-        self, mock_ckan_settings
-    ):
+    def test_add_url_no_package_id_returned(self, mock_ckan_settings):
         """Test add_url when package creation returns no ID."""
         # Setup mock to return None or empty dict
         mock_ckan = MagicMock()
@@ -206,9 +191,7 @@ class TestAddUrl:
                 resource_url="http://example.com/data",
             )
 
-    def test_add_url_mapping_and_processing_serialization(
-        self, mock_ckan_settings
-    ):
+    def test_add_url_mapping_and_processing_serialization(self, mock_ckan_settings):
         """Test that mapping and processing are properly serialized to JSON."""
         # Setup mocks
         mock_ckan = MagicMock()

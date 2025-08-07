@@ -61,6 +61,7 @@ async def search_datasets_by_terms(
         results_list = []
 
         for dataset in datasets["results"]:
+            print(dataset)
             dataset_str = json.dumps(dataset).lower()
 
             if all(term.lower() in dataset_str for term in terms_list):

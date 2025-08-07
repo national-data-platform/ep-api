@@ -6,7 +6,6 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from api.config.ckan_settings import ckan_settings
 from api.main import app
 from api.services.auth_services.get_current_user import get_current_user
 

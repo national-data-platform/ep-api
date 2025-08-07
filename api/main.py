@@ -4,8 +4,8 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from logging.handlers import RotatingFileHandler
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,6 +81,7 @@ app.include_router(routes.status_router, prefix="/status", tags=["Status"])
 if ckan_settings.ckan_local_enabled:
     app.include_router(routes.update_router, tags=["Update"])
     app.include_router(dataset_update_router, tags=["Update"])
+app.include_router(routes.user_router, tags=["User"])
 
 
 def custom_openapi():

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.config import ckan_settings
 from api.models.update_service_model import ServiceUpdateRequest
-from api.services.auth_services import get_current_user
+from api.services.auth_services import get_user_for_write_operation
 from api.services.service_services import patch_service
 
 router = APIRouter()
@@ -24,31 +24,39 @@ router = APIRouter()
         "### Path Parameters\n"
         "- **service_id**: The unique identifier of the service to update\n\n"
         "### Optional Fields (only provide fields to update)\n"
-        "- **service_name**: Unique name for the service\n"
-        "- **service_title**: Display title for the service\n"
-        "- **owner_org**: Organization ID (must be 'services')\n"
-        "- **service_url**: URL where the service is accessible\n"
-        "- **service_type**: Type of service (API, Web Service, etc.)\n"
-        "- **notes**: Additional description or notes\n"
+        "- **service_name**: Unique name for the service (lowercase, no spaces)\n"
+        "- **service_title**: Human-readable display title for the service\n"
+        "- **owner_org**: Organization ID that owns this service\n"
+        "- **service_url**: URL endpoint where the service is accessible\n"
+        "- **service_type**: Type classification of the service (API, Web Service, Microservice, etc.)\n"
+        "- **notes**: Description or additional notes about the service\n"
         "- **extras**: Additional metadata (will be merged with existing)\n"
-        "- **health_check_url**: URL for service health check endpoint\n"
-        "- **documentation_url**: URL to service documentation\n\n"
+        "- **health_check_url**: URL endpoint for service health monitoring\n"
+        "- **documentation_url**: URL to service documentation or API docs\n\n"
         "### Query Parameter\n"
         "Use `?server=local` or `?server=pre_ckan` to pick the CKAN instance. "
         "Defaults to 'local' if not provided.\n\n"
+        "### Authorization\n"
+        "This endpoint requires authentication. If organization-based "
+        "access control is enabled, only users belonging to the configured "
+        "organization can update services.\n\n"
         "### Example Payload (partial update)\n"
         "```json\n"
         "{\n"
         '    "service_url": "https://api.example.com/auth/v2.1",\n'
+        '    "service_type": "REST API",\n'
+        '    "health_check_url": "https://api.example.com/health",\n'
         '    "extras": {\n'
         '        "version": "2.1.0",\n'
-        '        "last_updated": "2024-01-15"\n'
+        '        "last_updated": "2024-01-15",\n'
+        '        "environment": "production",\n'
+        '        "maintainer": "platform-team@example.com"\n'
         "    }\n"
         "}\n"
         "```\n"
-        "Note: Only `service_url` and `extras` will be updated. All other "
-        "fields remain unchanged, and the new extras will be merged with "
-        "existing ones.\n"
+        "Note: Only `service_url`, `service_type`, `health_check_url` and `extras` "
+        "will be updated. All other fields remain unchanged, and the new extras "
+        "will be merged with existing ones.\n"
     ),
     responses={
         200: {
@@ -56,6 +64,25 @@ router = APIRouter()
             "content": {
                 "application/json": {
                     "example": {"message": "Service updated successfully"}
+                }
+            },
+        },
+        401: {
+            "description": "Unauthorized - Authentication required",
+            "content": {
+                "application/json": {"example": {"detail": "Invalid or expired token"}}
+            },
+        },
+        403: {
+            "description": "Forbidden - Organization membership required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": (
+                            "Access forbidden: write operations require "
+                            "membership in organization 'Research Group'"
+                        )
+                    }
                 }
             },
         },
@@ -81,7 +108,7 @@ async def patch_service_endpoint(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_current_user),
+    _: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Partially update a service by service_id.
@@ -99,7 +126,7 @@ async def patch_service_endpoint(
     server : Literal['local', 'pre_ckan']
         CKAN instance to use. Defaults to 'local'.
     _ : Dict[str, Any]
-        Keycloak user auth (unused).
+        User authentication and authorization (unused).
 
     Returns
     -------
@@ -109,6 +136,8 @@ async def patch_service_endpoint(
     Raises
     ------
     HTTPException
+        - 401: Authentication required
+        - 403: Organization membership required (if enabled)
         - 400: for update errors or invalid server config
         - 404: if service not found
     """

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.config import ckan_settings
 from api.models.update_service_model import ServiceUpdateRequest
-from api.services.auth_services import get_current_user
+from api.services.auth_services import get_user_for_write_operation
 from api.services.service_services import update_service
 
 router = APIRouter()
@@ -33,6 +33,10 @@ router = APIRouter()
         "### Query Parameter\n"
         "Use `?server=local` or `?server=pre_ckan` to pick the CKAN instance. "
         "Defaults to 'local' if not provided.\n\n"
+        "### Authorization\n"
+        "This endpoint requires authentication. If organization-based "
+        "access control is enabled, only users belonging to the configured "
+        "organization can update services.\n\n"
         "### Example Payload\n"
         "```json\n"
         "{\n"
@@ -54,6 +58,25 @@ router = APIRouter()
             "content": {
                 "application/json": {
                     "example": {"message": "Service updated successfully"}
+                }
+            },
+        },
+        401: {
+            "description": "Unauthorized - Authentication required",
+            "content": {
+                "application/json": {"example": {"detail": "Invalid or expired token"}}
+            },
+        },
+        403: {
+            "description": "Forbidden - Organization membership required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": (
+                            "Access forbidden: write operations require "
+                            "membership in organization 'Research Group'"
+                        )
+                    }
                 }
             },
         },
@@ -79,7 +102,7 @@ async def update_service_endpoint(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_current_user),
+    _: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Update a service by service_id (full replacement).
@@ -96,7 +119,7 @@ async def update_service_endpoint(
     server : Literal['local', 'pre_ckan']
         CKAN instance to use. Defaults to 'local'.
     _ : Dict[str, Any]
-        Keycloak user auth (unused).
+        User authentication and authorization (unused).
 
     Returns
     -------
@@ -106,6 +129,8 @@ async def update_service_endpoint(
     Raises
     ------
     HTTPException
+        - 401: Authentication required
+        - 403: Organization membership required (if enabled)
         - 400: for update errors or invalid server config
         - 404: if service not found
     """
