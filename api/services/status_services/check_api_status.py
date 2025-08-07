@@ -3,6 +3,7 @@
 import logging
 
 from api.config.ckan_settings import ckan_settings
+from api.config.swagger_settings import swagger_settings
 from api.services import status_services
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ def get_status():
           reachable (if enabled).
           - ckan_is_active_global (bool): Whether global CKAN is reachable.
           - keycloak_is_active (bool): Whether Keycloak is active.
+          - api_version (str): The current API version from swagger_settings.
 
     Note
     ----
@@ -32,6 +34,7 @@ def get_status():
         "ckan_local_enabled": ckan_settings.ckan_local_enabled,
         "ckan_is_active_local": None,
         "ckan_is_active_global": False,
+        "api_version": swagger_settings.swagger_version,
     }
 
     # 1. Check local CKAN if enabled
