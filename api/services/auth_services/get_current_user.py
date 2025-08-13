@@ -19,6 +19,10 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     """
     Validate user token and return user information.
 
+    This function ensures that the returned user information always contains
+    a 'sub' field. If the authentication service response doesn't include
+    this field, it will be set to "unknown" as a fallback value.
+
     Parameters
     ----------
     token_data : HTTPAuthorizationCredentials
@@ -27,7 +31,7 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     Returns
     -------
     Dict[str, Any]
-        User information including roles and groups
+        User information including roles, groups, and guaranteed 'sub' field
 
     Raises
     ------
@@ -77,17 +81,29 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
 
         elif response.status_code != 200:
             logger.error(
-                f"Auth service returned unexpected status code: {response.status_code}."
+                f"Auth service returned unexpected status code: "
+                f"{response.status_code}."
             )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Authentication service returned unexpected response (HTTP {response.status_code}).",
+                detail=(
+                    f"Authentication service returned unexpected response "
+                    f"(HTTP {response.status_code})."
+                ),
             )
 
         data = response.json()
 
         if "error" in data:
             raise Exception(f"Token validation failed: {data['error']}")
+
+        # Ensure 'sub' field is always present
+        if "sub" not in data:
+            logger.warning(
+                "Authentication service response missing 'sub' field, "
+                "setting to 'unknown'"
+            )
+            data["sub"] = "unknown"
 
         return data
 
