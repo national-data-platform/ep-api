@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 from api.config.ckan_settings import ckan_settings
+from api.services.metadata_services import inject_ndp_metadata
 
 RESERVED_KEYS = {
     "name",
@@ -35,6 +36,7 @@ def create_general_dataset(
     license_id: Optional[str] = None,
     version: Optional[str] = None,
     ckan_instance=None,
+    user_info: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Create a general dataset in CKAN.
@@ -66,6 +68,8 @@ def create_general_dataset(
     ckan_instance : optional
         A CKAN instance to use for dataset creation. If not provided,
         uses the default `ckan_settings.ckan`.
+    user_info : Optional[Dict[str, Any]]
+        User information for NDP metadata injection.
 
     Returns
     -------
@@ -90,6 +94,10 @@ def create_general_dataset(
         raise KeyError(
             "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
         )
+
+    # Inject NDP metadata if user_info is provided
+    if user_info:
+        extras = inject_ndp_metadata(user_info, extras)
 
     # Determine the CKAN instance
     if ckan_instance is None:

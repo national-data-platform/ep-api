@@ -67,7 +67,7 @@ async def create_s3_resource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Add an S3 resource to CKAN.
@@ -82,8 +82,8 @@ async def create_s3_resource(
         Required parameters for creating an S3 resource.
     server : Literal['local', 'pre_ckan']
         Optional query param. Defaults to 'local'.
-    _ : Dict[str, Any]
-        User authentication and authorization (unused).
+    user_info : Dict[str, Any]
+        User authentication and authorization information.
 
     Returns
     -------
@@ -116,6 +116,7 @@ async def create_s3_resource(
             notes=data.notes,
             extras=data.extras,
             ckan_instance=ckan_instance,
+            user_info=user_info,
         )
         return {"id": resource_id}
 

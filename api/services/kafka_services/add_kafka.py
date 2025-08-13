@@ -1,8 +1,9 @@
 # api/services/kafka_services/add_kafka.py
 import json
-from typing import Optional
+from typing import Dict, Optional
 
 from api.config.ckan_settings import ckan_settings
+from api.services.metadata_services import inject_ndp_metadata
 
 RESERVED_KEYS = {
     "name",
@@ -32,6 +33,7 @@ def add_kafka(
     mapping: Optional[dict] = None,
     processing: Optional[dict] = None,
     ckan_instance=None,
+    user_info: Optional[Dict[str, str]] = None,
 ) -> str:
     """
     Add a Kafka topic and its metadata to CKAN.
@@ -61,6 +63,8 @@ def add_kafka(
     ckan_instance : optional
         A CKAN instance to use for dataset creation. If not provided,
         uses the default `ckan_settings.ckan`.
+    user_info : Optional[Dict[str, str]]
+        User information for NDP metadata injection.
 
     Returns
     -------
@@ -104,6 +108,10 @@ def add_kafka(
     # Merge general extras with Kafka extras
     extras_cleaned = extras.copy() if extras else {}
     extras_cleaned.update(kafka_extras)
+
+    # Inject NDP metadata if user_info is provided
+    if user_info:
+        extras_cleaned = inject_ndp_metadata(user_info, extras_cleaned)
 
     # Determine the CKAN instance
     if ckan_instance is None:

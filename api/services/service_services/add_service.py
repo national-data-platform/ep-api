@@ -2,6 +2,7 @@
 from typing import Any, Dict, Optional
 
 from api.config import ckan_settings
+from api.services.metadata_services import inject_ndp_metadata
 
 RESERVED_KEYS = {
     "name",
@@ -29,6 +30,7 @@ def add_service(
     health_check_url: Optional[str] = None,
     documentation_url: Optional[str] = None,
     ckan_instance=None,
+    user_info: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Add a service resource to CKAN.
@@ -60,6 +62,8 @@ def add_service(
     ckan_instance : optional
         A CKAN instance to use for service creation. If not provided,
         uses the default `ckan_settings.ckan`.
+    user_info : Optional[Dict[str, Any]]
+        User information for NDP metadata injection.
 
     Returns
     -------
@@ -106,6 +110,10 @@ def add_service(
     # Merge user extras with service-specific extras
     extras_cleaned = extras.copy() if extras else {}
     extras_cleaned.update(service_extras)
+
+    # Inject NDP metadata if user_info is provided
+    if user_info:
+        extras_cleaned = inject_ndp_metadata(user_info, extras_cleaned)
 
     try:
         # Create the service package/dataset in CKAN

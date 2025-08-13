@@ -81,7 +81,7 @@ async def create_url_resource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Add a URL resource to CKAN.
@@ -96,8 +96,8 @@ async def create_url_resource(
         Required fields for creating a URL resource.
     server : Literal['local', 'pre_ckan']
         Optional query param. Defaults to 'local'.
-    _ : Dict[str, Any]
-        User authentication and authorization (unused).
+    user_info : Dict[str, Any]
+        User authentication and authorization information.
 
     Returns
     -------
@@ -134,6 +134,7 @@ async def create_url_resource(
             mapping=data.mapping,
             processing=data.processing,
             ckan_instance=ckan_instance,
+            user_info=user_info,
         )
         return {"id": resource_id}
 

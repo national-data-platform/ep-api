@@ -120,7 +120,7 @@ async def create_kafka_datasource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Add a Kafka topic and its associated metadata to the system.
@@ -131,8 +131,8 @@ async def create_kafka_datasource(
         Required/optional parameters for creating a Kafka dataset/resource.
     server : Literal['local', 'pre_ckan']
         If not provided, defaults to 'local'.
-    _ : Dict[str, Any]
-        User authentication and authorization (unused).
+    user_info : Dict[str, Any]
+        User authentication and authorization information.
 
     Returns
     -------
@@ -170,6 +170,7 @@ async def create_kafka_datasource(
             mapping=data.mapping,
             processing=data.processing,
             ckan_instance=ckan_instance,
+            user_info=user_info,
         )
         return {"id": dataset_id}
 

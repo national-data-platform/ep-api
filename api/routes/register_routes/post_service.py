@@ -131,7 +131,7 @@ async def create_service(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Register a new service and its associated metadata to the system.
@@ -145,8 +145,8 @@ async def create_service(
         Required/optional parameters for creating a service.
     server : Literal['local', 'pre_ckan']
         If not provided, defaults to 'local'.
-    _ : Dict[str, Any]
-        User authentication and authorization (unused).
+    user_info : Dict[str, Any]
+        User authentication and authorization information.
 
     Returns
     -------
@@ -183,6 +183,7 @@ async def create_service(
             health_check_url=data.health_check_url,
             documentation_url=data.documentation_url,
             ckan_instance=ckan_instance,
+            user_info=user_info,
         )
         return {"id": service_id}
 
