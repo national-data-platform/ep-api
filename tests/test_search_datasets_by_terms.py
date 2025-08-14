@@ -466,7 +466,7 @@ class TestSearchDatasetsByTerms:
         async def run_test():
             with pytest.raises(HTTPException) as exc_info:
                 await search_datasets_by_terms(["test"], server="global")
-            assert exc_info.value.status_code == 400
+            assert exc_info.value.status_code == 503
             assert "Global catalog is not reachable" in str(exc_info.value.detail)
 
         asyncio.run(run_test())
@@ -482,10 +482,8 @@ class TestSearchDatasetsByTerms:
         async def run_test():
             with pytest.raises(HTTPException) as exc_info:
                 await search_datasets_by_terms(["test"], server="local")
-            assert exc_info.value.status_code == 400
-            assert "Error searching for datasets: API Error" in str(
-                exc_info.value.detail
-            )
+            assert exc_info.value.status_code == 503
+            assert "Local catalog is not reachable" in str(exc_info.value.detail)
 
         asyncio.run(run_test())
 
@@ -501,7 +499,7 @@ class TestSearchDatasetsByTerms:
             with pytest.raises(HTTPException) as exc_info:
                 await search_datasets_by_terms(["test"], server="global")
             assert exc_info.value.status_code == 400
-            assert "Error searching for datasets: General error" in str(
+            assert "Error searching for datasets. Please try again." == str(
                 exc_info.value.detail
             )
 

@@ -16,7 +16,7 @@ class TestUpdateKafka:
         # Mock CKAN instance and dataset data
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "old_kafka_dataset",
@@ -27,13 +27,13 @@ class TestUpdateKafka:
                 {"key": "host", "value": "old-host.com"},
                 {"key": "port", "value": "9092"},
                 {"key": "topic", "value": "old_topic"},
-                {"key": "existing_extra", "value": "existing_value"}
-            ]
+                {"key": "existing_extra", "value": "existing_value"},
+            ],
         }
-        
+
         updated_dataset = existing_dataset.copy()
         updated_dataset["id"] = "kafka-dataset-123"
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.return_value = updated_dataset
 
@@ -51,7 +51,7 @@ class TestUpdateKafka:
             dataset_description="New description",
             extras={"custom_field": "custom_value"},
             mapping=mapping_data,
-            processing=processing_data
+            processing=processing_data,
         )
 
         assert result == "kafka-dataset-123"
@@ -66,7 +66,9 @@ class TestUpdateKafka:
         assert update_call_args["notes"] == "New description"
 
         # Verify extras contain all expected values
-        extras_dict = {extra["key"]: extra["value"] for extra in update_call_args["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in update_call_args["extras"]
+        }
         assert extras_dict["host"] == "new-host.com"
         assert extras_dict["port"] == "9093"
         assert extras_dict["topic"] == "new_topic"
@@ -84,16 +86,16 @@ class TestUpdateKafka:
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
-            "extras": []
+            "extras": [],
         }
-        
+
         custom_ckan.action.package_show.return_value = existing_dataset
         custom_ckan.action.package_update.return_value = existing_dataset
 
         result = update_kafka(
             dataset_id="kafka-dataset-123",
             dataset_name="updated_kafka",
-            ckan_instance=custom_ckan
+            ckan_instance=custom_ckan,
         )
 
         assert result == "kafka-dataset-123"
@@ -106,21 +108,21 @@ class TestUpdateKafka:
         """Test update_kafka with reserved keys in extras."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
-            "extras": []
+            "extras": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
 
         with pytest.raises(KeyError, match="Extras contain reserved keys"):
             update_kafka(
                 dataset_id="kafka-dataset-123",
-                extras={"name": "invalid", "port": "invalid", "custom": "valid"}
+                extras={"name": "invalid", "port": "invalid", "custom": "valid"},
             )
 
     @patch("api.services.kafka_services.update_kafka.ckan_settings")
@@ -130,7 +132,9 @@ class TestUpdateKafka:
         mock_ckan_settings.ckan = mock_ckan
         mock_ckan.action.package_show.side_effect = Exception("Dataset not found")
 
-        with pytest.raises(Exception, match="Error fetching Kafka dataset: Dataset not found"):
+        with pytest.raises(
+            Exception, match="Error fetching Kafka dataset: Dataset not found"
+        ):
             update_kafka(dataset_id="nonexistent-dataset")
 
     @patch("api.services.kafka_services.update_kafka.ckan_settings")
@@ -138,19 +142,21 @@ class TestUpdateKafka:
         """Test update_kafka when updating dataset fails."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
-            "extras": []
+            "extras": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.side_effect = Exception("Update failed")
 
-        with pytest.raises(Exception, match="Error updating Kafka dataset: Update failed"):
+        with pytest.raises(
+            Exception, match="Error updating Kafka dataset: Update failed"
+        ):
             update_kafka(dataset_id="kafka-dataset-123", dataset_name="new_name")
 
     @patch("api.services.kafka_services.update_kafka.ckan_settings")
@@ -158,7 +164,7 @@ class TestUpdateKafka:
         """Test update_kafka with partial Kafka-specific parameters."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
@@ -167,23 +173,25 @@ class TestUpdateKafka:
             "extras": [
                 {"key": "host", "value": "old-host.com"},
                 {"key": "port", "value": "9092"},
-                {"key": "topic", "value": "old_topic"}
-            ]
+                {"key": "topic", "value": "old_topic"},
+            ],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.return_value = existing_dataset
 
         result = update_kafka(
             dataset_id="kafka-dataset-123",
-            kafka_host="new-host.com"  # Only update host
+            kafka_host="new-host.com",  # Only update host
         )
 
         assert result == "kafka-dataset-123"
-        
+
         # Verify only host was updated, others preserved
         update_call_args = mock_ckan.action.package_update.call_args[1]
-        extras_dict = {extra["key"]: extra["value"] for extra in update_call_args["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in update_call_args["extras"]
+        }
         assert extras_dict["host"] == "new-host.com"  # Updated
         assert extras_dict["port"] == "9092"  # Preserved
         assert extras_dict["topic"] == "old_topic"  # Preserved
@@ -193,29 +201,31 @@ class TestUpdateKafka:
         """Test update_kafka without extras but with other parameters."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
-            "extras": [{"key": "existing", "value": "preserved"}]
+            "extras": [{"key": "existing", "value": "preserved"}],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.return_value = existing_dataset
 
         result = update_kafka(
             dataset_id="kafka-dataset-123",
             dataset_name="updated_kafka",
-            kafka_topic="new_topic"
+            kafka_topic="new_topic",
         )
 
         assert result == "kafka-dataset-123"
-        
+
         # Verify existing extras are preserved and new Kafka params added
         update_call_args = mock_ckan.action.package_update.call_args[1]
-        extras_dict = {extra["key"]: extra["value"] for extra in update_call_args["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in update_call_args["extras"]
+        }
         assert extras_dict["existing"] == "preserved"
         assert extras_dict["topic"] == "new_topic"
 
@@ -228,7 +238,7 @@ class TestPatchKafka:
         """Test successful Kafka dataset patch with partial updates."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "existing_kafka",
@@ -238,34 +248,36 @@ class TestPatchKafka:
             "extras": [
                 {"key": "host", "value": "existing-host.com"},
                 {"key": "port", "value": "9092"},
-                {"key": "existing_extra", "value": "existing_value"}
-            ]
+                {"key": "existing_extra", "value": "existing_value"},
+            ],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.return_value = existing_dataset
 
         mapping_data = {"new_field": "new_kafka_field"}
-        
+
         result = patch_kafka(
             dataset_id="kafka-dataset-123",
             dataset_title="Updated Kafka Dataset",
             kafka_host="new-host.com",
             mapping=mapping_data,
-            extras={"new_field": "new_value"}
+            extras={"new_field": "new_value"},
         )
 
         assert result == "kafka-dataset-123"
         mock_ckan.action.package_show.assert_called_once_with(id="kafka-dataset-123")
-        
+
         # Verify only specified fields were updated
         update_call_args = mock_ckan.action.package_update.call_args[1]
         assert update_call_args["name"] == "existing_kafka"  # Unchanged
         assert update_call_args["title"] == "Updated Kafka Dataset"  # Changed
         assert update_call_args["notes"] == "Existing description"  # Unchanged
-        
+
         # Verify extras were merged correctly
-        extras_dict = {extra["key"]: extra["value"] for extra in update_call_args["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in update_call_args["extras"]
+        }
         assert extras_dict["host"] == "new-host.com"  # Updated
         assert extras_dict["port"] == "9092"  # Preserved
         assert extras_dict["existing_extra"] == "existing_value"  # Preserved
@@ -277,21 +289,21 @@ class TestPatchKafka:
         """Test patch_kafka with reserved keys in extras."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
-            "extras": []
+            "extras": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
 
         with pytest.raises(KeyError, match="Extras contain reserved keys"):
             patch_kafka(
                 dataset_id="kafka-dataset-123",
-                extras={"id": "invalid", "mapping": "also_invalid"}
+                extras={"id": "invalid", "mapping": "also_invalid"},
             )
 
     @patch("api.services.kafka_services.update_kafka.ckan_settings")
@@ -301,7 +313,9 @@ class TestPatchKafka:
         mock_ckan_settings.ckan = mock_ckan
         mock_ckan.action.package_show.side_effect = Exception("Dataset not found")
 
-        with pytest.raises(Exception, match="Error fetching Kafka dataset: Dataset not found"):
+        with pytest.raises(
+            Exception, match="Error fetching Kafka dataset: Dataset not found"
+        ):
             patch_kafka(dataset_id="nonexistent-dataset", dataset_title="New Title")
 
     @patch("api.services.kafka_services.update_kafka.ckan_settings")
@@ -309,19 +323,21 @@ class TestPatchKafka:
         """Test patch_kafka when updating dataset fails."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
-            "extras": []
+            "extras": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.side_effect = Exception("Update failed")
 
-        with pytest.raises(Exception, match="Error updating Kafka dataset: Update failed"):
+        with pytest.raises(
+            Exception, match="Error updating Kafka dataset: Update failed"
+        ):
             patch_kafka(dataset_id="kafka-dataset-123", dataset_title="New Title")
 
     @patch("api.services.kafka_services.update_kafka.ckan_settings")
@@ -329,15 +345,15 @@ class TestPatchKafka:
         """Test patch_kafka with all Kafka-specific parameters."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
-            "extras": [{"key": "existing", "value": "preserved"}]
+            "extras": [{"key": "existing", "value": "preserved"}],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.return_value = existing_dataset
 
@@ -350,14 +366,16 @@ class TestPatchKafka:
             kafka_port="9094",
             kafka_topic="patch_topic",
             mapping=mapping_data,
-            processing=processing_data
+            processing=processing_data,
         )
 
         assert result == "kafka-dataset-123"
-        
+
         # Verify all Kafka-specific fields were added/updated
         update_call_args = mock_ckan.action.package_update.call_args[1]
-        extras_dict = {extra["key"]: extra["value"] for extra in update_call_args["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in update_call_args["extras"]
+        }
         assert extras_dict["host"] == "patch-host.com"
         assert extras_dict["port"] == "9094"
         assert extras_dict["topic"] == "patch_topic"
@@ -370,22 +388,22 @@ class TestPatchKafka:
         """Test patch_kafka with no actual changes (all None parameters)."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
-            "extras": [{"key": "existing", "value": "value"}]
+            "extras": [{"key": "existing", "value": "value"}],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.return_value = existing_dataset
 
         result = patch_kafka(dataset_id="kafka-dataset-123")
 
         assert result == "kafka-dataset-123"
-        
+
         # Verify dataset structure is preserved
         update_call_args = mock_ckan.action.package_update.call_args[1]
         assert update_call_args["name"] == "test_kafka"
@@ -398,16 +416,16 @@ class TestPatchKafka:
         """Test patch_kafka updating individual fields separately."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_dataset = {
             "id": "kafka-dataset-123",
             "name": "test_kafka",
             "title": "Test Kafka",
             "owner_org": "test_org",
             "notes": "old notes",
-            "extras": []
+            "extras": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_dataset
         mock_ckan.action.package_update.return_value = existing_dataset
 
@@ -415,11 +433,11 @@ class TestPatchKafka:
             dataset_id="kafka-dataset-123",
             dataset_name="patched_kafka",
             owner_org="new_org",
-            dataset_description="patched description"
+            dataset_description="patched description",
         )
 
         assert result == "kafka-dataset-123"
-        
+
         # Verify individual field updates
         update_call_args = mock_ckan.action.package_update.call_args[1]
         assert update_call_args["name"] == "patched_kafka"  # Updated

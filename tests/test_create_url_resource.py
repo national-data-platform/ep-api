@@ -65,6 +65,7 @@ def test_create_url_resource_success():
                 "comment_char": "#",
             },
             ckan_instance=ANY,
+            user_info={"user": "test_user"},
         )
 
         # Clean up dependency overrides

@@ -49,6 +49,7 @@ def test_create_s3_resource_success():
             notes="This is a test resource.",
             extras={"key1": "value1", "key2": "value2"},
             ckan_instance=ANY,
+            user_info={"user": "test_user"},
         )
 
         # Clean up dependency overrides

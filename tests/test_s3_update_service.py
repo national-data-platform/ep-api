@@ -16,7 +16,7 @@ class TestUpdateS3:
         # Mock CKAN instance and resource data
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "old_s3_resource",
@@ -25,21 +25,21 @@ class TestUpdateS3:
             "notes": "Old description",
             "extras": [
                 {"key": "bucket", "value": "old-bucket"},
-                {"key": "existing_extra", "value": "existing_value"}
+                {"key": "existing_extra", "value": "existing_value"},
             ],
             "resources": [
                 {
                     "id": "resource-456",
                     "format": "s3",
                     "url": "s3://old-bucket/old-file.csv",
-                    "name": "Old S3 File"
+                    "name": "Old S3 File",
                 }
-            ]
+            ],
         }
-        
+
         updated_resource = existing_resource.copy()
         updated_resource["id"] = "s3-resource-123"
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.return_value = updated_resource
         mock_ckan.action.resource_update.return_value = {"success": True}
@@ -51,7 +51,7 @@ class TestUpdateS3:
             owner_org="new_org",
             resource_s3="s3://new-bucket/new-file.csv",
             notes="New description",
-            extras={"bucket": "new-bucket", "custom_field": "custom_value"}
+            extras={"bucket": "new-bucket", "custom_field": "custom_value"},
         )
 
         assert result == "s3-resource-123"
@@ -60,7 +60,7 @@ class TestUpdateS3:
         mock_ckan.action.resource_update.assert_called_once_with(
             id="resource-456",
             url="s3://new-bucket/new-file.csv",
-            package_id="s3-resource-123"
+            package_id="s3-resource-123",
         )
 
         # Verify the update call contains expected data
@@ -71,7 +71,9 @@ class TestUpdateS3:
         assert update_call_args["notes"] == "New description"
 
         # Verify extras contain all expected values
-        extras_dict = {extra["key"]: extra["value"] for extra in update_call_args["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in update_call_args["extras"]
+        }
         assert extras_dict["bucket"] == "new-bucket"
         assert extras_dict["custom_field"] == "custom_value"
         assert extras_dict["existing_extra"] == "existing_value"  # Preserved
@@ -87,16 +89,16 @@ class TestUpdateS3:
             "title": "Test S3",
             "owner_org": "test_org",
             "extras": [],
-            "resources": []
+            "resources": [],
         }
-        
+
         custom_ckan.action.package_show.return_value = existing_resource
         custom_ckan.action.package_update.return_value = existing_resource
 
         result = await update_s3(
             resource_id="s3-resource-123",
             resource_name="updated_s3",
-            ckan_instance=custom_ckan
+            ckan_instance=custom_ckan,
         )
 
         assert result == "s3-resource-123"
@@ -110,21 +112,21 @@ class TestUpdateS3:
         """Test update_s3 with reserved keys in extras."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
             "title": "Test S3",
             "owner_org": "test_org",
-            "extras": []
+            "extras": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
 
         with pytest.raises(KeyError, match="Extras contain reserved keys"):
             await update_s3(
                 resource_id="s3-resource-123",
-                extras={"name": "invalid", "id": "invalid", "custom": "valid"}
+                extras={"name": "invalid", "id": "invalid", "custom": "valid"},
             )
 
     @patch("api.services.s3_services.update_s3.ckan_settings")
@@ -135,7 +137,9 @@ class TestUpdateS3:
         mock_ckan_settings.ckan = mock_ckan
         mock_ckan.action.package_show.side_effect = Exception("Resource not found")
 
-        with pytest.raises(Exception, match="Error fetching S3 resource: Resource not found"):
+        with pytest.raises(
+            Exception, match="Error fetching S3 resource: Resource not found"
+        ):
             await update_s3(resource_id="nonexistent-resource")
 
     @patch("api.services.s3_services.update_s3.ckan_settings")
@@ -144,20 +148,22 @@ class TestUpdateS3:
         """Test update_s3 when updating resource fails."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
             "title": "Test S3",
             "owner_org": "test_org",
             "extras": [],
-            "resources": []
+            "resources": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.side_effect = Exception("Update failed")
 
-        with pytest.raises(Exception, match="Error updating S3 resource: Update failed"):
+        with pytest.raises(
+            Exception, match="Error updating S3 resource: Update failed"
+        ):
             await update_s3(resource_id="s3-resource-123", resource_name="new_name")
 
     @patch("api.services.s3_services.update_s3.ckan_settings")
@@ -166,29 +172,30 @@ class TestUpdateS3:
         """Test update_s3 without extras."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
             "title": "Test S3",
             "owner_org": "test_org",
             "extras": [{"key": "existing", "value": "preserved"}],
-            "resources": []
+            "resources": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.return_value = existing_resource
 
         result = await update_s3(
-            resource_id="s3-resource-123",
-            resource_name="updated_s3"
+            resource_id="s3-resource-123", resource_name="updated_s3"
         )
 
         assert result == "s3-resource-123"
-        
+
         # Verify existing extras are preserved
         update_call_args = mock_ckan.action.package_update.call_args[1]
-        extras_dict = {extra["key"]: extra["value"] for extra in update_call_args["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in update_call_args["extras"]
+        }
         assert extras_dict["existing"] == "preserved"
 
     @patch("api.services.s3_services.update_s3.ckan_settings")
@@ -197,7 +204,7 @@ class TestUpdateS3:
         """Test update_s3 without S3 URL update."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
@@ -205,16 +212,20 @@ class TestUpdateS3:
             "owner_org": "test_org",
             "extras": [],
             "resources": [
-                {"id": "resource-456", "format": "s3", "url": "s3://old-bucket/file.csv"}
-            ]
+                {
+                    "id": "resource-456",
+                    "format": "s3",
+                    "url": "s3://old-bucket/file.csv",
+                }
+            ],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.return_value = existing_resource
 
         result = await update_s3(
             resource_id="s3-resource-123",
-            resource_name="updated_s3"
+            resource_name="updated_s3",
             # No resource_s3 parameter
         )
 
@@ -229,7 +240,7 @@ class TestUpdateS3:
         """Test update_s3 with case-insensitive S3 format matching."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
@@ -237,24 +248,27 @@ class TestUpdateS3:
             "owner_org": "test_org",
             "extras": [],
             "resources": [
-                {"id": "resource-456", "format": "S3", "url": "s3://old-bucket/file.csv"}
-            ]
+                {
+                    "id": "resource-456",
+                    "format": "S3",
+                    "url": "s3://old-bucket/file.csv",
+                }
+            ],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.return_value = existing_resource
         mock_ckan.action.resource_update.return_value = {"success": True}
 
         result = await update_s3(
-            resource_id="s3-resource-123",
-            resource_s3="s3://new-bucket/new-file.csv"
+            resource_id="s3-resource-123", resource_s3="s3://new-bucket/new-file.csv"
         )
 
         assert result == "s3-resource-123"
         mock_ckan.action.resource_update.assert_called_once_with(
             id="resource-456",
             url="s3://new-bucket/new-file.csv",
-            package_id="s3-resource-123"
+            package_id="s3-resource-123",
         )
 
 
@@ -267,7 +281,7 @@ class TestPatchS3:
         """Test successful S3 resource patch with partial updates."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "existing_s3",
@@ -276,31 +290,33 @@ class TestPatchS3:
             "notes": "Existing description",
             "extras": [
                 {"key": "bucket", "value": "existing-bucket"},
-                {"key": "existing_extra", "value": "existing_value"}
+                {"key": "existing_extra", "value": "existing_value"},
             ],
-            "resources": []
+            "resources": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.return_value = existing_resource
 
         result = await patch_s3(
             resource_id="s3-resource-123",
             resource_title="Updated S3 Resource",
-            extras={"bucket": "new-bucket", "new_field": "new_value"}
+            extras={"bucket": "new-bucket", "new_field": "new_value"},
         )
 
         assert result == "s3-resource-123"
         mock_ckan.action.package_show.assert_called_once_with(id="s3-resource-123")
-        
+
         # Verify only specified fields were updated
         update_call_args = mock_ckan.action.package_update.call_args[1]
         assert update_call_args["name"] == "existing_s3"  # Unchanged
         assert update_call_args["title"] == "Updated S3 Resource"  # Changed
         assert update_call_args["notes"] == "Existing description"  # Unchanged
-        
+
         # Verify extras were merged correctly
-        extras_dict = {extra["key"]: extra["value"] for extra in update_call_args["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in update_call_args["extras"]
+        }
         assert extras_dict["bucket"] == "new-bucket"  # Updated
         assert extras_dict["existing_extra"] == "existing_value"  # Preserved
         assert extras_dict["new_field"] == "new_value"  # Added
@@ -311,21 +327,21 @@ class TestPatchS3:
         """Test patch_s3 with reserved keys in extras."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
             "title": "Test S3",
             "owner_org": "test_org",
-            "extras": []
+            "extras": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
 
         with pytest.raises(KeyError, match="Extras contain reserved keys"):
             await patch_s3(
                 resource_id="s3-resource-123",
-                extras={"title": "invalid", "owner_org": "also_invalid"}
+                extras={"title": "invalid", "owner_org": "also_invalid"},
             )
 
     @patch("api.services.s3_services.update_s3.ckan_settings")
@@ -336,8 +352,12 @@ class TestPatchS3:
         mock_ckan_settings.ckan = mock_ckan
         mock_ckan.action.package_show.side_effect = Exception("Resource not found")
 
-        with pytest.raises(Exception, match="Error fetching S3 resource: Resource not found"):
-            await patch_s3(resource_id="nonexistent-resource", resource_title="New Title")
+        with pytest.raises(
+            Exception, match="Error fetching S3 resource: Resource not found"
+        ):
+            await patch_s3(
+                resource_id="nonexistent-resource", resource_title="New Title"
+            )
 
     @patch("api.services.s3_services.update_s3.ckan_settings")
     @pytest.mark.asyncio
@@ -345,20 +365,22 @@ class TestPatchS3:
         """Test patch_s3 when updating resource fails."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
             "title": "Test S3",
             "owner_org": "test_org",
             "extras": [],
-            "resources": []
+            "resources": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.side_effect = Exception("Update failed")
 
-        with pytest.raises(Exception, match="Error updating S3 resource: Update failed"):
+        with pytest.raises(
+            Exception, match="Error updating S3 resource: Update failed"
+        ):
             await patch_s3(resource_id="s3-resource-123", resource_title="New Title")
 
     @patch("api.services.s3_services.update_s3.ckan_settings")
@@ -367,7 +389,7 @@ class TestPatchS3:
         """Test patch_s3 updates S3 URL in resources."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
@@ -375,26 +397,30 @@ class TestPatchS3:
             "owner_org": "test_org",
             "extras": [],
             "resources": [
-                {"id": "resource-456", "format": "s3", "url": "s3://old-bucket/old-file.csv"}
-            ]
+                {
+                    "id": "resource-456",
+                    "format": "s3",
+                    "url": "s3://old-bucket/old-file.csv",
+                }
+            ],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.return_value = existing_resource
         mock_ckan.action.resource_update.return_value = {"success": True}
 
         result = await patch_s3(
             resource_id="s3-resource-123",
-            resource_s3="s3://patched-bucket/patched-file.csv"
+            resource_s3="s3://patched-bucket/patched-file.csv",
         )
 
         assert result == "s3-resource-123"
-        
+
         # Verify S3 resource URL was updated
         mock_ckan.action.resource_update.assert_called_once_with(
             id="resource-456",
             url="s3://patched-bucket/patched-file.csv",
-            package_id="s3-resource-123"
+            package_id="s3-resource-123",
         )
 
     @patch("api.services.s3_services.update_s3.ckan_settings")
@@ -403,26 +429,25 @@ class TestPatchS3:
         """Test patch_s3 without extras."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
             "title": "Test S3",
             "owner_org": "test_org",
             "extras": [{"key": "existing", "value": "value"}],
-            "resources": []
+            "resources": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.return_value = existing_resource
 
         result = await patch_s3(
-            resource_id="s3-resource-123",
-            resource_name="patched_s3"
+            resource_id="s3-resource-123", resource_name="patched_s3"
         )
 
         assert result == "s3-resource-123"
-        
+
         # Verify existing extras are not modified when no extras provided
         update_call_args = mock_ckan.action.package_update.call_args[1]
         # When no extras are provided, the extras key should not be in the update call
@@ -435,7 +460,7 @@ class TestPatchS3:
         """Test patch_s3 updating individual fields separately."""
         mock_ckan = MagicMock()
         mock_ckan_settings.ckan = mock_ckan
-        
+
         existing_resource = {
             "id": "s3-resource-123",
             "name": "test_s3",
@@ -443,9 +468,9 @@ class TestPatchS3:
             "owner_org": "test_org",
             "notes": "old notes",
             "extras": [],
-            "resources": []
+            "resources": [],
         }
-        
+
         mock_ckan.action.package_show.return_value = existing_resource
         mock_ckan.action.package_update.return_value = existing_resource
 
@@ -453,11 +478,11 @@ class TestPatchS3:
             resource_id="s3-resource-123",
             resource_name="patched_s3",
             owner_org="new_org",
-            notes="patched description"
+            notes="patched description",
         )
 
         assert result == "s3-resource-123"
-        
+
         # Verify individual field updates
         update_call_args = mock_ckan.action.package_update.call_args[1]
         assert update_call_args["name"] == "patched_s3"  # Updated

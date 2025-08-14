@@ -68,6 +68,7 @@ def test_create_kafka_datasource_success():
             mapping={"field1": "mapping1", "field2": "mapping2"},
             processing={"data_key": "data", "info_key": "info"},
             ckan_instance=ANY,
+            user_info={"user": "test_user"},
         )
 
         # Clean up the override

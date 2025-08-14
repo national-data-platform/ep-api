@@ -27,7 +27,9 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_local_server_success(
         self,
@@ -43,7 +45,7 @@ class TestCreateGeneralDatasetEndpoint:
         mock_ckan_settings.ckan = MagicMock()
 
         result = await create_general_dataset_endpoint(
-            data=sample_dataset_request, server="local", _={"sub": "user123"}
+            data=sample_dataset_request, server="local", user_info={"sub": "user123"}
         )
 
         assert result == {"id": "dataset-123"}
@@ -57,7 +59,9 @@ class TestCreateGeneralDatasetEndpoint:
         assert call_args[1]["ckan_instance"] == mock_ckan_settings.ckan
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_pre_ckan_disabled(
         self, mock_get_user, mock_ckan_settings, sample_dataset_request
@@ -69,7 +73,9 @@ class TestCreateGeneralDatasetEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_general_dataset_endpoint(
-                data=sample_dataset_request, server="pre_ckan", _={"sub": "user123"}
+                data=sample_dataset_request,
+                server="pre_ckan",
+                user_info={"sub": "user123"},
             )
 
         assert exc_info.value.status_code == 400
@@ -77,7 +83,9 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_value_error(
         self,
@@ -94,7 +102,9 @@ class TestCreateGeneralDatasetEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_general_dataset_endpoint(
-                data=sample_dataset_request, server="local", _={"sub": "user123"}
+                data=sample_dataset_request,
+                server="local",
+                user_info={"sub": "user123"},
             )
 
         assert exc_info.value.status_code == 400
@@ -102,7 +112,9 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_key_error(
         self,
@@ -119,7 +131,9 @@ class TestCreateGeneralDatasetEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_general_dataset_endpoint(
-                data=sample_dataset_request, server="local", _={"sub": "user123"}
+                data=sample_dataset_request,
+                server="local",
+                user_info={"sub": "user123"},
             )
 
         assert exc_info.value.status_code == 400
@@ -127,7 +141,9 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_no_scheme_error(
         self,
@@ -144,7 +160,9 @@ class TestCreateGeneralDatasetEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_general_dataset_endpoint(
-                data=sample_dataset_request, server="local", _={"sub": "user123"}
+                data=sample_dataset_request,
+                server="local",
+                user_info={"sub": "user123"},
             )
 
         assert exc_info.value.status_code == 400
@@ -152,7 +170,9 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_duplicate_name_error(
         self,
@@ -169,7 +189,9 @@ class TestCreateGeneralDatasetEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_general_dataset_endpoint(
-                data=sample_dataset_request, server="local", _={"sub": "user123"}
+                data=sample_dataset_request,
+                server="local",
+                user_info={"sub": "user123"},
             )
 
         assert exc_info.value.status_code == 409
@@ -177,7 +199,9 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_duplicate_url_error(
         self,
@@ -194,7 +218,9 @@ class TestCreateGeneralDatasetEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_general_dataset_endpoint(
-                data=sample_dataset_request, server="local", _={"sub": "user123"}
+                data=sample_dataset_request,
+                server="local",
+                user_info={"sub": "user123"},
             )
 
         assert exc_info.value.status_code == 409
@@ -202,7 +228,9 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_generic_error(
         self,
@@ -219,7 +247,9 @@ class TestCreateGeneralDatasetEndpoint:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_general_dataset_endpoint(
-                data=sample_dataset_request, server="local", _={"sub": "user123"}
+                data=sample_dataset_request,
+                server="local",
+                user_info={"sub": "user123"},
             )
 
         assert exc_info.value.status_code == 400
@@ -227,7 +257,9 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
-    @patch("api.routes.register_routes.post_general_dataset.get_user_for_write_operation")
+    @patch(
+        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+    )
     @pytest.mark.asyncio
     async def test_create_dataset_with_resources(
         self, mock_get_user, mock_create_dataset, mock_ckan_settings
@@ -252,7 +284,7 @@ class TestCreateGeneralDatasetEndpoint:
         mock_ckan_settings.ckan = MagicMock()
 
         result = await create_general_dataset_endpoint(
-            data=dataset_request, server="local", _={"sub": "user123"}
+            data=dataset_request, server="local", user_info={"sub": "user123"}
         )
 
         assert result == {"id": "dataset-with-resources"}
