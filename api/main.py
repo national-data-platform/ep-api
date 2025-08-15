@@ -77,6 +77,7 @@ if ckan_settings.ckan_local_enabled:
     app.include_router(routes.update_router, tags=["Update"])
 if ckan_settings.ckan_local_enabled:
     app.include_router(routes.delete_router, tags=["Delete"])
+app.include_router(routes.redirect_router, tags=["Redirect"])
 app.include_router(routes.status_router, prefix="/status", tags=["Status"])
 if ckan_settings.ckan_local_enabled:
     app.include_router(routes.update_router, tags=["Update"])
