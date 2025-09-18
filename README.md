@@ -38,6 +38,7 @@ This is a staging environment provided by the NDP for dataset submission and rev
 - **🔐 NDP Authentication Integration**: Seamless login with your National Data Platform credentials
 - **🔍 Federated Search**: Discover datasets across local, NDP, and staging catalogs
 - **🚀 Specialized Ingestion**: Purpose-built endpoints for Kafka topics, S3 resources, web services, and URLs
+- **📦 MINIO S3 Storage**: Direct bucket and object management with secure presigned URLs
 - **📋 General Dataset Management**: Flexible API for managing datasets with custom metadata
 - **🔧 Service Registry**: Register and discover other services (such as microservices, APIs, or apps)
 - **📈 System Monitoring**: Built-in metrics and health monitoring
@@ -45,223 +46,188 @@ This is a staging environment provided by the NDP for dataset submission and rev
 
 ## ⚡ Quick Start
 
-Get the NDP-EP API running in under 5 minutes:
+Get the NDP-EP API running with Docker in under 5 minutes:
 
 ### Prerequisites
-- Docker and Docker Compose
-- Git
-- NDP account (for production use)
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/national-data-platform/ep-api.git
-cd ndp-endpoint-api
-```
+Before you begin, ensure you have:
 
-### 2. Configure Environment
-```bash
-cp example.env .env
-# Edit .env with your NDP and CKAN configuration
-```
+- **Docker**: Container platform for running the API
+  - Install from [docker.com](https://www.docker.com/get-started)
+  - Verify installation: `docker --version`
 
-### 3. Start the Services
-```bash
-docker-compose up -d
-```
+- **Docker Compose**: Container orchestration tool
+  - Usually included with Docker Desktop
+  - Verify installation: `docker-compose --version`
 
-### 4. Access the API
-- **API Documentation**: http://localhost:8001/docs
-- **Health Check**: http://localhost:8001/status/
+- **CKAN Instance** (Optional):
+  - **Required only if**: You want to use local CKAN or PreCKAN features
+  - **Not needed if**: You only plan to use NDP Central Catalog (read-only access)
+  - Install CKAN following the [official documentation](https://docs.ckan.org/en/latest/maintaining/installing/index.html)
 
-## ⚙️ Configuration
+- **S3-Compatible Storage** (Optional):
+  - **Required only if**: You want to use S3 object storage features
+  - **Not needed if**: You don't plan to use bucket/object management endpoints
+  - **Example**: MINIO is a popular S3-compatible service - see [MINIO setup guide](docs/minio-setup.md) for Docker installation instructions
 
-### Organization Settings
+### 1. Configure Environment Variables
+
+Create a `.env` file or prepare environment variables with your configuration:
 
 ```bash
+# ==============================================
+# ORGANIZATION SETTINGS
+# ==============================================
 # Your organization name for identification and metrics
-ORGANIZATION="Your Organization Name"
-```
+ORGANIZATION="My organization"
 
-### CKAN Catalog Configuration
+# ==============================================
+# ACCESS CONTROL (Optional)
+# ==============================================
+# Enable organization-based access control (True/False)
+# When enabled, only users belonging to the configured ORGANIZATION
+# can perform POST, PUT, DELETE operations. Other authenticated users
+# will receive 403 Forbidden on write operations.
+# GET endpoints remain public regardless of this setting.
+ENABLE_ORGANIZATION_BASED_ACCESS=False
 
-```bash
-# Local CKAN Instance (Optional)
-CKAN_LOCAL_ENABLED=False
-CKAN_URL=                    # Base URL of your local CKAN instance
-CKAN_API_KEY=               # API Key for local CKAN authentication
+# ==============================================
+# LOCAL CKAN CONFIGURATION
+# ==============================================
+# Enable or disable the local CKAN instance (True/False)
+# Set to True if you have your own CKAN installation
+CKAN_LOCAL_ENABLED=True
 
-# Pre-CKAN Staging Environment (Optional)
-PRE_CKAN_ENABLED=False
-PRE_CKAN_URL=               # URL of the Pre-CKAN staging instance
-PRE_CKAN_API_KEY=          # API key for Pre-CKAN authentication
-```
+# Base URL of your local CKAN instance (Required if CKAN_LOCAL_ENABLED=True)
+# Example: http://192.168.1.134:5000/ or https://your-ckan-domain.com/
+CKAN_URL=http://XXX.XXX.XXX.XXX:XXXX/
 
-### Streaming Services
+# API Key for CKAN authentication (Required if CKAN_LOCAL_ENABLED=True)
+# Get this from your CKAN user profile -> API Tokens
+CKAN_API_KEY=
 
-```bash
-# Kafka Integration (Optional)
-KAFKA_CONNECTION=False
-KAFKA_HOST=                 # Kafka broker hostname or IP address
-KAFKA_PORT=                 # Kafka broker port number
-```
-
-### Development & Testing
-
-```bash
-# Test Token for Development (Leave blank in production)
-TEST_TOKEN=                 # Development authentication token
-```
-
-### External Service Integrations
-
-```bash
-# JupyterLab Integration (Optional)
-USE_JUPYTERLAB=False
-JUPYTER_URL=                # URL to your JupyterLab instance
-```
-
-### Advanced Configuration (Optional)
-
-```bash
-# Metrics and Monitoring
-METRICS_ENDPOINT=           # Custom endpoint for sending system metrics
-
-# NDP Core Services (Pre-configured but customizable)
-CKAN_GLOBAL_URL=           # NDP Central Catalog URL (default: public NDP catalog)
-AUTH_API_URL=              # NDP Authentication service URL (default: public NDP auth)
-```
-
-### Notes on Configuration
-
-- **NDP Central Catalog**: Always available - no configuration needed (uses public endpoints)
-- **Local CKAN**: Only configure if you have your own CKAN instance
-- **Pre-CKAN**: Required only for dataset ingestion to NDP central catalog
-- **TEST_TOKEN**: For development only - use proper NDP authentication in production
-- **Advanced Settings**: `METRICS_ENDPOINT`, `CKAN_GLOBAL_URL`, and `AUTH_API_URL` are pre-configured with NDP defaults but can be overridden for custom deployments or testing environments
-
-## 🐳 Docker Deployment
-
-The NDP-EP API is available as a pre-built Docker image for easy deployment across different environments.
-
-### Quick Start with Docker
-
-```bash
-# Pull and run the latest image
-docker run -p 8001:8000 rbardaji/ndp-ep-api
-
-# Access the API
-# Documentation: http://localhost:8001/docs
-# Health Check: http://localhost:8001/status/
-```
-
-### Production Deployment with Configuration
-
-#### Option 1: Environment Variables
-```bash
-docker run -p 8001:8000 \
-  -e ORGANIZATION="Your Organization" \
-  -e CKAN_LOCAL_ENABLED=false \
-  -e PRE_CKAN_ENABLED=true \
-  -e PRE_CKAN_URL="https://preckan.nationaldataplatform.org" \
-  -e PRE_CKAN_API_KEY="your-api-key" \
-  -e KAFKA_CONNECTION=false \
-  -e USE_JUPYTERLAB=false \
-  rbardaji/ndp-ep-api
-```
-
-#### Option 2: Environment File
-1. Create an `.env` file:
-```bash
-ORGANIZATION=Your Organization
-CKAN_LOCAL_ENABLED=False
+# ==============================================
+# PRE-CKAN CONFIGURATION
+# ==============================================
+# Enable or disable the Pre-CKAN instance (True/False)
+# Set to True if you want to submit datasets to NDP Central Catalog
 PRE_CKAN_ENABLED=True
-PRE_CKAN_URL=https://preckan.nationaldataplatform.org
-PRE_CKAN_API_KEY=your-api-key
+
+# URL of the Pre-CKAN staging instance (Required if PRE_CKAN_ENABLED=True)
+# This is typically provided by the NDP team
+PRE_CKAN_URL=http://XX.XX.XX.XXX:5000/
+
+# API key for Pre-CKAN authentication (Required if PRE_CKAN_ENABLED=True)
+# Obtain this from the NDP team or your Pre-CKAN user profile
+PRE_CKAN_API_KEY=
+
+# ==============================================
+# STREAMING CONFIGURATION
+# ==============================================
+# Enable or disable Kafka connectivity (True/False)
+# Set to True if you want to ingest data from Kafka streams
 KAFKA_CONNECTION=False
+
+# Kafka broker hostname or IP address (Required if KAFKA_CONNECTION=True)
+KAFKA_HOST=
+
+# Kafka broker port number (Required if KAFKA_CONNECTION=True)
+# Default Kafka port is 9092
+KAFKA_PORT=9092
+
+# ==============================================
+# DEVELOPMENT & TESTING
+# ==============================================
+# Test token for development purposes (Optional)
+# Leave blank in production environments for security
+TEST_TOKEN=testing_token
+
+# ==============================================
+# EXTERNAL SERVICE INTEGRATIONS
+# ==============================================
+# Enable or disable JupyterLab integration (True/False)
+# Set to True if you want to integrate with a JupyterLab instance
 USE_JUPYTERLAB=False
-TEST_TOKEN=
+
+# URL to your JupyterLab instance (Required if USE_JUPYTERLAB=True)
+# Example: https://jupyter.your-domain.com or http://localhost:8888
+JUPYTER_URL=
+
+# ==============================================
+# S3 STORAGE CONFIGURATION
+# ==============================================
+# Enable or disable S3 storage (True/False)
+S3_ENABLED=True
+
+# S3 endpoint (host:port) - use your S3-compatible service endpoint
+S3_ENDPOINT=XXX.XXX.XXX.XXX:9000
+
+# S3 access credentials
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin123
+
+# Use secure connection (True for HTTPS, False for HTTP)
+S3_SECURE=False
+
+# Default region
+S3_REGION=us-east-1
 ```
 
-2. Run with environment file:
+### 2. Run with Docker
+
+1. **Create the .env file** with your configuration (see step 1)
+
+2. **Run the container**:
 ```bash
 docker run -p 8001:8000 --env-file .env rbardaji/ndp-ep-api
 ```
 
-#### Option 3: Docker Compose (Recommended)
-Create a `docker-compose.yml` file:
+### 3. Verify Installation
 
-```yaml
-version: '3.8'
+Once the container is running, verify everything is working:
 
-services:
-  ndp-api:
-    image: rbardaji/ndp-ep-api:latest
-    ports:
-      - "8001:8000"
-    environment:
-      - ORGANIZATION=Your Organization
-      - CKAN_LOCAL_ENABLED=False
-      - PRE_CKAN_ENABLED=True
-      - PRE_CKAN_URL=https://preckan.nationaldataplatform.org
-      - PRE_CKAN_API_KEY=your-api-key
-      - KAFKA_CONNECTION=False
-      - USE_JUPYTERLAB=False
-    volumes:
-      - ./logs:/code/logs  # Persist logs locally
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/status/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+- **API Documentation**: http://localhost:8001/docs
+- **Health Check**: http://localhost:8001/status/
+- **Interactive API Explorer**: Available at the docs URL
+
+### 4. Common Configuration Scenarios
+
+#### Scenario 1: NDP Central Catalog Only (Read-Only)
+```bash
+# Minimal configuration for read-only access to NDP Central Catalog
+ORGANIZATION="Your Organization"
+CKAN_LOCAL_ENABLED=False
+PRE_CKAN_ENABLED=False
+KAFKA_CONNECTION=False
+USE_JUPYTERLAB=False
 ```
 
-Run with:
+#### Scenario 2: Local CKAN Development
 ```bash
-docker-compose up -d
+# Configuration for local CKAN development
+ORGANIZATION="Your Organization"
+CKAN_LOCAL_ENABLED=True
+CKAN_URL=http://localhost:5000/
+CKAN_API_KEY=your-local-ckan-api-key
+PRE_CKAN_ENABLED=False
+TEST_TOKEN=dev_token
 ```
 
-### Docker Image Features
-
-- **Multi-architecture**: Supports AMD64 and ARM64 platforms
-- **Production-ready**: Includes 4 worker processes for high performance
-- **Health monitoring**: Built-in health checks for container orchestration
-- **Security**: Runs as non-root user
-- **Optimized**: Minimal image size with only necessary dependencies
-
-### Container Management
-
+#### Scenario 3: Full NDP Integration
 ```bash
-# View running containers
-docker ps
-
-# View logs
-docker logs <container-id>
-
-# Stop container
-docker stop <container-id>
-
-# Update to latest version
-docker pull rbardaji/ndp-ep-api:latest
-docker-compose up -d  # If using docker-compose
+# Complete setup with local CKAN and NDP submission capability
+ORGANIZATION="Your Organization"
+CKAN_LOCAL_ENABLED=True
+CKAN_URL=http://your-ckan-instance:5000/
+CKAN_API_KEY=your-local-ckan-api-key
+PRE_CKAN_ENABLED=True
+PRE_CKAN_URL=https://preckan.nationaldataplatform.org
+PRE_CKAN_API_KEY=your-ndp-preckan-api-key
 ```
 
 ## 📖 Usage Examples
 
 For detailed usage examples and tutorials, please check the documentation in the `/docs` folder.
-
-## 🔄 Data Ingestion Workflow
-
-### For NDP Central Catalog:
-1. **Submit to PreCKAN**: Use `?server=pre_ckan` parameter
-2. **Review**: NDP team reviews the submission
-3. **Publication**: Approved datasets are moved to the central catalog
-
-### For Local CKAN:
-1. **Direct Access**: Use `?server=local` or default behavior
-2. **Immediate**: Changes are applied instantly
-3. **Full Control**: Complete CRUD operations available
 
 ## 📊 System Metrics
 

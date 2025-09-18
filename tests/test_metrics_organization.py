@@ -17,9 +17,10 @@ def test_organization_default_value():
     """Test that organization has the expected default value."""
     from api.config.swagger_settings import Settings
 
-    # Test without any environment variables
+    # Test without any environment variables and without .env file
     with patch.dict("os.environ", {}, clear=True):
-        test_settings = Settings()
+        # Create settings without env_file to test true defaults
+        test_settings = Settings(_env_file=None)
         assert test_settings.organization == "Unknown Organization"
 
 

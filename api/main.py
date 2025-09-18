@@ -13,6 +13,7 @@ from fastapi.openapi.utils import get_openapi
 
 import api.routes as routes
 from api.config import ckan_settings, swagger_settings
+from api.config.minio_settings import s3_settings
 from api.routes.update_routes.put_dataset import router as dataset_update_router
 from api.tasks.metrics_task import record_system_metrics
 
@@ -48,6 +49,22 @@ root_logger.addHandler(console_handler)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run tasks on startup and handle shutdown."""
+    # Check MINIO connection on startup if enabled
+    logger.info(f"S3 configuration - enabled: {s3_settings.enabled}, is_configured: {s3_settings.is_configured}")
+    if s3_settings.enabled:
+        try:
+            from api.services.minio_services.minio_client import minio_client
+            logger.info("Checking S3 connection...")
+            
+            if minio_client.test_connection():
+                logger.info("✅ S3 connection successful")
+            else:
+                logger.warning("❌ S3 connection failed - check configuration and service availability")
+        except Exception as e:
+            logger.error(f"❌ Error testing S3 connection: {str(e)}")
+    else:
+        logger.info("S3 is disabled in configuration")
+    
     task = asyncio.create_task(record_system_metrics())
     yield
     task.cancel()
@@ -75,14 +92,15 @@ if ckan_settings.ckan_local_enabled:
 app.include_router(routes.search_router, tags=["Search"])
 if ckan_settings.ckan_local_enabled:
     app.include_router(routes.update_router, tags=["Update"])
+    app.include_router(dataset_update_router, tags=["Update"])
 if ckan_settings.ckan_local_enabled:
     app.include_router(routes.delete_router, tags=["Delete"])
 app.include_router(routes.redirect_router, tags=["Redirect"])
 app.include_router(routes.status_router, prefix="/status", tags=["Status"])
-if ckan_settings.ckan_local_enabled:
-    app.include_router(routes.update_router, tags=["Update"])
-    app.include_router(dataset_update_router, tags=["Update"])
 app.include_router(routes.user_router, tags=["User"])
+if s3_settings.enabled:
+    app.include_router(routes.minio_bucket_router, tags=["S3"])
+    app.include_router(routes.minio_object_router, tags=["S3"])
 
 
 def custom_openapi():

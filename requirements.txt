@@ -16,3 +16,4 @@ fastapi-utils
 pytest-cov
 requests
 jupyter>=1.0.0
+minio

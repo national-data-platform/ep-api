@@ -6,3 +6,5 @@ from .search_routes import router as search_router  # noqa: F401
 from .status_routes import router as status_router  # noqa: F401
 from .update_routes import router as update_router  # noqa: F401
 from .user_routes import router as user_router  # noqa: F401
+from .minio_routes.bucket_routes import router as minio_bucket_router  # noqa: F401
+from .minio_routes.object_routes import router as minio_object_router  # noqa: F401
