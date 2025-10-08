@@ -1,7 +1,8 @@
 # api/services/s3_services/add_s3.py
 from typing import Any, Dict, Optional
 
-from api.config import ckan_settings
+from api.config import catalog_settings, ckan_settings
+from api.repositories import CKANRepository
 from api.services.metadata_services import inject_ndp_metadata
 
 RESERVED_KEYS = {
@@ -79,9 +80,13 @@ def add_s3(
     if user_info:
         extras_cleaned = inject_ndp_metadata(user_info, extras_cleaned)
 
-    # Decide CKAN instance
+    # Decide repository to use
+    # If ckan_instance is provided (legacy), wrap it in CKANRepository
+    # Otherwise use the configured local catalog (CKAN or MongoDB)
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     try:
         resource_package_dict = {
@@ -96,7 +101,7 @@ def add_s3(
                 {"key": k, "value": v} for k, v in extras_cleaned.items()
             ]
 
-        resource_package = ckan_instance.action.package_create(**resource_package_dict)
+        resource_package = repository.package_create(**resource_package_dict)
         resource_package_id = resource_package["id"]
 
     except Exception as e:
@@ -104,7 +109,7 @@ def add_s3(
 
     if resource_package_id:
         try:
-            ckan_instance.action.resource_create(
+            repository.resource_create(
                 package_id=resource_package_id,
                 url=resource_s3,
                 name=resource_name,

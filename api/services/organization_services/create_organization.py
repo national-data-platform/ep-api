@@ -3,6 +3,7 @@ from typing import Literal, Optional
 
 from ckanapi import NotFound, ValidationError
 
+from api.config import catalog_settings
 from api.config.ckan_settings import ckan_settings
 
 
@@ -37,19 +38,18 @@ def create_organization(
     Exception
         If there is an error creating the organization.
     """
-    # Select CKAN instance based on 'server' parameter
+    # Select repository based on 'server' parameter
     if server == "pre_ckan":
         if not ckan_settings.pre_ckan_enabled:
             raise Exception("Pre-CKAN is disabled and cannot be used.")
-        ckan = ckan_settings.pre_ckan
+        repository = catalog_settings.pre_catalog
     else:
-        if not ckan_settings.ckan_local_enabled:
-            raise Exception("Local CKAN is disabled and cannot be used.")
-        ckan = ckan_settings.ckan
+        # Use local catalog (can be CKAN or MongoDB)
+        repository = catalog_settings.local_catalog
 
     try:
-        # Create the organization in CKAN
-        organization = ckan.action.organization_create(
+        # Create the organization
+        organization = repository.organization_create(
             name=name, title=title, description=description
         )
         # Return the organization ID

@@ -4,7 +4,8 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
-from api.config.ckan_settings import ckan_settings
+from api.config import catalog_settings, ckan_settings
+from api.repositories import CKANRepository
 from api.services import organization_services
 
 router = APIRouter()
@@ -57,18 +58,16 @@ async def delete_organization(
     valid scheme. Raises a 404 if the organization does not exist.
     """
     try:
-        # Determine which CKAN instance to use
+        repository = None
         if server == "pre_ckan":
             if not ckan_settings.pre_ckan_enabled:
                 raise HTTPException(
                     status_code=400, detail="Pre-CKAN is disabled and cannot be used."
                 )
-            ckan_instance = ckan_settings.pre_ckan
-        else:
-            ckan_instance = ckan_settings.ckan
+            repository = CKANRepository(ckan_settings.pre_ckan)
 
         organization_services.delete_organization(
-            organization_name=organization_name, ckan_instance=ckan_instance
+            organization_name=organization_name, repository=repository
         )
         return {"message": "Organization deleted successfully"}
 

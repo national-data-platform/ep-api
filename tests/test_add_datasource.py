@@ -16,18 +16,18 @@ class TestAddDatasource:
     def test_add_datasource_success_minimal_params(self):
         """Test successful datasource creation with minimal parameters."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
             # Mock CKAN instance
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             # Mock successful dataset creation
             mock_dataset = {"id": "test-dataset-id-123"}
-            mock_ckan.action.package_create.return_value = mock_dataset
+            mock_repo.package_create.return_value = mock_dataset
 
             # Mock successful resource creation
-            mock_ckan.action.resource_create.return_value = {
+            mock_repo.resource_create.return_value = {
                 "id": "test-resource-id-123"
             }
 
@@ -42,7 +42,7 @@ class TestAddDatasource:
             assert result == "test-dataset-id-123"
 
             # Verify dataset creation was called with correct parameters
-            mock_ckan.action.package_create.assert_called_once_with(
+            mock_repo.package_create.assert_called_once_with(
                 name="test_dataset",
                 title="Test Dataset",
                 owner_org="test_org",
@@ -50,7 +50,7 @@ class TestAddDatasource:
             )
 
             # Verify resource creation was called with correct parameters
-            mock_ckan.action.resource_create.assert_called_once_with(
+            mock_repo.resource_create.assert_called_once_with(
                 package_id="test-dataset-id-123",
                 url="https://example.com/data.csv",
                 name="test_resource",
@@ -61,14 +61,14 @@ class TestAddDatasource:
     def test_add_datasource_success_with_all_params(self):
         """Test successful datasource creation with all parameters."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             mock_dataset = {"id": "test-dataset-id-456"}
-            mock_ckan.action.package_create.return_value = mock_dataset
-            mock_ckan.action.resource_create.return_value = {
+            mock_repo.package_create.return_value = mock_dataset
+            mock_repo.resource_create.return_value = {
                 "id": "test-resource-id-456"
             }
 
@@ -99,12 +99,12 @@ class TestAddDatasource:
                     {"key": "category", "value": "finance"},
                 ],
             }
-            mock_ckan.action.package_create.assert_called_once_with(
+            mock_repo.package_create.assert_called_once_with(
                 **expected_dataset_dict
             )
 
             # Verify resource creation with all parameters
-            mock_ckan.action.resource_create.assert_called_once_with(
+            mock_repo.resource_create.assert_called_once_with(
                 package_id="test-dataset-id-456",
                 url="https://example.com/full_data.json",
                 name="full_test_resource",
@@ -115,14 +115,14 @@ class TestAddDatasource:
     def test_add_datasource_success_with_empty_extras(self):
         """Test successful datasource creation with empty extras dict."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             mock_dataset = {"id": "test-dataset-id-789"}
-            mock_ckan.action.package_create.return_value = mock_dataset
-            mock_ckan.action.resource_create.return_value = {
+            mock_repo.package_create.return_value = mock_dataset
+            mock_repo.resource_create.return_value = {
                 "id": "test-resource-id-789"
             }
 
@@ -138,7 +138,7 @@ class TestAddDatasource:
             assert result == "test-dataset-id-789"
 
             # Should not include extras in dataset creation when empty
-            mock_ckan.action.package_create.assert_called_once_with(
+            mock_repo.package_create.assert_called_once_with(
                 name="empty_extras_dataset",
                 title="Empty Extras Dataset",
                 owner_org="test_org",
@@ -205,13 +205,13 @@ class TestAddDatasource:
     def test_add_datasource_dataset_creation_error(self):
         """Test exception handling when dataset creation fails."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             # Mock dataset creation failure
-            mock_ckan.action.package_create.side_effect = Exception("CKAN API error")
+            mock_repo.package_create.side_effect = Exception("CKAN API error")
 
             with pytest.raises(
                 Exception, match="Error creating dataset: CKAN API error"
@@ -227,17 +227,17 @@ class TestAddDatasource:
     def test_add_datasource_resource_creation_error(self):
         """Test exception handling when resource creation fails."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             # Mock successful dataset creation
             mock_dataset = {"id": "test-dataset-id-999"}
-            mock_ckan.action.package_create.return_value = mock_dataset
+            mock_repo.package_create.return_value = mock_dataset
 
             # Mock resource creation failure
-            mock_ckan.action.resource_create.side_effect = Exception(
+            mock_repo.resource_create.side_effect = Exception(
                 "Resource creation failed"
             )
 
@@ -255,14 +255,14 @@ class TestAddDatasource:
     def test_add_datasource_dataset_without_id(self):
         """Test handling when dataset creation returns without ID (edge case)."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             # Mock dataset creation returning empty dict or None ID
             mock_dataset = {"name": "test_dataset"}  # No 'id' field
-            mock_ckan.action.package_create.return_value = mock_dataset
+            mock_repo.package_create.return_value = mock_dataset
 
             with pytest.raises(Exception, match="Error creating dataset: 'id'"):
                 add_datasource(
@@ -276,14 +276,14 @@ class TestAddDatasource:
     def test_add_datasource_dataset_with_none_id(self):
         """Test handling when dataset creation returns None ID."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             # Mock dataset creation returning None ID
             mock_dataset = {"id": None}
-            mock_ckan.action.package_create.return_value = mock_dataset
+            mock_repo.package_create.return_value = mock_dataset
 
             with pytest.raises(Exception, match="Unknown error occurred"):
                 add_datasource(
@@ -297,14 +297,14 @@ class TestAddDatasource:
     def test_add_datasource_dataset_with_empty_string_id(self):
         """Test handling when dataset creation returns empty string ID."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             # Mock dataset creation returning empty string ID
             mock_dataset = {"id": ""}
-            mock_ckan.action.package_create.return_value = mock_dataset
+            mock_repo.package_create.return_value = mock_dataset
 
             with pytest.raises(Exception, match="Unknown error occurred"):
                 add_datasource(
@@ -331,14 +331,14 @@ class TestAddDatasource:
     def test_add_datasource_with_none_extras_explicit(self):
         """Test datasource creation with explicitly None extras."""
         with patch(
-            "api.services.datasource_services.add_datasource.ckan_settings"
-        ) as mock_ckan_settings:
-            mock_ckan = MagicMock()
-            mock_ckan_settings.ckan = mock_ckan
+            "api.services.datasource_services.add_datasource.catalog_settings"
+        ) as mock_catalog_settings:
+            mock_repo = MagicMock()
+            mock_catalog_settings.local_catalog = mock_repo
 
             mock_dataset = {"id": "test-dataset-id-none"}
-            mock_ckan.action.package_create.return_value = mock_dataset
-            mock_ckan.action.resource_create.return_value = {
+            mock_repo.package_create.return_value = mock_dataset
+            mock_repo.resource_create.return_value = {
                 "id": "test-resource-id-none"
             }
 
@@ -354,7 +354,7 @@ class TestAddDatasource:
             assert result == "test-dataset-id-none"
 
             # Should not include extras in dataset creation when None
-            mock_ckan.action.package_create.assert_called_once_with(
+            mock_repo.package_create.assert_called_once_with(
                 name="none_extras_dataset",
                 title="None Extras Dataset",
                 owner_org="test_org",

@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
+from api.config.catalog_settings import catalog_settings
 from api.config.ckan_settings import ckan_settings
 from api.services.metadata_services import inject_ndp_metadata
 
@@ -35,11 +36,11 @@ def create_general_dataset(
     private: Optional[bool] = False,
     license_id: Optional[str] = None,
     version: Optional[str] = None,
-    ckan_instance=None,
+    repository=None,
     user_info: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
-    Create a general dataset in CKAN.
+    Create a general dataset in the catalog (CKAN or MongoDB).
 
     Parameters
     ----------
@@ -65,16 +66,16 @@ def create_general_dataset(
         License identifier for the dataset.
     version : Optional[str]
         Version of the dataset.
-    ckan_instance : optional
-        A CKAN instance to use for dataset creation. If not provided,
-        uses the default `ckan_settings.ckan`.
+    repository : optional
+        A repository instance to use for dataset creation. If not provided,
+        uses the default local catalog repository.
     user_info : Optional[Dict[str, Any]]
         User information for NDP metadata injection.
 
     Returns
     -------
     str
-        The ID of the newly created CKAN dataset.
+        The ID of the newly created dataset.
 
     Raises
     ------
@@ -99,9 +100,9 @@ def create_general_dataset(
     if user_info:
         extras = inject_ndp_metadata(user_info, extras)
 
-    # Determine the CKAN instance
-    if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+    # Determine the repository to use
+    if repository is None:
+        repository = catalog_settings.local_catalog
 
     # Prepare dataset dictionary
     dataset_dict = {
@@ -131,9 +132,9 @@ def create_general_dataset(
     if extras:
         dataset_dict["extras"] = [{"key": k, "value": v} for k, v in extras.items()]
 
-    # Create the CKAN dataset
+    # Create the dataset
     try:
-        dataset = ckan_instance.action.package_create(**dataset_dict)
+        dataset = repository.package_create(**dataset_dict)
         dataset_id = dataset["id"]
     except Exception as exc:
         raise Exception(f"Error creating general dataset: {str(exc)}")
@@ -144,7 +145,7 @@ def create_general_dataset(
             for resource in resources:
                 resource_dict = resource.copy()
                 resource_dict["package_id"] = dataset_id
-                ckan_instance.action.resource_create(**resource_dict)
+                repository.resource_create(**resource_dict)
         except Exception as exc:
             raise Exception(f"Error creating dataset resources: {str(exc)}")
 
@@ -164,16 +165,16 @@ def update_general_dataset(
     private: Optional[bool] = None,
     license_id: Optional[str] = None,
     version: Optional[str] = None,
-    ckan_instance=None,
+    repository=None,
 ) -> str:
     """
-    Update a general dataset in CKAN (full replacement).
+    Update a general dataset in catalog (full replacement).
 
     For resources, this function REPLACES all existing resources
     with the provided ones (PUT behavior).
     """
-    if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+    if repository is None:
+        repository = catalog_settings.local_catalog
 
     # Validate extras
     if extras and not isinstance(extras, dict):
@@ -186,7 +187,7 @@ def update_general_dataset(
 
     try:
         # Fetch the existing dataset
-        dataset = ckan_instance.action.package_show(id=dataset_id)
+        dataset = repository.package_show(id=dataset_id)
     except Exception as exc:
         raise Exception(f"Error fetching dataset: {str(exc)}")
 
@@ -225,7 +226,7 @@ def update_general_dataset(
         dataset["resources"] = resources
 
     try:
-        updated_dataset = ckan_instance.action.package_update(**dataset)
+        updated_dataset = repository.package_update(**dataset)
         return updated_dataset["id"]
     except Exception as exc:
         raise Exception(f"Error updating general dataset: {str(exc)}")
@@ -244,10 +245,10 @@ def patch_general_dataset(
     private: Optional[bool] = None,
     license_id: Optional[str] = None,
     version: Optional[str] = None,
-    ckan_instance=None,
+    repository=None,
 ) -> str:
     """
-    Partially update a general dataset in CKAN.
+    Partially update a general dataset in catalog.
 
     Only updates the fields that are provided, leaving others unchanged.
     For resources, this function ADDS new resources to existing ones rather
@@ -279,14 +280,14 @@ def patch_general_dataset(
         License identifier for the dataset.
     version : Optional[str]
         Version of the dataset.
-    ckan_instance : optional
-        A CKAN instance to use for dataset patch. If not provided,
-        uses the default `ckan_settings.ckan`.
+    repository : optional
+        A repository instance to use for dataset patch. If not provided,
+        uses the default local catalog repository.
 
     Returns
     -------
     str
-        The ID of the patched CKAN dataset.
+        The ID of the patched dataset.
 
     Raises
     ------
@@ -297,8 +298,8 @@ def patch_general_dataset(
     Exception
         For errors during dataset patch.
     """
-    if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+    if repository is None:
+        repository = catalog_settings.local_catalog
 
     # Validate extras
     if extras and not isinstance(extras, dict):
@@ -311,7 +312,7 @@ def patch_general_dataset(
 
     try:
         # Fetch the existing dataset
-        dataset = ckan_instance.action.package_show(id=dataset_id)
+        dataset = repository.package_show(id=dataset_id)
     except Exception as exc:
         raise Exception(f"Error fetching dataset: {str(exc)}")
 
@@ -373,7 +374,7 @@ def patch_general_dataset(
         dataset["resources"] = existing_resources
 
     try:
-        updated_dataset = ckan_instance.action.package_update(**dataset)
+        updated_dataset = repository.package_update(**dataset)
         return updated_dataset["id"]
     except Exception as exc:
         raise Exception(f"Error updating general dataset: {str(exc)}")

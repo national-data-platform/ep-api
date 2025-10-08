@@ -4,8 +4,9 @@ from typing import Any, Dict, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from api.config import ckan_settings
+from api.config import catalog_settings, ckan_settings
 from api.models.general_dataset_request_model import GeneralDatasetUpdateRequest
+from api.repositories import CKANRepository
 from api.services.auth_services import get_user_for_write_operation
 from api.services.dataset_services.general_dataset import update_general_dataset
 
@@ -136,14 +137,16 @@ async def update_general_dataset_endpoint(
         - 404: if dataset not found
     """
     try:
+        # Determine which repository to use based on server parameter
         if server == "pre_ckan":
             if not ckan_settings.pre_ckan_enabled:
                 raise HTTPException(
                     status_code=400, detail="Pre-CKAN is disabled and cannot be used."
                 )
-            ckan_instance = ckan_settings.pre_ckan
+            repository = CKANRepository(ckan_settings.pre_ckan)
         else:
-            ckan_instance = ckan_settings.ckan
+            # Use local catalog (CKAN or MongoDB based on configuration)
+            repository = catalog_settings.local_catalog
 
         # Convert ResourceRequest objects to dictionaries
         resources = None
@@ -163,7 +166,7 @@ async def update_general_dataset_endpoint(
             private=data.private,
             license_id=data.license_id,
             version=data.version,
-            ckan_instance=ckan_instance,
+            repository=repository,
         )
 
         if not updated_id:

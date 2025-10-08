@@ -98,15 +98,14 @@ async def create_s3_resource(
         - 400: If there's an error creating the resource or invalid param.
     """
     try:
+        # Only pass ckan_instance for pre_ckan, otherwise let add_s3 use configured backend
+        ckan_instance = None
         if server == "pre_ckan":
             if not ckan_settings.pre_ckan_enabled:
                 raise HTTPException(
                     status_code=400, detail="Pre-CKAN is disabled and cannot be used."
                 )
-
             ckan_instance = ckan_settings.pre_ckan
-        else:
-            ckan_instance = ckan_settings.ckan
 
         resource_id = add_s3(
             resource_name=data.resource_name,

@@ -2,7 +2,8 @@
 import json
 from typing import Any, Dict, Optional
 
-from api.config import ckan_settings
+from api.config import catalog_settings, ckan_settings
+from api.repositories import CKANRepository
 from api.services.metadata_services import inject_ndp_metadata
 
 RESERVED_KEYS = {
@@ -83,9 +84,11 @@ def add_url(
             "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
         )
 
-    # Decide which CKAN instance to use
+    # Decide repository to use
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     url_extras = {"file_type": file_type}
 
@@ -110,7 +113,7 @@ def add_url(
             "extras": [{"key": k, "value": v} for k, v in extras_cleaned.items()],
         }
 
-        resource_package = ckan_instance.action.package_create(**resource_package_dict)
+        resource_package = repository.package_create(**resource_package_dict)
         resource_package_id = resource_package["id"]
 
     except Exception as e:
@@ -118,7 +121,7 @@ def add_url(
 
     if resource_package_id:
         try:
-            ckan_instance.action.resource_create(
+            repository.resource_create(
                 package_id=resource_package_id,
                 url=resource_url,
                 name=resource_name,

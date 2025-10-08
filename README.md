@@ -13,13 +13,26 @@ The NDP-EP API integrates seamlessly with the National Data Platform ecosystem:
 
 ## 🏗️ NDP Catalog Architecture
 
-The National Data Platform uses CKAN as its data catalog management software. This API provides access to three different CKAN environments, each with specific access levels and purposes:
+The National Data Platform uses CKAN as its data catalog management software. This API provides access to three different catalog environments, each with specific access levels and purposes:
 
-### 1. **Local CKAN** 🏠
-If you have your own CKAN instance installed locally, this API can connect to it, giving you:
+### 1. **Local Catalog** 🏠 (CKAN or MongoDB)
+You can use your own catalog backend for local dataset management, with your choice of storage:
+
+**CKAN Backend** (Traditional):
+- Full CKAN compatibility with all extensions
+- Ideal if you already have CKAN infrastructure
+- Complete administrative access to your catalog
+
+**MongoDB Backend** (Modern NoSQL):
+- Lightweight, no CKAN installation required
+- Fast document-based storage
+- Easy to deploy and scale
+- Perfect for new deployments or cloud-native environments
+
+Both options give you:
 - **Full Control**: Create, read, update, and delete datasets
 - **Use Case**: Personal or organizational data catalogs
-- **Permissions**: Complete administrative access to your own catalog
+- **Flexibility**: Switch between backends via configuration
 
 ### 2. **NDP Central Catalog** 🌍
 This is the main public catalog of the National Data Platform. Through this API you can:
@@ -36,6 +49,7 @@ This is a staging environment provided by the NDP for dataset submission and rev
 ## 🚀 Key Features
 
 - **🔐 NDP Authentication Integration**: Seamless login with your National Data Platform credentials
+- **🔄 Pluggable Catalog Backends**: Choose between CKAN or MongoDB for your local catalog
 - **🔍 Federated Search**: Discover datasets across local, NDP, and staging catalogs
 - **🚀 Specialized Ingestion**: Purpose-built endpoints for Kafka topics, S3 resources, web services, and URLs
 - **📦 MINIO S3 Storage**: Direct bucket and object management with secure presigned URLs
@@ -43,6 +57,7 @@ This is a staging environment provided by the NDP for dataset submission and rev
 - **🔧 Service Registry**: Register and discover other services (such as microservices, APIs, or apps)
 - **📈 System Monitoring**: Built-in metrics and health monitoring
 - **📚 RESTful API**: Comprehensive OpenAPI/Swagger documentation
+- **🔌 Extensible Architecture**: Easy to add new catalog backends (Elasticsearch, PostgreSQL, etc.)
 
 ## ⚡ Quick Start
 
@@ -92,7 +107,14 @@ ORGANIZATION="My organization"
 ENABLE_ORGANIZATION_BASED_ACCESS=False
 
 # ==============================================
-# LOCAL CKAN CONFIGURATION
+# LOCAL CATALOG CONFIGURATION
+# ==============================================
+# Choose your local catalog backend: "ckan" or "mongodb"
+# Global and Pre-CKAN always use CKAN regardless of this setting
+LOCAL_CATALOG_BACKEND=ckan
+
+# ==============================================
+# LOCAL CKAN CONFIGURATION (if LOCAL_CATALOG_BACKEND=ckan)
 # ==============================================
 # Enable or disable the local CKAN instance (True/False)
 # Set to True if you have your own CKAN installation
@@ -105,6 +127,15 @@ CKAN_URL=http://XXX.XXX.XXX.XXX:XXXX/
 # API Key for CKAN authentication (Required if CKAN_LOCAL_ENABLED=True)
 # Get this from your CKAN user profile -> API Tokens
 CKAN_API_KEY=
+
+# ==============================================
+# MONGODB CONFIGURATION (if LOCAL_CATALOG_BACKEND=mongodb)
+# ==============================================
+# MongoDB connection string
+MONGODB_CONNECTION_STRING=mongodb://localhost:27017
+
+# MongoDB database name for local catalog
+MONGODB_DATABASE=ndp_local_catalog
 
 # ==============================================
 # PRE-CKAN CONFIGURATION
@@ -206,6 +237,7 @@ USE_JUPYTERLAB=False
 ```bash
 # Configuration for local CKAN development
 ORGANIZATION="Your Organization"
+LOCAL_CATALOG_BACKEND=ckan
 CKAN_LOCAL_ENABLED=True
 CKAN_URL=http://localhost:5000/
 CKAN_API_KEY=your-local-ckan-api-key
@@ -213,7 +245,18 @@ PRE_CKAN_ENABLED=False
 TEST_TOKEN=dev_token
 ```
 
-#### Scenario 3: Full NDP Integration
+#### Scenario 3: MongoDB Local Catalog (No CKAN Required)
+```bash
+# Lightweight setup with MongoDB backend
+ORGANIZATION="Your Organization"
+LOCAL_CATALOG_BACKEND=mongodb
+MONGODB_CONNECTION_STRING=mongodb://localhost:27017
+MONGODB_DATABASE=ndp_local_catalog
+PRE_CKAN_ENABLED=False
+TEST_TOKEN=dev_token
+```
+
+#### Scenario 4: Full NDP Integration with CKAN
 ```bash
 # Complete setup with local CKAN and NDP submission capability
 ORGANIZATION="Your Organization"

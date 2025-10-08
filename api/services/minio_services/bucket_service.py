@@ -55,7 +55,7 @@ async def create_bucket(bucket_name: str, region: str = None) -> bool:
 async def list_buckets() -> BucketListResponse:
     """
     List all buckets.
-    
+
     Returns:
         BucketListResponse with list of buckets
     

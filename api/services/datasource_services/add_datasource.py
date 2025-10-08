@@ -1,4 +1,4 @@
-from api.config.ckan_settings import ckan_settings
+from api.config import catalog_settings
 
 # Define a set of reserved keys that should not be used in the extras
 RESERVED_KEYS = {"name", "title", "owner_org", "notes", "id", "resources", "collection"}
@@ -64,10 +64,10 @@ def add_datasource(
             "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
         )
 
-    ckan = ckan_settings.ckan
+    repository = catalog_settings.local_catalog
 
     try:
-        # Create the dataset in CKAN with additional extras if provided
+        # Create the dataset with additional extras if provided
         dataset_dict = {
             "name": dataset_name,
             "title": dataset_title,
@@ -78,7 +78,7 @@ def add_datasource(
         if extras:
             dataset_dict["extras"] = [{"key": k, "value": v} for k, v in extras.items()]
 
-        dataset = ckan.action.package_create(**dataset_dict)
+        dataset = repository.package_create(**dataset_dict)
 
         # Retrieve the dataset ID
         dataset_id = dataset["id"]
@@ -89,7 +89,7 @@ def add_datasource(
     if dataset_id:
         try:
             # Create the resource within the newly created dataset
-            ckan.action.resource_create(
+            repository.resource_create(
                 package_id=dataset_id,
                 url=resource_url,
                 name=resource_name,

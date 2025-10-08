@@ -16,6 +16,7 @@ services:
       - backend
     depends_on:
       - minio
+      - mongodb
 
   minio:
     image: minio/minio:latest
@@ -32,8 +33,28 @@ services:
     networks:
       - backend
 
+  mongodb:
+    image: mongo:latest
+    container_name: ndp-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: ndp_local_catalog
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - backend
+    restart: unless-stopped
+
 volumes:
   minio_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  mongodb_config:
     driver: local
 
 networks:

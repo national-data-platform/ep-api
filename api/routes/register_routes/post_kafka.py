@@ -148,15 +148,14 @@ async def create_kafka_datasource(
         - 400: Other errors (including "No scheme supplied" for pre_ckan)
     """
     try:
+        # Only pass ckan_instance for pre_ckan, otherwise let add_kafka use configured backend
+        ckan_instance = None
         if server == "pre_ckan":
             if not ckan_settings.pre_ckan_enabled:
                 raise HTTPException(
                     status_code=400, detail="Pre-CKAN is disabled and cannot be used."
                 )
-
             ckan_instance = ckan_settings.pre_ckan
-        else:
-            ckan_instance = ckan_settings.ckan
 
         dataset_id = kafka_services.add_kafka(
             dataset_name=data.dataset_name,

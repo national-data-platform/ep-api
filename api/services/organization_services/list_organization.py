@@ -1,12 +1,12 @@
 # api/services/organization_services/list_organization.py
 from typing import List, Optional
 
-from api.config.ckan_settings import ckan_settings
+from api.config import catalog_settings
 
 
 def list_organization(name: Optional[str] = None, server: str = "global") -> List[str]:
     """
-    Retrieve a list of all organizations from the specified CKAN server,
+    Retrieve a list of all organizations from the specified catalog,
     optionally filtered by name.
 
     Parameters
@@ -14,7 +14,7 @@ def list_organization(name: Optional[str] = None, server: str = "global") -> Lis
     name : Optional[str]
         A string to filter organizations by name (case-insensitive).
     server : str
-        The CKAN server to use. Can be 'local', 'global', or 'pre_ckan'.
+        The catalog to use. Can be 'local', 'global', or 'pre_ckan'.
         Defaults to 'global'.
 
     Returns
@@ -29,17 +29,17 @@ def list_organization(name: Optional[str] = None, server: str = "global") -> Lis
         If there is an error retrieving the list of organizations.
     """
 
-    # Choose the CKAN instance based on 'server'
+    # Choose the repository based on 'server'
     if server == "pre_ckan":
-        ckan_instance = ckan_settings.pre_ckan
+        repository = catalog_settings.pre_catalog
     elif server == "global":
-        ckan_instance = ckan_settings.ckan_global
+        repository = catalog_settings.global_catalog
     else:
         # Default to local if server is 'local' or unrecognized
-        ckan_instance = ckan_settings.ckan_no_api_key
+        repository = catalog_settings.local_catalog
 
     try:
-        organizations = ckan_instance.action.organization_list()
+        organizations = repository.organization_list(all_fields=False)
 
         # Filter the organizations if a name is provided
         if name:

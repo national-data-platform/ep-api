@@ -5,7 +5,8 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
-from api.config.ckan_settings import ckan_settings
+from api.config import catalog_settings, ckan_settings
+from api.repositories import CKANRepository
 from api.services import dataset_services
 
 router = APIRouter()
@@ -54,17 +55,16 @@ async def delete_resource(
     the pre-CKAN instance. Otherwise defaults to local CKAN.
     """
     try:
+        repository = None
         if server == "pre_ckan":
             if not ckan_settings.pre_ckan_enabled:
                 raise HTTPException(
                     status_code=400, detail="Pre-CKAN is disabled and cannot be used."
                 )
-            ckan_instance = ckan_settings.pre_ckan
-        else:
-            ckan_instance = ckan_settings.ckan
+            repository = CKANRepository(ckan_settings.pre_ckan)
 
         dataset_services.delete_dataset(
-            resource_id=resource_id, ckan_instance=ckan_instance
+            resource_id=resource_id, repository=repository
         )
         return {"message": f"{resource_id} deleted successfully"}
 
@@ -123,17 +123,16 @@ async def delete_resource_by_name(
     the pre-CKAN instance. Otherwise defaults to local CKAN.
     """
     try:
+        repository = None
         if server == "pre_ckan":
             if not ckan_settings.pre_ckan_enabled:
                 raise HTTPException(
                     status_code=400, detail="Pre-CKAN is disabled and cannot be used."
                 )
-            ckan_instance = ckan_settings.pre_ckan
-        else:
-            ckan_instance = ckan_settings.ckan
+            repository = CKANRepository(ckan_settings.pre_ckan)
 
         dataset_services.delete_dataset(
-            dataset_name=resource_name, ckan_instance=ckan_instance
+            dataset_name=resource_name, repository=repository
         )
         return {"message": f"{resource_name} deleted successfully"}
 

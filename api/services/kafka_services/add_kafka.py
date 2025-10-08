@@ -2,7 +2,9 @@
 import json
 from typing import Dict, Optional
 
+from api.config import catalog_settings
 from api.config.ckan_settings import ckan_settings
+from api.repositories import CKANRepository
 from api.services.metadata_services import inject_ndp_metadata
 
 RESERVED_KEYS = {
@@ -113,11 +115,13 @@ def add_kafka(
     if user_info:
         extras_cleaned = inject_ndp_metadata(user_info, extras_cleaned)
 
-    # Determine the CKAN instance
+    # Determine the repository
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
-    # Create the CKAN dataset
+    # Create the dataset
     try:
         dataset_dict = {
             "name": dataset_name,
@@ -126,7 +130,7 @@ def add_kafka(
             "notes": dataset_description,
             "extras": [{"key": k, "value": v} for k, v in extras_cleaned.items()],
         }
-        dataset = ckan_instance.action.package_create(**dataset_dict)
+        dataset = repository.package_create(**dataset_dict)
         dataset_id = dataset["id"]
 
     except Exception as exc:
@@ -134,7 +138,7 @@ def add_kafka(
 
     # Create a Kafka resource within that dataset
     try:
-        ckan_instance.action.resource_create(
+        repository.resource_create(
             package_id=dataset_id,
             name=kafka_topic,
             description=(

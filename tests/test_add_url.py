@@ -25,17 +25,17 @@ def test_reserved_keys_constant():
     assert RESERVED_KEYS == expected_keys
 
 
-@patch("api.services.url_services.add_url.ckan_settings")
+@patch("api.services.url_services.add_url.catalog_settings")
 class TestAddUrl:
     """Test cases for add_url function."""
 
-    def test_add_url_minimal_parameters(self, mock_ckan_settings):
+    def test_add_url_minimal_parameters(self, mock_catalog_settings):
         """Test add_url with minimal required parameters."""
         # Setup mocks
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "package-123"}
-        mock_ckan.action.resource_create.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_repo = MagicMock()
+        mock_repo.package_create.return_value = {"id": "package-123"}
+        mock_repo.resource_create.return_value = None
+        mock_catalog_settings.local_catalog = mock_repo
 
         result = add_url(
             resource_name="test_resource",
@@ -45,16 +45,16 @@ class TestAddUrl:
         )
 
         assert result == "package-123"
-        mock_ckan.action.package_create.assert_called_once()
-        mock_ckan.action.resource_create.assert_called_once()
+        mock_repo.package_create.assert_called_once()
+        mock_repo.resource_create.assert_called_once()
 
-    def test_add_url_all_parameters(self, mock_ckan_settings):
+    def test_add_url_all_parameters(self, mock_catalog_settings):
         """Test add_url with all parameters provided."""
         # Setup mocks
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "package-456"}
-        mock_ckan.action.resource_create.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_repo = MagicMock()
+        mock_repo.package_create.return_value = {"id": "package-456"}
+        mock_repo.resource_create.return_value = None
+        mock_catalog_settings.local_catalog = mock_repo
 
         result = add_url(
             resource_name="full_resource",
@@ -71,7 +71,7 @@ class TestAddUrl:
         assert result == "package-456"
 
         # Verify package_create call
-        package_call = mock_ckan.action.package_create.call_args
+        package_call = mock_repo.package_create.call_args
         package_data = package_call[1]
 
         assert package_data["name"] == "full_resource"
@@ -87,7 +87,7 @@ class TestAddUrl:
         assert '"delimiter": ","' in extras_dict["processing"]
 
         # Verify resource_create call
-        resource_call = mock_ckan.action.resource_create.call_args
+        resource_call = mock_repo.resource_create.call_args
         resource_data = resource_call[1]
 
         assert resource_data["package_id"] == "package-456"
@@ -95,7 +95,7 @@ class TestAddUrl:
         assert resource_data["name"] == "full_resource"
         assert resource_data["format"] == "url"
 
-    def test_add_url_custom_ckan_instance(self, mock_ckan_settings):
+    def test_add_url_custom_ckan_instance(self, mock_catalog_settings):
         """Test add_url with custom CKAN instance."""
         # Setup custom mock
         custom_ckan = MagicMock()
@@ -114,9 +114,9 @@ class TestAddUrl:
         custom_ckan.action.package_create.assert_called_once()
         custom_ckan.action.resource_create.assert_called_once()
         # Default CKAN should not be called
-        mock_ckan_settings.ckan.action.package_create.assert_not_called()
+        mock_catalog_settings.local_catalog.action.package_create.assert_not_called()
 
-    def test_add_url_invalid_extras_type(self, mock_ckan_settings):
+    def test_add_url_invalid_extras_type(self, mock_catalog_settings):
         """Test add_url with invalid extras type."""
 
         with pytest.raises(ValueError, match="Extras must be a dictionary or None"):
@@ -128,7 +128,7 @@ class TestAddUrl:
                 extras="invalid_extras",  # Should be dict or None
             )
 
-    def test_add_url_extras_with_reserved_keys(self, mock_ckan_settings):
+    def test_add_url_extras_with_reserved_keys(self, mock_catalog_settings):
         """Test add_url with extras containing reserved keys."""
 
         with pytest.raises(KeyError, match="Extras contain reserved keys"):
@@ -140,14 +140,14 @@ class TestAddUrl:
                 extras={"name": "reserved", "custom": "allowed"},
             )
 
-    def test_add_url_package_create_error(self, mock_ckan_settings):
+    def test_add_url_package_create_error(self, mock_catalog_settings):
         """Test add_url when package creation fails."""
         # Setup mock to raise exception
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.side_effect = Exception(
+        mock_repo = MagicMock()
+        mock_repo.package_create.side_effect = Exception(
             "Package creation failed"
         )
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_repo
 
         with pytest.raises(Exception, match="Error creating resource package"):
             add_url(
@@ -157,15 +157,15 @@ class TestAddUrl:
                 resource_url="http://example.com/data",
             )
 
-    def test_add_url_resource_create_error(self, mock_ckan_settings):
+    def test_add_url_resource_create_error(self, mock_catalog_settings):
         """Test add_url when resource creation fails."""
         # Setup mock where package creation succeeds but resource creation fails
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "package-123"}
-        mock_ckan.action.resource_create.side_effect = Exception(
+        mock_repo = MagicMock()
+        mock_repo.package_create.return_value = {"id": "package-123"}
+        mock_repo.resource_create.side_effect = Exception(
             "Resource creation failed"
         )
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_repo
 
         with pytest.raises(Exception, match="Error creating resource"):
             add_url(
@@ -175,12 +175,12 @@ class TestAddUrl:
                 resource_url="http://example.com/data",
             )
 
-    def test_add_url_no_package_id_returned(self, mock_ckan_settings):
+    def test_add_url_no_package_id_returned(self, mock_catalog_settings):
         """Test add_url when package creation returns no ID."""
         # Setup mock to return None or empty dict
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {}  # No ID returned
-        mock_ckan_settings.ckan = mock_ckan
+        mock_repo = MagicMock()
+        mock_repo.package_create.return_value = {}  # No ID returned
+        mock_catalog_settings.local_catalog = mock_repo
 
         # The actual behavior: KeyError is caught and re-raised as package creation error
         with pytest.raises(Exception, match="Error creating resource package"):
@@ -191,13 +191,13 @@ class TestAddUrl:
                 resource_url="http://example.com/data",
             )
 
-    def test_add_url_mapping_and_processing_serialization(self, mock_ckan_settings):
+    def test_add_url_mapping_and_processing_serialization(self, mock_catalog_settings):
         """Test that mapping and processing are properly serialized to JSON."""
         # Setup mocks
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "json-test"}
-        mock_ckan.action.resource_create.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_repo = MagicMock()
+        mock_repo.package_create.return_value = {"id": "json-test"}
+        mock_repo.resource_create.return_value = None
+        mock_catalog_settings.local_catalog = mock_repo
 
         mapping_data = {"field1": "col1", "field2": "col2"}
         processing_data = {"delimiter": ",", "header_line": 0, "start_line": 1}
@@ -214,7 +214,7 @@ class TestAddUrl:
         assert result == "json-test"
 
         # Verify JSON serialization
-        package_call = mock_ckan.action.package_create.call_args
+        package_call = mock_repo.package_create.call_args
         extras_dict = {
             extra["key"]: extra["value"] for extra in package_call[1]["extras"]
         }
@@ -227,13 +227,13 @@ class TestAddUrl:
         processing_json = json.loads(extras_dict["processing"])
         assert processing_json == processing_data
 
-    def test_add_url_empty_file_type(self, mock_ckan_settings):
+    def test_add_url_empty_file_type(self, mock_catalog_settings):
         """Test add_url with empty file_type (default value)."""
         # Setup mocks
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "empty-file-type"}
-        mock_ckan.action.resource_create.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_repo = MagicMock()
+        mock_repo.package_create.return_value = {"id": "empty-file-type"}
+        mock_repo.resource_create.return_value = None
+        mock_catalog_settings.local_catalog = mock_repo
 
         result = add_url(
             resource_name="empty_type_resource",
@@ -246,19 +246,19 @@ class TestAddUrl:
         assert result == "empty-file-type"
 
         # Verify file_type is empty string in extras
-        package_call = mock_ckan.action.package_create.call_args
+        package_call = mock_repo.package_create.call_args
         extras_dict = {
             extra["key"]: extra["value"] for extra in package_call[1]["extras"]
         }
         assert extras_dict["file_type"] == ""
 
-    def test_add_url_empty_notes(self, mock_ckan_settings):
+    def test_add_url_empty_notes(self, mock_catalog_settings):
         """Test add_url with empty notes (default value)."""
         # Setup mocks
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "empty-notes"}
-        mock_ckan.action.resource_create.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_repo = MagicMock()
+        mock_repo.package_create.return_value = {"id": "empty-notes"}
+        mock_repo.resource_create.return_value = None
+        mock_catalog_settings.local_catalog = mock_repo
 
         result = add_url(
             resource_name="empty_notes_resource",
@@ -271,16 +271,16 @@ class TestAddUrl:
         assert result == "empty-notes"
 
         # Verify notes is empty string
-        package_call = mock_ckan.action.package_create.call_args
+        package_call = mock_repo.package_create.call_args
         assert package_call[1]["notes"] == ""
 
-    def test_add_url_none_extras(self, mock_ckan_settings):
+    def test_add_url_none_extras(self, mock_catalog_settings):
         """Test add_url with None extras (default value)."""
         # Setup mocks
-        mock_ckan = MagicMock()
-        mock_ckan.action.package_create.return_value = {"id": "none-extras"}
-        mock_ckan.action.resource_create.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_repo = MagicMock()
+        mock_repo.package_create.return_value = {"id": "none-extras"}
+        mock_repo.resource_create.return_value = None
+        mock_catalog_settings.local_catalog = mock_repo
 
         result = add_url(
             resource_name="none_extras_resource",
@@ -293,7 +293,7 @@ class TestAddUrl:
         assert result == "none-extras"
 
         # Verify only file_type extra is present
-        package_call = mock_ckan.action.package_create.call_args
+        package_call = mock_repo.package_create.call_args
         extras_dict = {
             extra["key"]: extra["value"] for extra in package_call[1]["extras"]
         }
