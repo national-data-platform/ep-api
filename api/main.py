@@ -74,6 +74,7 @@ app = FastAPI(
     title=swagger_settings.swagger_title,
     description=swagger_settings.swagger_description,
     version=swagger_settings.swagger_version,
+    root_path=swagger_settings.root_path,
     lifespan=lifespan,
 )
 

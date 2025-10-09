@@ -91,10 +91,34 @@ Create a `.env` file or prepare environment variables with your configuration:
 
 ```bash
 # ==============================================
+# API CONFIGURATION
+# ==============================================
+# API root path prefix (e.g., "/test" or "" for root)
+# If empty or not set, the API will be available at the root path
+# This is useful when deploying the API behind a reverse proxy at a subpath
+ROOT_PATH=
+
+# ==============================================
 # ORGANIZATION SETTINGS
 # ==============================================
 # Your organization name for identification and metrics
 ORGANIZATION="My organization"
+
+# Endpoint name for identification in metrics and monitoring
+EP_NAME="EP Name"
+
+# ==============================================
+# METRICS CONFIGURATION
+# ==============================================
+# Interval in seconds for sending metrics (default: 3300 seconds = 55 minutes)
+METRICS_INTERVAL_SECONDS=3300
+
+# ==============================================
+# AUTHENTICATION CONFIGURATION
+# ==============================================
+# URL for the authentication API to retrieve user information
+# This endpoint is used to validate tokens and fetch user details
+AUTH_API_URL=https://idp.nationaldataplatform.org/temp/information
 
 # ==============================================
 # ACCESS CONTROL (Optional)
@@ -274,17 +298,23 @@ For detailed usage examples and tutorials, please check the documentation in the
 
 ## 📊 System Metrics
 
-> **⚠️ CAUTION**: This API automatically collects and logs system metrics every 10 minutes.
+> **⚠️ CAUTION**: This API automatically collects and logs system metrics (default: every 55 minutes, configurable via `METRICS_INTERVAL_SECONDS`).
 
-The NDP-EP API automatically collects and logs comprehensive system metrics every 10 minutes. These metrics provide visibility into system health, resource usage, and service connectivity.
+The NDP-EP API automatically collects and logs comprehensive system metrics at configurable intervals (default: 55 minutes). These metrics provide visibility into system health, resource usage, catalog statistics, and service connectivity.
 
 ### Collected Metrics
 
 **System Information:**
 - **Public IP Address**: External IP of the API instance
-- **Resource Usage**: Real-time CPU, memory, and disk utilization percentages
+- **Resource Usage**: Real-time CPU percentage, memory (used/total GB), and disk (used/total GB)
 - **API Version**: Current version of the NDP-EP API
 - **Organization**: Configured organization name
+- **EP Name**: Endpoint identifier name
+
+**Catalog Statistics:**
+- **Number of Datasets**: Total datasets in local catalog
+- **Number of Services**: Total registered services
+- **Services List**: Array of all registered service titles
 
 **Service Registry:**
 - **Global CKAN**: NDP central catalog connection details
@@ -297,29 +327,21 @@ The NDP-EP API automatically collects and logs comprehensive system metrics ever
 
 ```json
 {
- "public_ip": "203.0.113.45",
- "cpu": "15%",
- "memory": "65%", 
- "disk": "45%",
- "version": "1.0.1",
- "organization": "Your Organization",
- "services": {
-   "global_ckan": {"url": "https://catalog.nationaldataplatform.org"},
-   "pre_ckan": {
-     "url": "https://preckan.nationaldataplatform.org",
-     "api_key": "configured"
-   },
-   "local_ckan": {
-     "url": "http://localhost:5000",
-     "api_key": "configured"
-   },
-   "kafka": {
-     "host": "kafka.example.com",
-     "port": "9092",
-     "prefix": "ndp"
-   },
-   "jupyter": {"url": "https://jupyter.example.com"}
- }
+  "public_ip": "203.0.113.45",
+  "cpu": "5.7%",
+  "memory": "4.8GB/30.8GB",
+  "disk": "265.4GB/936.8GB",
+  "version": "0.3.0",
+  "organization": "Your Organization",
+  "ep_name": "Your EP",
+  "num_datasets": 23,
+  "num_services": 5,
+  "services": [
+    "Service Title 1",
+    "Service Title 2",
+    "Service Title 3"
+  ],
+  "timestamp": "2025-10-09T16:48:09.874843Z"
 }
 ```
 
