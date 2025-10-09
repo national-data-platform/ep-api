@@ -313,3 +313,19 @@ class CKANRepository(DataCatalogRepository):
             If CKAN organization deletion fails
         """
         self.ckan.action.organization_delete(id=id)
+
+    def check_health(self) -> bool:
+        """
+        Check if CKAN backend is reachable and operational.
+
+        Returns
+        -------
+        bool
+            True if CKAN is healthy and reachable, False otherwise
+        """
+        try:
+            # Try to get CKAN status
+            status = self.ckan.action.status_show()
+            return True if status else False
+        except Exception:
+            return False

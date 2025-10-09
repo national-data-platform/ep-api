@@ -325,3 +325,15 @@ class DataCatalogRepository(ABC):
             If organization not found or deletion fails
         """
         pass
+
+    @abstractmethod
+    def check_health(self) -> bool:
+        """
+        Check if the catalog backend is reachable and operational.
+
+        Returns
+        -------
+        bool
+            True if backend is healthy and reachable, False otherwise
+        """
+        pass

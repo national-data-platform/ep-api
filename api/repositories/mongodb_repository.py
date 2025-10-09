@@ -611,3 +611,19 @@ class MongoDBRepository(DataCatalogRepository):
 
         if result.deleted_count == 0:
             raise Exception(f"Organization '{id}' not found")
+
+    def check_health(self) -> bool:
+        """
+        Check if MongoDB backend is reachable and operational.
+
+        Returns
+        -------
+        bool
+            True if MongoDB is healthy and reachable, False otherwise
+        """
+        try:
+            # Try to ping MongoDB server
+            self.client.admin.command("ping")
+            return True
+        except Exception:
+            return False
