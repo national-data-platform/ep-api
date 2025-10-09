@@ -79,6 +79,7 @@ def get_status():
     status_dict = {
         "api_version": swagger_settings.swagger_version,
         "organization": swagger_settings.organization,
+        "ep_name": swagger_settings.ep_name,
         "organization_based_access": swagger_settings.enable_organization_based_access,
         "local_catalog_backend": catalog_settings.local_catalog_backend,
         "backend_connected": check_backend_connection(),
@@ -88,6 +89,7 @@ def get_status():
         "s3_enabled": s3_settings.s3_enabled,
         "auth_api_url": swagger_settings.auth_api_url,
         "metrics_endpoint": swagger_settings.metrics_endpoint,
+        "metrics_interval_seconds": swagger_settings.metrics_interval_seconds,
         "is_public": swagger_settings.is_public,
     }
 

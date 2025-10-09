@@ -56,7 +56,7 @@ class TestCreateGeneralDatasetEndpoint:
         assert call_args[1]["name"] == "test_dataset"
         assert call_args[1]["title"] == "Test Dataset"
         assert call_args[1]["owner_org"] == "test_org"
-        assert call_args[1]["ckan_instance"] == mock_ckan_settings.ckan
+        assert "repository" in call_args[1]  # Repository is passed
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch(

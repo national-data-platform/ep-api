@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     swagger_version: str = "0.3.0"
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"
+    metrics_interval_seconds: int = 3300  # 55 minutes
     organization: str = "Unknown Organization"
+    ep_name: str = "Unknown EP"
     use_jupyterlab: bool = False
     jupyter_url: str = "https://jupyter.org/try-jupyter/lab/"
     test_token: str = "testing_token"

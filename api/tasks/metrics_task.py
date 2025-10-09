@@ -1,15 +1,23 @@
 # api/tasks/metrics_task.py
 
 import asyncio
+from datetime import datetime
 import json
 import logging
 
 import httpx
 
+from api.config.catalog_settings import catalog_settings
 from api.config.ckan_settings import ckan_settings
 from api.config.kafka_settings import kafka_settings
 from api.config.swagger_settings import swagger_settings
-from api.services.status_services import get_public_ip, get_system_metrics
+from api.services.status_services import (
+    get_num_datasets,
+    get_num_services,
+    get_public_ip,
+    get_services_titles,
+    get_system_metrics,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +25,7 @@ logger = logging.getLogger(__name__)
 async def record_system_metrics():
     """
     Periodically logs the system metrics:
-    Public IP, CPU, memory, disk usage, API version, and organization.
+    Public IP, CPU, memory, disk usage, API version, organization, and catalog statistics.
 
     Additionally, if public=True, posts the metrics JSON to metrics_endpoint.
     """
@@ -27,54 +35,31 @@ async def record_system_metrics():
         # First: collect and log metrics
         try:
             public_ip = get_public_ip()
-            cpu, mem, disk = get_system_metrics()
+            cpu, mem_used, mem_total, disk_used, disk_total = get_system_metrics()
 
-            services = {}
+            # Get catalog statistics
+            catalog_repo = catalog_settings.local_catalog
+            num_datasets = get_num_datasets(catalog_repo)
+            num_services = get_num_services(catalog_repo)
+            services_titles = get_services_titles(catalog_repo)
 
-            if swagger_settings.use_jupyterlab:
-                services["jupyter"] = {"url": swagger_settings.jupyter_url}
-
-            if ckan_settings.pre_ckan_enabled:
-                services["pre_ckan"] = {
-                    "url": ckan_settings.pre_ckan_url,
-                    "api_key": ckan_settings.pre_ckan_api_key,
-                }
-
-            if ckan_settings.ckan_local_enabled:
-                services["local_ckan"] = {
-                    "url": ckan_settings.ckan_url,
-                    "api_key": ckan_settings.ckan_api_key,
-                }
-
-            services["global_ckan"] = {"url": ckan_settings.ckan_global_url}
-
-            if kafka_settings.kafka_connection:
-                services["kafka"] = {
-                    "host": kafka_settings.kafka_host,
-                    "port": kafka_settings.kafka_port,
-                    "prefix": kafka_settings.kafka_prefix,
-                }
+            # Generate timestamp
+            timestamp = datetime.utcnow().isoformat() + "Z"
 
             metrics_payload = {
                 "public_ip": public_ip,
-                "cpu": f"{cpu}%",
-                "memory": f"{mem}%",
-                "disk": f"{disk}%",
+                "cpu": f"{cpu:.1f}%",
+                "memory": f"{mem_used:.1f}GB/{mem_total:.1f}GB",
+                "disk": f"{disk_used:.1f}GB/{disk_total:.1f}GB",
                 "version": swagger_settings.swagger_version,
                 "organization": swagger_settings.organization,
-                "services": services,
+                "ep_name": swagger_settings.ep_name,
+                "num_datasets": num_datasets,
+                "num_services": num_services,
+                "services": services_titles,
+                "timestamp": timestamp,
             }
 
-            # Example logged payload:
-            # {
-            #     "public_ip": "1.2.3.4",
-            #     "cpu": "15%",
-            #     "memory": "65%",
-            #     "disk": "70%",
-            #     "version": "0.6.0",
-            #     "organization": "University of Utah",
-            #     "services": {...}
-            # }
             # Log metrics as JSON
             logger.info(json.dumps(metrics_payload))
 
@@ -100,4 +85,4 @@ async def record_system_metrics():
                 logger.error(f"Error posting metrics: {e}")
 
         # Sleep before next iteration
-        await asyncio.sleep(600)
+        await asyncio.sleep(swagger_settings.metrics_interval_seconds)

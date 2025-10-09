@@ -27,9 +27,9 @@ def test_delete_organization_success():
         response = client.delete(f"/organization/{organization_name}")
         assert response.status_code == 200
         assert response.json() == {"message": "Organization deleted successfully"}
-        # Accept that ckan_instance is also passed
+        # Accept that repository is also passed
         mock_delete.assert_called_once_with(
-            organization_name=organization_name, ckan_instance=ANY
+            organization_name=organization_name, repository=ANY
         )
 
 
@@ -47,7 +47,7 @@ def test_delete_organization_not_found():
         assert response.json() == {"detail": "Organization not found"}
 
         mock_delete.assert_called_once_with(
-            organization_name=organization_name, ckan_instance=ANY
+            organization_name=organization_name, repository=ANY
         )
 
 
@@ -64,5 +64,5 @@ def test_delete_organization_error():
         assert response.json() == {"detail": "An unexpected error occurred"}
 
         mock_delete.assert_called_once_with(
-            organization_name=organization_name, ckan_instance=ANY
+            organization_name=organization_name, repository=ANY
         )
