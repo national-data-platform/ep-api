@@ -49,13 +49,36 @@ root_logger.addHandler(console_handler)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run tasks on startup and handle shutdown."""
+    # Ensure 'services' organization exists
+    if ckan_settings.ckan_local_enabled:
+        try:
+            from api.services.organization_services.list_organization import list_organization
+            from api.services.organization_services.create_organization import create_organization
+
+            logger.info("Checking if 'services' organization exists...")
+            organizations = list_organization(server="local")
+
+            if "services" not in organizations:
+                logger.info("'services' organization not found, creating it...")
+                create_organization(
+                    name="services",
+                    title="Services",
+                    description="Organization for managing services",
+                    server="local"
+                )
+                logger.info("✅ 'services' organization created successfully")
+            else:
+                logger.info("✅ 'services' organization already exists")
+        except Exception as e:
+            logger.error(f"❌ Error ensuring 'services' organization exists: {str(e)}")
+
     # Check MINIO connection on startup if enabled
     logger.info(f"S3 configuration - enabled: {s3_settings.enabled}, is_configured: {s3_settings.is_configured}")
     if s3_settings.enabled:
         try:
             from api.services.minio_services.minio_client import minio_client
             logger.info("Checking S3 connection...")
-            
+
             if minio_client.test_connection():
                 logger.info("✅ S3 connection successful")
             else:
@@ -64,7 +87,7 @@ async def lifespan(app: FastAPI):
             logger.error(f"❌ Error testing S3 connection: {str(e)}")
     else:
         logger.info("S3 is disabled in configuration")
-    
+
     task = asyncio.create_task(record_system_metrics())
     yield
     task.cancel()
