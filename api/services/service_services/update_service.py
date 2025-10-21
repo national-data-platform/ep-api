@@ -1,7 +1,8 @@
 # api/services/service_services/update_service.py
 from typing import Any, Dict, Optional
 
-from api.config import ckan_settings
+from api.config import catalog_settings, ckan_settings
+from api.repositories import CKANRepository
 
 RESERVED_KEYS = {
     "name",
@@ -75,8 +76,13 @@ def update_service(
     Exception
         For errors during service update.
     """
+    # Decide repository to use
+    # If ckan_instance is provided (legacy), wrap it in CKANRepository
+    # Otherwise use the configured local catalog (CKAN or MongoDB)
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     # Validate owner_org if provided
     if owner_org is not None and owner_org != "services":
@@ -93,7 +99,7 @@ def update_service(
 
     try:
         # Fetch the existing service
-        service = ckan_instance.action.package_show(id=service_id)
+        service = repository.package_show(id=service_id)
     except Exception as exc:
         raise Exception(f"Error fetching service: {str(exc)}")
 
@@ -160,7 +166,7 @@ def update_service(
                 break
 
     try:
-        updated_service = ckan_instance.action.package_update(**service)
+        updated_service = repository.package_update(**service)
         return updated_service["id"]
     except Exception as exc:
         raise Exception(f"Error updating service: {str(exc)}")
@@ -227,8 +233,13 @@ def patch_service(
     Exception
         For errors during service patch.
     """
+    # Decide repository to use
+    # If ckan_instance is provided (legacy), wrap it in CKANRepository
+    # Otherwise use the configured local catalog (CKAN or MongoDB)
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     # Validate owner_org if provided
     if owner_org is not None and owner_org != "services":
@@ -245,7 +256,7 @@ def patch_service(
 
     try:
         # Fetch the existing service
-        service = ckan_instance.action.package_show(id=service_id)
+        service = repository.package_show(id=service_id)
     except Exception as exc:
         raise Exception(f"Error fetching service: {str(exc)}")
 
@@ -291,7 +302,7 @@ def patch_service(
                 break
 
     try:
-        updated_service = ckan_instance.action.package_update(**service)
+        updated_service = repository.package_update(**service)
         return updated_service["id"]
     except Exception as exc:
         raise Exception(f"Error updating service: {str(exc)}")

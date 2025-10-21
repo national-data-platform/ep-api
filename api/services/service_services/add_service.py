@@ -1,7 +1,8 @@
 # api/services/service_services/add_service.py
 from typing import Any, Dict, Optional
 
-from api.config import ckan_settings
+from api.config import catalog_settings, ckan_settings
+from api.repositories import CKANRepository
 from api.services.metadata_services import inject_ndp_metadata
 
 RESERVED_KEYS = {
@@ -94,9 +95,13 @@ def add_service(
             "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
         )
 
-    # Decide CKAN instance
+    # Decide repository to use
+    # If ckan_instance is provided (legacy), wrap it in CKANRepository
+    # Otherwise use the configured local catalog (CKAN or MongoDB)
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     # Prepare service-specific extras
     service_extras = {}
@@ -130,7 +135,7 @@ def add_service(
                 {"key": k, "value": v} for k, v in extras_cleaned.items()
             ]
 
-        service_package = ckan_instance.action.package_create(**service_package_dict)
+        service_package = repository.package_create(**service_package_dict)
         service_package_id = service_package["id"]
 
     except Exception as exc:
@@ -143,7 +148,7 @@ def add_service(
                 f"Service endpoint for {service_title} " f"accessible at {service_url}"
             )
 
-            ckan_instance.action.resource_create(
+            repository.resource_create(
                 package_id=service_package_id,
                 url=service_url,
                 name=service_name,

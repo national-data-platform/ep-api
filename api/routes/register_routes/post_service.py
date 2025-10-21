@@ -3,8 +3,9 @@ from typing import Any, Dict, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from api.config import ckan_settings
+from api.config import catalog_settings, ckan_settings
 from api.models.service_request_model import ServiceRequest
+from api.repositories import CKANRepository
 from api.services.auth_services import get_user_for_write_operation
 from api.services.service_services.add_service import add_service
 
@@ -167,10 +168,18 @@ async def create_service(
                 raise HTTPException(
                     status_code=400, detail="Pre-CKAN is disabled and cannot be used."
                 )
-
-            ckan_instance = ckan_settings.pre_ckan
+            # Use PreCKAN repository
+            repository = catalog_settings.pre_catalog
+            ckan_instance = repository.ckan_instance
         else:
-            ckan_instance = ckan_settings.ckan
+            # Use local catalog (respects LOCAL_CATALOG_BACKEND configuration)
+            repository = catalog_settings.local_catalog
+            # For backward compatibility, extract ckan_instance if it's a CKAN repository
+            ckan_instance = (
+                repository.ckan_instance
+                if isinstance(repository, CKANRepository)
+                else None
+            )
 
         service_id = add_service(
             service_name=data.service_name,
