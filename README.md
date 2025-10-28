@@ -55,6 +55,7 @@ This is a staging environment provided by the NDP for dataset submission and rev
 - **📦 MINIO S3 Storage**: Direct bucket and object management with secure presigned URLs
 - **📋 General Dataset Management**: Flexible API for managing datasets with custom metadata
 - **🔧 Service Registry**: Register and discover other services (such as microservices, APIs, or apps)
+- **🤖 AI Agent Integration**: Model Context Protocol (MCP) support for AI assistants to interact with the API
 - **📈 System Monitoring**: Built-in metrics and health monitoring
 - **📚 RESTful API**: Comprehensive OpenAPI/Swagger documentation
 - **🔌 Extensible Architecture**: Easy to add new catalog backends (Elasticsearch, PostgreSQL, etc.)
@@ -295,6 +296,62 @@ PRE_CKAN_API_KEY=your-ndp-preckan-api-key
 ## 📖 Usage Examples
 
 For detailed usage examples and tutorials, please check the documentation in the `/docs` folder.
+
+## 🤖 AI Agent Integration (MCP)
+
+The NDP-EP API includes built-in support for the **Model Context Protocol (MCP)**, enabling AI assistants and agents to interact programmatically with all API endpoints.
+
+### What is MCP?
+
+The Model Context Protocol is an emerging standard that defines how AI agents communicate with applications. It allows AI assistants like Claude, ChatGPT, and custom agents to discover and invoke API operations automatically.
+
+### MCP Endpoint
+
+Once the API is running, the MCP server is automatically available at:
+
+```
+http://your-api-host:port/mcp
+```
+
+For example, with the default Docker setup:
+```
+http://localhost:8001/mcp
+```
+
+### Key Benefits
+
+- **Zero Configuration**: Automatically exposes all existing API endpoints as MCP tools
+- **AI-Friendly**: AI agents can discover available operations and their parameters
+- **Schema Preservation**: Maintains all request/response models and validation
+- **Secure**: Respects existing authentication mechanisms
+- **Standard Protocol**: Compatible with any MCP-compliant AI client
+
+### Use Cases
+
+**Dataset Management with AI Assistants:**
+- "Search for oceanography datasets in the NDP catalog"
+- "Create a new dataset with these metadata fields"
+- "List all my S3 buckets and their contents"
+
+**Automated Workflows:**
+- AI agents can orchestrate complex data ingestion pipelines
+- Automated catalog synchronization between environments
+- Intelligent data discovery and recommendation
+
+**Development & Testing:**
+- AI-assisted API testing and validation
+- Automatic documentation generation
+- Code generation for API clients
+
+### Connecting AI Clients
+
+The MCP endpoint works with any MCP-compatible client. Example clients include:
+
+- **Claude Code**: Anthropic's AI coding assistant
+- **Custom MCP Clients**: Using the official MCP SDK
+- **AI Automation Tools**: Any tool supporting the MCP protocol
+
+For configuration examples and integration guides, visit the [FastAPI-MCP documentation](https://fastapi-mcp.tadata.com).
 
 ## 📊 System Metrics
 
