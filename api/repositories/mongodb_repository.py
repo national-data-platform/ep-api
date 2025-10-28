@@ -291,6 +291,7 @@ class MongoDBRepository(DataCatalogRepository):
         self,
         q: str = "*:*",
         fq: str = "",
+        fq_list: Optional[List[str]] = None,
         rows: int = 10,
         start: int = 0,
         sort: str = "score desc, metadata_modified desc",
@@ -305,6 +306,8 @@ class MongoDBRepository(DataCatalogRepository):
             Search query (supports text search on title and notes)
         fq : str
             Filter query (format: "field:value")
+        fq_list : Optional[List[str]]
+            List of filter queries (alternative to fq)
         rows : int
             Number of results to return
         start : int
@@ -328,8 +331,16 @@ class MongoDBRepository(DataCatalogRepository):
                 {"name": {"$regex": re.escape(q), "$options": "i"}},
             ]
 
-        # Handle filter query (simplified - supports "field:value" format)
-        if fq:
+        # Handle filter query list (preferred method)
+        if fq_list:
+            for filter_item in fq_list:
+                if ":" in filter_item:
+                    field, value = filter_item.split(":", 1)
+                    field = field.strip()
+                    value = value.strip().strip('"')
+                    query[field] = value
+        # Handle filter query string (fallback)
+        elif fq:
             filters = fq.split(" AND ")
             for filter_item in filters:
                 if ":" in filter_item:

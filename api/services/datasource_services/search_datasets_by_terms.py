@@ -8,7 +8,7 @@ import requests.exceptions
 from ckanapi import CKANAPIError, NotFound
 from fastapi import HTTPException
 
-from api.config.ckan_settings import ckan_settings
+from api.config.catalog_settings import catalog_settings
 from api.models import DataSourceResponse, Resource
 
 
@@ -69,12 +69,13 @@ async def search_datasets_by_terms(
             ),
         )
 
+    # Get the appropriate repository based on server selection
     if server == "local":
-        ckan = ckan_settings.ckan_no_api_key
+        repository = catalog_settings.local_catalog
     elif server == "global":
-        ckan = ckan_settings.ckan_global
+        repository = catalog_settings.global_catalog
     elif server == "pre_ckan":
-        ckan = ckan_settings.pre_ckan_no_api_key
+        repository = catalog_settings.pre_catalog
 
     escaped_terms = [escape_solr_special_chars(term) for term in terms_list]
 
@@ -97,7 +98,7 @@ async def search_datasets_by_terms(
     query_string = " AND ".join(query_parts)
 
     try:
-        datasets = ckan.action.package_search(q=query_string, rows=1000)
+        datasets = repository.package_search(q=query_string, rows=1000)
         results_list = []
 
         for dataset in datasets["results"]:

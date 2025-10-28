@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from ckanapi import NotFound
 
-from api.config.ckan_settings import ckan_settings
+from api.config.catalog_settings import catalog_settings
 from api.models import DataSourceResponse, Resource
 
 
@@ -64,12 +64,13 @@ async def search_datasource(
     if server not in ["local", "global", "pre_ckan"]:
         raise Exception("Invalid server. Use 'local', 'global', or 'pre_ckan'.")
 
+    # Get the appropriate repository based on server selection
     if server == "local":
-        ckan = ckan_settings.ckan_no_api_key
+        repository = catalog_settings.local_catalog
     elif server == "global":
-        ckan = ckan_settings.ckan_global
+        repository = catalog_settings.global_catalog
     else:  # server == "pre_ckan"
-        ckan = ckan_settings.pre_ckan
+        repository = catalog_settings.pre_catalog
 
     search_params = []
 
@@ -114,7 +115,7 @@ async def search_datasource(
             }
             if sort:
                 data_dict["sort"] = sort
-            results = ckan.action.package_search(**data_dict)
+            results = repository.package_search(**data_dict)
             if results and results["results"]:
                 if datasets:
                     datasets["results"].extend(results["results"])
