@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+from fastapi_mcp import FastApiMCP
 
 import api.routes as routes
 from api.config import ckan_settings, swagger_settings
@@ -125,6 +126,10 @@ app.include_router(routes.user_router, tags=["User"])
 if s3_settings.enabled:
     app.include_router(routes.minio_bucket_router, tags=["S3"])
     app.include_router(routes.minio_object_router, tags=["S3"])
+
+# Initialize and mount FastAPI-MCP for AI agent communication
+mcp = FastApiMCP(app)
+mcp.mount_http()
 
 
 def custom_openapi():

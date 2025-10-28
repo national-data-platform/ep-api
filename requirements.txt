@@ -19,3 +19,4 @@ jupyter>=1.0.0
 minio
 pymongo>=4.0.0
 mongomock>=4.1.0
+fastapi-mcp
