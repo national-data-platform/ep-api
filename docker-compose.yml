@@ -13,6 +13,7 @@ services:
       - .env
     volumes:
       - ./logs:/code/logs
+      - ${REXEC_KUBECONFIG_LOCAL_PATH:-~/.kube/config}:${REXEC_KUBECONFIG_MOUNT_PATH:-/code/env_variables/.kubeconfig}:ro
     networks:
       - ndp-network
     depends_on:

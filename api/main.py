@@ -126,6 +126,7 @@ app.include_router(routes.user_router, tags=["User"])
 if s3_settings.enabled:
     app.include_router(routes.minio_bucket_router, tags=["S3"])
     app.include_router(routes.minio_object_router, tags=["S3"])
+app.include_router(routes.rexec_router, tags=["Rexec"])
 
 # Initialize and mount FastAPI-MCP for AI agent communication
 mcp = FastApiMCP(app)

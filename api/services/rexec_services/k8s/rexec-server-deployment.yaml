@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rexec-server
+  labels:
+    digest: 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rexec-server
+  template:
+    metadata:
+      labels:
+        app: rexec-server
+    spec:
+      containers:
+        - name: rexec-server
+          image:
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              echo "pip install ${builtin_requirements} ${user_requirements}";
+              pip install ${builtin_requirements} ${user_requirements};
+              echo "git clone https://github.com/sci-ndp/SciDx-rexec-server.git server";
+              git clone https://github.com/sci-ndp/SciDx-rexec-server.git server;
+              echo "cd server";
+              cd server;
+              echo "python run_server.py ${broker_addr} --broker_port ${broker_port}";
+              python run_server.py ${broker_addr} --broker_port ${broker_port}
+      restartPolicy: Always
