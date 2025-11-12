@@ -374,6 +374,23 @@ class MongoDBRepository(DataCatalogRepository):
         # Clean documents
         results = [self._clean_doc(doc) for doc in results]
 
+        # Expand owner_org to organization object (CKAN compatibility)
+        for result in results:
+            if result.get("owner_org"):
+                org = self.organizations.find_one(
+                    {"$or": [{"id": result["owner_org"]}, {"name": result["owner_org"]}]}
+                )
+                if org:
+                    result["organization"] = {
+                        "id": org["id"],
+                        "name": org["name"],
+                        "title": org.get("title", ""),
+                        "description": org.get("description", ""),
+                        "image_url": org.get("image_url", ""),
+                        "type": org.get("type", "organization"),
+                        "state": org.get("state", "active"),
+                    }
+
         return {"count": count, "results": results}
 
     def resource_create(self, **kwargs) -> Dict[str, Any]:
