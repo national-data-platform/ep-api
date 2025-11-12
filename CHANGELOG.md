@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-11-12
+
+### Fixed
+- **Critical: MongoDB organization search compatibility** - Fixed search by organization name in MongoDB backend
+  - MongoDB stores `owner_org` as UUID, but CKAN allows searching by organization name
+  - Added automatic organization name → UUID resolution in all search paths (q, fq, fq_list)
+  - Ensures `{"owner_org": "services"}` searches work identically in MongoDB and CKAN backends
+  - Maintains full backward compatibility with existing code
+
 ## [0.3.1] - 2025-11-12
 
 ### Fixed
