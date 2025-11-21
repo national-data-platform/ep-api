@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 # Configuration
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8002"
 TEST_TOKEN = "testing_token"  # From .env
 HEADERS = {"Authorization": f"Bearer {TEST_TOKEN}"}
 

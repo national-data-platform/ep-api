@@ -188,7 +188,7 @@ services:
     ports:
       - "3000:80"
     environment:
-      NDP_EP_API: http://localhost:8002
+      NDP_EP_API: https://ndp-ep-api.katxu.com
     networks:
       - ndp-network
     depends_on:

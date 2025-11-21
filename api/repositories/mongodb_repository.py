@@ -324,12 +324,48 @@ class MongoDBRepository(DataCatalogRepository):
 
         # Handle text search
         if q and q != "*:*":
-            # Simple text search on title and notes
-            query["$or"] = [
-                {"title": {"$regex": re.escape(q), "$options": "i"}},
-                {"notes": {"$regex": re.escape(q), "$options": "i"}},
-                {"name": {"$regex": re.escape(q), "$options": "i"}},
-            ]
+            # Check if this is a Solr-style field query (e.g., "field:value" or "field1:value1 AND field2:value2")
+            if ":" in q:
+                # Try to parse as Solr-style field query
+                filters = q.split(" AND ")
+                is_field_query = all(":" in f for f in filters)
+
+                if is_field_query:
+                    # This is a Solr-style field query
+                    for filter_item in filters:
+                        filter_item = filter_item.strip()
+                        if ":" in filter_item:
+                            field, value = filter_item.split(":", 1)
+                            field = field.strip()
+                            value = value.strip().strip('"')
+                            # Map CKAN field names to MongoDB field names
+                            if field == "organization":
+                                field = "owner_org"
+
+                            # Resolve organization name to UUID if searching by owner_org
+                            if field == "owner_org":
+                                # Check if value is already a UUID or needs resolution
+                                org = self.organizations.find_one(
+                                    {"$or": [{"name": value}, {"id": value}]}
+                                )
+                                if org:
+                                    value = org["id"]  # Use UUID for the search
+
+                            query[field] = value
+                else:
+                    # Simple text search on title and notes (contains colon but not a field query)
+                    query["$or"] = [
+                        {"title": {"$regex": re.escape(q), "$options": "i"}},
+                        {"notes": {"$regex": re.escape(q), "$options": "i"}},
+                        {"name": {"$regex": re.escape(q), "$options": "i"}},
+                    ]
+            else:
+                # Simple text search on title and notes
+                query["$or"] = [
+                    {"title": {"$regex": re.escape(q), "$options": "i"}},
+                    {"notes": {"$regex": re.escape(q), "$options": "i"}},
+                    {"name": {"$regex": re.escape(q), "$options": "i"}},
+                ]
 
         # Handle filter query list (preferred method)
         if fq_list:
@@ -338,6 +374,18 @@ class MongoDBRepository(DataCatalogRepository):
                     field, value = filter_item.split(":", 1)
                     field = field.strip()
                     value = value.strip().strip('"')
+                    # Map CKAN field names to MongoDB field names
+                    if field == "organization":
+                        field = "owner_org"
+
+                    # Resolve organization name to UUID if searching by owner_org
+                    if field == "owner_org":
+                        org = self.organizations.find_one(
+                            {"$or": [{"name": value}, {"id": value}]}
+                        )
+                        if org:
+                            value = org["id"]
+
                     query[field] = value
         # Handle filter query string (fallback)
         elif fq:
@@ -347,6 +395,18 @@ class MongoDBRepository(DataCatalogRepository):
                     field, value = filter_item.split(":", 1)
                     field = field.strip()
                     value = value.strip().strip('"')
+                    # Map CKAN field names to MongoDB field names
+                    if field == "organization":
+                        field = "owner_org"
+
+                    # Resolve organization name to UUID if searching by owner_org
+                    if field == "owner_org":
+                        org = self.organizations.find_one(
+                            {"$or": [{"name": value}, {"id": value}]}
+                        )
+                        if org:
+                            value = org["id"]
+
                     query[field] = value
 
         # Parse sort (simplified - supports "field asc/desc")
@@ -373,6 +433,23 @@ class MongoDBRepository(DataCatalogRepository):
 
         # Clean documents
         results = [self._clean_doc(doc) for doc in results]
+
+        # Expand owner_org to organization object (CKAN compatibility)
+        for result in results:
+            if result.get("owner_org"):
+                org = self.organizations.find_one(
+                    {"$or": [{"id": result["owner_org"]}, {"name": result["owner_org"]}]}
+                )
+                if org:
+                    result["organization"] = {
+                        "id": org["id"],
+                        "name": org["name"],
+                        "title": org.get("title", ""),
+                        "description": org.get("description", ""),
+                        "image_url": org.get("image_url", ""),
+                        "type": org.get("type", "organization"),
+                        "state": org.get("state", "active"),
+                    }
 
         return {"count": count, "results": results}
 

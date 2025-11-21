@@ -388,7 +388,7 @@ The NDP-EP API automatically collects and logs comprehensive system metrics at c
   "cpu": "5.7%",
   "memory": "4.8GB/30.8GB",
   "disk": "265.4GB/936.8GB",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "organization": "Your Organization",
   "ep_name": "Your EP",
   "num_datasets": 23,
