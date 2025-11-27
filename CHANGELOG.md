@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Dataset and other resources remain intact
   - Supports both local and pre_ckan server parameters
   - New service function `delete_resource()` in dataset_services
+- New endpoint to partially update individual resources (PATCH)
+  - `PATCH /dataset/{dataset_id}/resource/{resource_id}` updates only specified fields
+  - Supports updating name, url, description, format
+  - New `resource_patch` method in repositories (CKAN and MongoDB)
+  - New service function `patch_resource()` in dataset_services
+
+### Fixed
+- ROOT_PATH now properly propagates to Swagger UI requests (fixes #23)
+  - Added servers configuration to OpenAPI schema when ROOT_PATH is set
+
+### Documentation
+- Added link to "Adding New Catalog Backends" documentation in README (fixes #22)
 
 ## [0.3.4] - 2025-11-27
 
