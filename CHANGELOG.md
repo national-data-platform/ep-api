@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-11-27
+
+### Added
+- New endpoint to delete individual resources from a dataset
+  - `DELETE /dataset/{dataset_id}/resource/{resource_id}` removes a single resource
+  - Dataset and other resources remain intact
+  - Supports both local and pre_ckan server parameters
+  - New service function `delete_resource()` in dataset_services
+
 ## [0.3.4] - 2025-11-27
 
 ### Fixed
