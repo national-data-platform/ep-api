@@ -16,7 +16,7 @@ The NDP-EP API integrates seamlessly with the National Data Platform ecosystem:
 The National Data Platform uses CKAN as its data catalog management software. This API provides access to three different catalog environments, each with specific access levels and purposes:
 
 ### 1. **Local Catalog** 🏠 (CKAN or MongoDB)
-You can use your own catalog backend for local dataset management, with your choice of storage:
+You can use your own catalog backend for local dataset management, with your choice of storage (see [Adding New Catalog Backends](docs/adding-catalog-backends.md) for custom implementations):
 
 **CKAN Backend** (Traditional):
 - Full CKAN compatibility with all extensions
