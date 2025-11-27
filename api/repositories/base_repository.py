@@ -243,6 +243,30 @@ class DataCatalogRepository(ABC):
         pass
 
     @abstractmethod
+    def resource_patch(self, **kwargs) -> Dict[str, Any]:
+        """
+        Partially update a resource (only specified fields).
+
+        Parameters
+        ----------
+        id : str
+            Resource ID to patch
+        **kwargs
+            Fields to update (name, url, description, format, etc.)
+
+        Returns
+        -------
+        dict
+            Updated resource data
+
+        Raises
+        ------
+        Exception
+            If resource not found or patch fails
+        """
+        pass
+
+    @abstractmethod
     def organization_create(self, **kwargs) -> Dict[str, Any]:
         """
         Create a new organization.

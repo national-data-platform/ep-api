@@ -5,3 +5,4 @@ from .general_dataset import (  # noqa: F401
     patch_general_dataset,
     update_general_dataset,
 )
+from .patch_resource import patch_resource  # noqa: F401

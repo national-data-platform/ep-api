@@ -240,6 +240,27 @@ class CKANRepository(DataCatalogRepository):
         """
         self.ckan.action.resource_delete(id=id)
 
+    def resource_patch(self, **kwargs) -> Dict[str, Any]:
+        """
+        Partially update a resource in CKAN.
+
+        Parameters
+        ----------
+        **kwargs
+            Resource patch parameters including 'id' and fields to update
+
+        Returns
+        -------
+        dict
+            Updated resource data from CKAN
+
+        Raises
+        ------
+        Exception
+            If CKAN resource patch fails
+        """
+        return self.ckan.action.resource_patch(**kwargs)
+
     def organization_create(self, **kwargs) -> Dict[str, Any]:
         """
         Create an organization in CKAN.

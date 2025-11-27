@@ -578,6 +578,59 @@ class MongoDBRepository(DataCatalogRepository):
             {"$set": {"metadata_modified": datetime.utcnow().isoformat()}},
         )
 
+    def resource_patch(self, **kwargs) -> Dict[str, Any]:
+        """
+        Partially update a resource (only specified fields).
+
+        Parameters
+        ----------
+        id : str
+            Resource ID to patch
+        **kwargs
+            Fields to update (name, url, description, format, etc.)
+
+        Returns
+        -------
+        dict
+            Updated resource data
+
+        Raises
+        ------
+        Exception
+            If resource not found or patch fails
+        """
+        resource_id = kwargs.pop("id", None)
+        if not resource_id:
+            raise Exception("Resource ID is required for patch")
+
+        # Get existing resource
+        existing = self.resource_show(resource_id)
+        package_id = existing["package_id"]
+
+        # Update last_modified
+        kwargs["last_modified"] = datetime.utcnow().isoformat()
+
+        # Update in resources collection
+        result = self.resources.update_one({"id": resource_id}, {"$set": kwargs})
+
+        if result.matched_count == 0:
+            raise Exception(f"Resource '{resource_id}' not found")
+
+        # Update in package's resources array
+        update_fields = {f"resources.$.{k}": v for k, v in kwargs.items()}
+        self.packages.update_one(
+            {"id": package_id, "resources.id": resource_id},
+            {"$set": update_fields},
+        )
+
+        # Update package metadata_modified
+        self.packages.update_one(
+            {"id": package_id},
+            {"$set": {"metadata_modified": datetime.utcnow().isoformat()}},
+        )
+
+        return self.resource_show(resource_id)
+
     def organization_create(self, **kwargs) -> Dict[str, Any]:
         """
         Create a new organization.
