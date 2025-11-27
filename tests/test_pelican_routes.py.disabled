@@ -1,0 +1,341 @@
+# tests/test_pelican_routes.py
+"""
+Tests for Pelican federation endpoints.
+
+Note: These tests verify the API structure but may not work with real OSDF
+federation without proper network access, credentials, or SSL certificates.
+"""
+
+import os
+import pytest
+from unittest.mock import patch, Mock
+
+# Enable Pelican before importing the app
+os.environ["PELICAN_ENABLED"] = "True"
+
+from fastapi.testclient import TestClient
+from api.main import app
+
+client = TestClient(app)
+
+
+def test_pelican_federations_endpoint():
+    """Test listing available Pelican federations."""
+    response = client.get("/pelican/federations")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["success"] is True
+    assert "federations" in data
+    assert "count" in data
+    assert data["count"] >= 2  # At least OSDF and PATh-CC
+
+    # Check OSDF federation
+    assert "osdf" in data["federations"]
+    osdf = data["federations"]["osdf"]
+    assert osdf["name"] == "Open Science Data Federation"
+    assert osdf["url"] == "pelican://osg-htc.org"
+
+    # Check PATh-CC federation
+    assert "path-cc" in data["federations"]
+    path_cc = data["federations"]["path-cc"]
+    assert path_cc["name"] == "PATh Credit Compute"
+    assert path_cc["url"] == "pelican://path-cc.io"
+
+
+def test_pelican_import_metadata_validation():
+    """Test import-metadata endpoint validates pelican:// URLs."""
+    response = client.post("/pelican/import-metadata", json={
+        "pelican_url": "http://invalid-url.com/file.nc",  # Not a pelican:// URL
+        "package_id": "test-package",
+        "resource_name": "Test Resource"
+    })
+
+    # Should reject non-pelican:// URLs
+    assert response.status_code == 400
+    assert "must start with pelican://" in response.json()["detail"]
+
+
+# Mock-based tests for better coverage
+class TestPelicanBrowseWithMocks:
+    """Tests for browse endpoint using mocks."""
+
+    @patch("api.routes.pelican_routes.browse_namespace")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_browse_success(self, mock_get_repo, mock_browse):
+        """Test successful browse with mocked service."""
+        mock_browse.return_value = {
+            "success": True,
+            "path": "/test",
+            "files": [{"name": "file1.nc"}],
+            "count": 1
+        }
+
+        response = client.get("/pelican/browse", params={
+            "path": "/test",
+            "federation": "osdf"
+        })
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["count"] == 1
+
+    @patch("api.routes.pelican_routes.browse_namespace")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_browse_path_not_found(self, mock_get_repo, mock_browse):
+        """Test browse with path not found."""
+        mock_browse.return_value = {
+            "success": False,
+            "error": "Path not found"
+        }
+
+        response = client.get("/pelican/browse", params={
+            "path": "/nonexistent",
+            "federation": "osdf"
+        })
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch("api.routes.pelican_routes.browse_namespace")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_browse_with_detail(self, mock_get_repo, mock_browse):
+        """Test browse with detail=True."""
+        mock_browse.return_value = {
+            "success": True,
+            "path": "/test",
+            "files": [{"name": "file1.nc", "size": 1024}],
+            "count": 1
+        }
+
+        response = client.get("/pelican/browse", params={
+            "path": "/test",
+            "detail": True
+        })
+
+        assert response.status_code == 200
+        mock_browse.assert_called_once()
+        call_args = mock_browse.call_args[1]
+        assert call_args["detail"] is True
+
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_browse_exception(self, mock_get_repo):
+        """Test browse handles exceptions."""
+        mock_get_repo.side_effect = Exception("Connection error")
+
+        response = client.get("/pelican/browse", params={
+            "path": "/test"
+        })
+
+        assert response.status_code == 500
+        assert "error" in response.json()["detail"].lower()
+
+
+class TestPelicanFileInfoWithMocks:
+    """Tests for info endpoint using mocks."""
+
+    @patch("api.routes.pelican_routes.get_file_info")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_file_info_success(self, mock_get_repo, mock_get_info):
+        """Test successful file info retrieval."""
+        mock_get_info.return_value = {
+            "success": True,
+            "file": {
+                "name": "/test/file.nc",
+                "size": 2048,
+                "type": "file"
+            }
+        }
+
+        response = client.get("/pelican/info", params={
+            "path": "/test/file.nc",
+            "federation": "path-cc"
+        })
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["file"]["size"] == 2048
+
+    @patch("api.routes.pelican_routes.get_file_info")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_file_info_not_found(self, mock_get_repo, mock_get_info):
+        """Test file info for nonexistent file."""
+        mock_get_info.return_value = {
+            "success": False,
+            "error": "File not found"
+        }
+
+        response = client.get("/pelican/info", params={
+            "path": "/test/missing.nc"
+        })
+
+        assert response.status_code == 404
+
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_file_info_exception(self, mock_get_repo):
+        """Test file info handles exceptions."""
+        mock_get_repo.side_effect = Exception("Network error")
+
+        response = client.get("/pelican/info", params={
+            "path": "/test/file.nc"
+        })
+
+        assert response.status_code == 500
+
+
+class TestPelicanDownloadWithMocks:
+    """Tests for download endpoint using mocks."""
+
+    @patch("api.routes.pelican_routes.download_file")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_download_success(self, mock_get_repo, mock_download):
+        """Test successful file download."""
+        mock_download.return_value = b"file content"
+
+        response = client.get("/pelican/download", params={
+            "path": "/test/file.nc",
+            "stream": False
+        })
+
+        assert response.status_code == 200
+        assert response.content == b"file content"
+        assert "attachment" in response.headers.get("content-disposition", "")
+
+    @patch("api.routes.pelican_routes.stream_file")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_download_stream(self, mock_get_repo, mock_stream):
+        """Test streaming file download."""
+        mock_stream.return_value = iter([b"chunk1", b"chunk2"])
+
+        response = client.get("/pelican/download", params={
+            "path": "/test/large.nc",
+            "stream": True
+        })
+
+        assert response.status_code == 200
+        mock_stream.assert_called_once()
+
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_download_exception(self, mock_get_repo):
+        """Test download handles exceptions."""
+        mock_get_repo.side_effect = Exception("Download failed")
+
+        response = client.get("/pelican/download", params={
+            "path": "/test/file.nc"
+        })
+
+        assert response.status_code == 500
+
+
+class TestPelicanImportMetadataWithMocks:
+    """Tests for import-metadata endpoint using mocks."""
+
+    @patch("api.routes.pelican_routes.import_file_as_resource")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_import_success(self, mock_get_repo, mock_import):
+        """Test successful metadata import."""
+        mock_import.return_value = {
+            "success": True,
+            "resource": {
+                "id": "resource-123",
+                "name": "Test Resource"
+            }
+        }
+
+        response = client.post("/pelican/import-metadata", json={
+            "pelican_url": "pelican://osg-htc.org/ospool/data/file.nc",
+            "package_id": "package-456",
+            "resource_name": "Test Resource"
+        })
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["resource"]["id"] == "resource-123"
+
+    @patch("api.routes.pelican_routes.import_file_as_resource")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_import_with_description(self, mock_get_repo, mock_import):
+        """Test import with custom description."""
+        mock_import.return_value = {
+            "success": True,
+            "resource": {"id": "res-789"}
+        }
+
+        response = client.post("/pelican/import-metadata", json={
+            "pelican_url": "pelican://path-cc.io/data/file.nc",
+            "package_id": "pkg-123",
+            "resource_name": "Resource",
+            "resource_description": "Custom description"
+        })
+
+        assert response.status_code == 200
+        mock_import.assert_called_once()
+        call_args = mock_import.call_args[1]
+        assert call_args["resource_description"] == "Custom description"
+
+    @patch("api.routes.pelican_routes.import_file_as_resource")
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_import_failed(self, mock_get_repo, mock_import):
+        """Test import failure."""
+        mock_import.return_value = {
+            "success": False,
+            "error": "Package not found"
+        }
+
+        response = client.post("/pelican/import-metadata", json={
+            "pelican_url": "pelican://osg-htc.org/file.nc",
+            "package_id": "nonexistent",
+            "resource_name": "Resource"
+        })
+
+        assert response.status_code == 400
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    def test_import_exception(self, mock_get_repo):
+        """Test import handles exceptions."""
+        mock_get_repo.side_effect = Exception("Import error")
+
+        response = client.post("/pelican/import-metadata", json={
+            "pelican_url": "pelican://osg-htc.org/file.nc",
+            "package_id": "pkg-123",
+            "resource_name": "Resource"
+        })
+
+        assert response.status_code == 500
+
+
+class TestGetPelicanRepo:
+    """Tests for get_pelican_repo helper function."""
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_get_repo_osdf(self):
+        """Test getting OSDF repository."""
+        from api.routes.pelican_routes import get_pelican_repo
+        repo = get_pelican_repo("osdf")
+        assert "osg-htc.org" in repo.federation_url
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_get_repo_path_cc(self):
+        """Test getting PATh-CC repository."""
+        from api.routes.pelican_routes import get_pelican_repo
+        repo = get_pelican_repo("path-cc")
+        assert "path-cc.io" in repo.federation_url
+
+    @patch.dict(os.environ, {"PELICAN_FEDERATION_URL": "pelican://custom.org"}, clear=True)
+    def test_get_repo_custom_url(self):
+        """Test custom federation URL from environment."""
+        from api.routes.pelican_routes import get_pelican_repo
+        repo = get_pelican_repo("osdf")
+        assert repo.federation_url == "pelican://custom.org"
+
+    @patch.dict(os.environ, {"PELICAN_DIRECT_READS": "true"}, clear=True)
+    def test_get_repo_direct_reads(self):
+        """Test direct reads configuration."""
+        from api.routes.pelican_routes import get_pelican_repo
+        repo = get_pelican_repo("osdf")
+        assert repo.direct_reads is True

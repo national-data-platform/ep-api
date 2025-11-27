@@ -56,6 +56,7 @@ This is a staging environment provided by the NDP for dataset submission and rev
 - **📋 General Dataset Management**: Flexible API for managing datasets with custom metadata
 - **🔧 Service Registry**: Register and discover other services (such as microservices, APIs, or apps)
 - **🤖 AI Agent Integration**: Model Context Protocol (MCP) support for AI assistants to interact with the API
+- **🌐 Pelican Federation**: Access distributed scientific data from OSDF and serve your own data to federations
 - **📈 System Monitoring**: Built-in metrics and health monitoring
 - **📚 RESTful API**: Comprehensive OpenAPI/Swagger documentation
 - **🔌 Extensible Architecture**: Easy to add new catalog backends (Elasticsearch, PostgreSQL, etc.)
@@ -401,6 +402,146 @@ The NDP-EP API automatically collects and logs comprehensive system metrics at c
   "timestamp": "2025-10-09T16:48:09.874843Z"
 }
 ```
+
+## 🌐 Pelican Federation Integration
+
+The NDP-EP API integrates with the [Pelican Platform](https://pelicanplatform.org) to enable access to distributed scientific data federations and to serve your own data to the global scientific community.
+
+### What is Pelican?
+
+Pelican is an open-source data federation platform that connects distributed data repositories under a unified architecture. It enables:
+- **Federated Data Access**: Browse and download from 20+ PB of scientific data in the Open Science Data Federation (OSDF)
+- **Data Sharing**: Serve your MinIO/S3 data to the global scientific federation
+- **Distributed Caching**: Automatic caching improves delivery efficiency for popular datasets
+- **Unified Namespace**: Access heterogeneous sources (S3, POSIX, HTTP) through a common pelican:// protocol
+
+### Two Integration Approaches
+
+#### 1. Access External Federations (Phase 1)
+Use dedicated Pelican endpoints to browse and download from external federations like OSDF:
+
+**Available Endpoints:**
+- `GET /pelican/federations` - List available federations (OSDF, PATh-CC, etc.)
+- `GET /pelican/browse?path=/ospool/data&federation=osdf` - Browse federation namespaces
+- `GET /pelican/info?path=/ospool/file.nc&federation=osdf` - Get file metadata
+- `GET /pelican/download?path=/ospool/file.nc&stream=true` - Download/stream files
+- `POST /pelican/import-metadata` - Import external file as resource in local catalog
+
+**Example Usage:**
+```bash
+# List available federations
+curl http://localhost:8002/pelican/federations
+
+# Browse OSDF public data
+curl "http://localhost:8002/pelican/browse?path=/ospool/uc-shared/public&detail=true"
+
+# Download file from federation
+curl "http://localhost:8002/pelican/download?path=/ospool/data/file.nc&stream=true" -o file.nc
+
+# Import external Pelican file into local catalog
+curl -X POST http://localhost:8002/pelican/import-metadata \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pelican_url": "pelican://osg-htc.org/ospool/data/temperature.nc",
+    "package_id": "my-dataset-id",
+    "resource_name": "OSDF Temperature Data"
+  }'
+```
+
+#### 2. Pelican as Storage Backend (Phase 2)
+Use `pelican://` URLs in your resource definitions - the API automatically handles downloads:
+
+```bash
+# Register dataset with Pelican URL
+curl -X POST http://localhost:8002/services \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "osdf-climate-data",
+    "title": "Climate Data from OSDF",
+    "url": "pelican://osg-htc.org/ospool/climate/dataset.nc"
+  }'
+
+# The download handler automatically detects and uses Pelican
+# No changes needed to existing endpoints!
+```
+
+### Running Your Own Pelican Federation
+
+The included `docker-compose.yml` sets up a complete local Pelican federation with 4 services:
+
+1. **Pelican Registry** (port 8444): Manages namespace registrations
+2. **Pelican Director** (port 8445): Routes client requests to appropriate origins/caches
+3. **Pelican Origin** (port 8446-8447): Serves MinIO data at federation path `/ndp-demo`
+4. **Pelican Cache** (port 8448-8449): Caches popular objects for faster delivery
+
+**Your MinIO data becomes accessible via:**
+```
+pelican://pelican-origin/ndp-demo/bucket-name/object-key
+```
+
+### Configuration
+
+Enable Pelican in your `.env` file:
+
+```bash
+# Enable Pelican federation access
+PELICAN_ENABLED=True
+
+# Default federation (leave empty for OSDF)
+PELICAN_FEDERATION_URL=
+
+# Use caching infrastructure (recommended)
+PELICAN_DIRECT_READS=False
+```
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    NDP-EP API                            │
+│  ┌──────────────────┐         ┌──────────────────┐     │
+│  │ Phase 1 Routes   │         │  Phase 2 Handler │     │
+│  │ /pelican/*       │         │  pelican:// URLs │     │
+│  └────────┬─────────┘         └─────────┬────────┘     │
+│           │                              │               │
+│           └──────────┬───────────────────┘               │
+│                      │                                   │
+│            ┌─────────▼──────────┐                       │
+│            │ PelicanRepository  │                       │
+│            │   (pelicanfs)      │                       │
+│            └─────────┬──────────┘                       │
+└──────────────────────┼──────────────────────────────────┘
+                       │
+        ┌──────────────┼──────────────┐
+        │              │               │
+   ┌────▼─────┐   ┌───▼────┐    ┌────▼─────┐
+   │   OSDF   │   │ PATh-CC│    │  Local   │
+   │ Director │   │Director│    │ Director │
+   └────┬─────┘   └───┬────┘    └────┬─────┘
+        │             │               │
+   ┌────▼─────┐  ┌───▼────┐     ┌────▼──────┐
+   │  Cache   │  │ Cache  │     │   Cache   │
+   └────┬─────┘  └───┬────┘     └────┬──────┘
+        │            │                │
+   ┌────▼─────┐ ┌───▼────┐      ┌────▼──────┐
+   │  Origin  │ │ Origin │      │  Origin   │
+   │(20+ PB)  │ │        │      │  (MinIO)  │
+   └──────────┘ └────────┘      └───────────┘
+```
+
+### Benefits
+
+✅ **Access 20+ PB of Scientific Data**: OSDF provides access to datasets from major research institutions
+✅ **Distributed Caching**: Popular datasets are cached closer to compute resources
+✅ **Backward Compatible**: Existing endpoints work unchanged with `pelican://` URLs
+✅ **Share Your Data**: Expose MinIO datasets to the global scientific federation
+✅ **Unified Protocol**: Single API for HTTP, S3, Kafka, and Pelican resources
+
+### Learn More
+
+- **Pelican Platform**: [https://pelicanplatform.org](https://pelicanplatform.org)
+- **OSDF Documentation**: [https://osg-htc.org/services/osdf.html](https://osg-htc.org/services/osdf.html)
+- **Configuration Guide**: [pelican-origin.yml](pelican-origin.yml)
 
 ## 📄 License
 

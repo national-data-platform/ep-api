@@ -127,6 +127,12 @@ if s3_settings.enabled:
     app.include_router(routes.minio_bucket_router, tags=["S3"])
     app.include_router(routes.minio_object_router, tags=["S3"])
 
+# Include Pelican routes if enabled
+pelican_enabled = os.getenv("PELICAN_ENABLED", "false").lower() == "true"
+if pelican_enabled:
+    from api.routes.pelican_routes import router as pelican_router
+    app.include_router(pelican_router)
+
 # Initialize and mount FastAPI-MCP for AI agent communication
 mcp = FastApiMCP(app)
 mcp.mount_http()

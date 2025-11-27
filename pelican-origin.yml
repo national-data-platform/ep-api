@@ -1,0 +1,55 @@
+# Pelican Origin Configuration
+# This file configures the Pelican Origin server to serve MinIO data
+# to the Pelican federation.
+
+# Federation Settings
+Federation:
+  # Discovery URL for the federation director
+  DiscoveryUrl: http://pelican-director:8444
+
+  # Registry URL for namespace registration
+  RegistryUrl: http://pelican-registry:8444
+
+# Origin Server Settings
+Origin:
+  # Data exports mapping local storage to federation namespaces
+  # Format: LocalPath:FederationNamespace
+  Exports:
+    - FederationPrefix: /ndp-demo
+      StoragePrefix: /minio
+      Capabilities:
+        - PublicReads    # Allow public read access
+        - Listings       # Allow directory listings
+
+  # Port for data transfers (XRootD protocol)
+  Port: 8443
+
+# Server Settings
+Server:
+  # Hostname for this origin server
+  Hostname: pelican-origin
+
+  # Web interface port
+  WebPort: 8444
+
+  # TLS Settings (optional - use HTTP for internal federation)
+  # TLSCertificateChain: /path/to/cert.pem
+  # TLSKey: /path/to/key.pem
+  # TLSCACertificateFile: /path/to/ca.pem
+
+# Logging
+Logging:
+  Level: info
+  # Available levels: debug, info, warn, error
+
+# Cache settings (for Origin acting as cache)
+# Cache:
+#   DataLocation: /var/lib/pelican/cache
+#   MaxSize: 100GB
+
+# Notes:
+# - This configuration serves MinIO data at federation path /ndp-demo
+# - MinIO volume is mounted read-only at /minio in the container
+# - Public reads are enabled for demonstration purposes
+# - For production, configure TLS certificates and authentication
+# - The Origin automatically registers with the Registry on startup

@@ -213,6 +213,98 @@ services:
     restart: unless-stopped
     command: start-notebook.sh --NotebookApp.token='testing_token' --NotebookApp.password=''
 
+  # ==============================================
+  # Pelican Registry - Namespace Management
+  # ==============================================
+  pelican-registry:
+    image: hub.opensciencegrid.org/pelican_platform/registry:latest
+    container_name: ndp-pelican-registry
+    ports:
+      - "8444:8444"      # Web interface
+    environment:
+      PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
+      PELICAN_SERVER_HOSTNAME: pelican-registry
+      PELICAN_TLSSKIPVERIFY: "true"
+      PELICAN_SERVER_ENABLEUI: "false"
+    volumes:
+      - pelican_registry_data:/var/lib/pelican
+    networks:
+      - ndp-network
+    restart: unless-stopped
+
+  # ==============================================
+  # Pelican Director - Request Routing
+  # ==============================================
+  pelican-director:
+    image: hub.opensciencegrid.org/pelican_platform/director:latest
+    container_name: ndp-pelican-director
+    ports:
+      - "8445:8444"      # Web interface
+    environment:
+      PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
+      PELICAN_SERVER_HOSTNAME: pelican-director
+      PELICAN_TLSSKIPVERIFY: "true"
+      PELICAN_SERVER_ENABLEUI: "false"
+    volumes:
+      - pelican_director_data:/var/lib/pelican
+    networks:
+      - ndp-network
+    depends_on:
+      - pelican-registry
+    restart: unless-stopped
+
+  # ==============================================
+  # Pelican Origin - Serve MinIO Data to Federation
+  # ==============================================
+  pelican-origin:
+    image: hub.opensciencegrid.org/pelican_platform/origin:latest
+    container_name: ndp-pelican-origin
+    ports:
+      - "8446:8443"      # Data transfer port
+      - "8447:8444"      # Web interface
+    environment:
+      PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
+      PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
+      PELICAN_SERVER_HOSTNAME: pelican-origin
+      PELICAN_TLSSKIPVERIFY: "true"
+      PELICAN_SERVER_ENABLEUI: "false"
+    volumes:
+      - pelican_origin_data:/var/lib/pelican
+      - minio_data:/minio:ro        # Read-only access to MinIO data
+      - ./pelican-origin-config.yaml:/etc/pelican/config.d/10-origin.yaml:ro
+    networks:
+      - ndp-network
+    depends_on:
+      - pelican-director
+      - pelican-registry
+      - minio
+    restart: unless-stopped
+
+  # ==============================================
+  # Pelican Cache - Accelerate Data Access
+  # ==============================================
+  pelican-cache:
+    image: hub.opensciencegrid.org/pelican_platform/cache:latest
+    container_name: ndp-pelican-cache
+    ports:
+      - "8448:8443"      # Data transfer port
+      - "8449:8444"      # Web interface
+    environment:
+      PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
+      PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
+      PELICAN_SERVER_HOSTNAME: pelican-cache
+      PELICAN_TLSSKIPVERIFY: "true"
+      PELICAN_SERVER_ENABLEUI: "false"
+    volumes:
+      - pelican_cache_data:/var/lib/pelican
+    networks:
+      - ndp-network
+    depends_on:
+      - pelican-director
+      - pelican-registry
+      - pelican-origin
+    restart: unless-stopped
+
 # ==============================================
 # Volumes - Persistent Data Storage
 # ==============================================
@@ -230,6 +322,14 @@ volumes:
   kafka_data:
     driver: local
   jupyterlab_data:
+    driver: local
+  pelican_registry_data:
+    driver: local
+  pelican_director_data:
+    driver: local
+  pelican_origin_data:
+    driver: local
+  pelican_cache_data:
     driver: local
 
 # ==============================================
