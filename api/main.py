@@ -141,7 +141,7 @@ mcp.mount_http()
 def custom_openapi():
     """
     Customize the OpenAPI schema to support both username/password
-    and token-based authentication.
+    and token-based authentication, and propagate ROOT_PATH to Swagger UI.
     """
     if app.openapi_schema:
         return app.openapi_schema
@@ -152,6 +152,10 @@ def custom_openapi():
         description=app.description,
         routes=app.routes,
     )
+
+    # Propagate ROOT_PATH to Swagger UI servers
+    if swagger_settings.root_path:
+        openapi_schema["servers"] = [{"url": swagger_settings.root_path}]
 
     # Define security schemes for OAuth2 Password and Bearer Token
     openapi_schema["components"]["securitySchemes"] = {
