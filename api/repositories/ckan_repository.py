@@ -123,7 +123,11 @@ class CKANRepository(DataCatalogRepository):
 
     def package_delete(self, id: str) -> None:
         """
-        Delete a package from CKAN.
+        Permanently delete a package from CKAN.
+
+        Uses package_purge instead of package_delete to ensure the dataset
+        is completely removed from the database, not just soft-deleted.
+        This allows organization deletion and name reuse.
 
         Parameters
         ----------
@@ -133,9 +137,9 @@ class CKANRepository(DataCatalogRepository):
         Raises
         ------
         Exception
-            If CKAN package deletion fails
+            If CKAN package purge fails
         """
-        self.ckan.action.package_delete(id=id)
+        self.ckan.action.dataset_purge(id=id)
 
     def package_search(
         self,
@@ -300,7 +304,12 @@ class CKANRepository(DataCatalogRepository):
 
     def organization_delete(self, id: str) -> None:
         """
-        Delete an organization from CKAN.
+        Permanently delete an organization from CKAN.
+
+        Uses organization_purge instead of organization_delete to ensure
+        the organization is completely removed from the database.
+        This is necessary because organization_delete may fail if there
+        are any datasets (even purged ones) that CKAN still tracks.
 
         Parameters
         ----------
@@ -310,9 +319,9 @@ class CKANRepository(DataCatalogRepository):
         Raises
         ------
         Exception
-            If CKAN organization deletion fails
+            If CKAN organization purge fails
         """
-        self.ckan.action.organization_delete(id=id)
+        self.ckan.action.organization_purge(id=id)
 
     def check_health(self) -> bool:
         """

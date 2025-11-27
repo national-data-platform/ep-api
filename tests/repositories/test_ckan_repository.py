@@ -56,14 +56,14 @@ class TestCKANRepositoryPackageOperations:
         mock_ckan.action.package_patch.assert_called_once_with(id="pkg-123", title="Patched")
 
     def test_package_delete(self):
-        """Test deleting a package."""
+        """Test deleting a package (uses dataset_purge for permanent deletion)."""
         mock_ckan = MagicMock()
-        mock_ckan.action.package_delete.return_value = None
+        mock_ckan.action.dataset_purge.return_value = None
 
         repo = CKANRepository(mock_ckan)
         repo.package_delete(id="pkg-123")
 
-        mock_ckan.action.package_delete.assert_called_once_with(id="pkg-123")
+        mock_ckan.action.dataset_purge.assert_called_once_with(id="pkg-123")
 
     def test_package_search(self):
         """Test searching packages."""
@@ -150,14 +150,14 @@ class TestCKANRepositoryOrganizationOperations:
         mock_ckan.action.organization_list.assert_called_once_with(all_fields=True)
 
     def test_organization_delete(self):
-        """Test deleting an organization."""
+        """Test deleting an organization (uses organization_purge for permanent deletion)."""
         mock_ckan = MagicMock()
-        mock_ckan.action.organization_delete.return_value = None
+        mock_ckan.action.organization_purge.return_value = None
 
         repo = CKANRepository(mock_ckan)
         repo.organization_delete(id="org-123")
 
-        mock_ckan.action.organization_delete.assert_called_once_with(id="org-123")
+        mock_ckan.action.organization_purge.assert_called_once_with(id="org-123")
 
 
 class TestCKANRepositoryHealth:

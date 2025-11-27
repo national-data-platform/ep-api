@@ -353,7 +353,10 @@ def test_url_resource_routes():
 
     if response:
         try:
-            created_resources["url_resource_id"] = response.json()["resource_id"]
+            resp_json = response.json()
+            # API returns {"id": "..."} for dataset id
+            created_resources["url_dataset_id"] = resp_json.get("id")
+            created_resources["url_dataset_name"] = url_data["resource_name"]
         except:
             pass
 
@@ -400,7 +403,9 @@ def test_s3_resource_routes():
 
     if response:
         try:
-            created_resources["s3_resource_id"] = response.json()["resource_id"]
+            resp_json = response.json()
+            created_resources["s3_dataset_id"] = resp_json.get("id")
+            created_resources["s3_dataset_name"] = s3_data["resource_name"]
         except:
             pass
 
@@ -445,7 +450,9 @@ def test_service_routes():
 
     if response:
         try:
-            created_resources["service_id"] = response.json()["resource_id"]
+            resp_json = response.json()
+            created_resources["service_dataset_id"] = resp_json.get("id")
+            created_resources["service_dataset_name"] = service_data["service_name"]
         except:
             pass
 
@@ -652,39 +659,47 @@ def test_cleanup():
             skip_if_unavailable=True,
         )
 
-    # Delete URL resource
-    if "url_resource_id" in created_resources:
+    # Delete URL dataset
+    if "url_dataset_name" in created_resources:
         test_request(
             "DELETE",
-            "/resource",
-            "DELETE /resource?resource_id={id} - Delete URL resource",
+            f"/resource/{created_resources['url_dataset_name']}",
+            "DELETE /resource/{name} - Delete URL dataset",
             headers=HEADERS,
-            params={
-                "resource_id": created_resources["url_resource_id"],
-                "server": "local",
-            },
+            params={"server": "local"},
             expected_status=200,
         )
 
-    # Delete S3 resource
-    if "s3_resource_id" in created_resources:
+    # Delete S3 dataset
+    if "s3_dataset_name" in created_resources:
         test_request(
             "DELETE",
-            "/resource",
-            "DELETE /resource?resource_id={id} - Delete S3 resource",
+            f"/resource/{created_resources['s3_dataset_name']}",
+            "DELETE /resource/{name} - Delete S3 dataset",
             headers=HEADERS,
-            params={"resource_id": created_resources["s3_resource_id"], "server": "local"},
+            params={"server": "local"},
             expected_status=200,
         )
 
-    # Delete service
-    if "service_id" in created_resources:
+    # Delete service dataset
+    if "service_dataset_name" in created_resources:
         test_request(
             "DELETE",
-            "/resource",
-            "DELETE /resource?resource_id={id} - Delete service",
+            f"/resource/{created_resources['service_dataset_name']}",
+            "DELETE /resource/{name} - Delete service dataset",
             headers=HEADERS,
-            params={"resource_id": created_resources["service_id"], "server": "local"},
+            params={"server": "local"},
+            expected_status=200,
+        )
+
+    # Delete Kafka dataset
+    if "kafka_dataset_id" in created_resources:
+        test_request(
+            "DELETE",
+            f"/resource/{created_resources['kafka_dataset_id']}",
+            "DELETE /resource/{id} - Delete Kafka dataset",
+            headers=HEADERS,
+            params={"server": "local"},
             expected_status=200,
         )
 
@@ -699,15 +714,14 @@ def test_cleanup():
             expected_status=200,
         )
 
-    # Delete organization
+    # Delete organization (datasets are now purged, not soft-deleted, so this should work)
     if "organization_name" in created_resources:
         test_request(
             "DELETE",
             f"/organization/{created_resources['organization_name']}",
             "DELETE /organization/{name} - Delete organization",
-            headers=HEADERS,
-            params={"server": "local"},
             expected_status=200,
+            params={"server": "local"},
         )
 
 
