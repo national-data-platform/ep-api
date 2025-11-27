@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-11-27
+
+### Fixed
+- Fixed AttributeError in service routes when using CKAN backend
+  - Service routes accessed `repository.ckan_instance` but CKANRepository stores client as `self.ckan`
+  - Affected endpoints: POST /services, PUT /services/{id}, PATCH /services/{id}
+
 ## [0.3.2] - 2025-11-12
 
 ### Fixed
