@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2025-11-27
+
+### Fixed
+- Use purge instead of delete for CKAN datasets and organizations
+  - Changed `package_delete` to use `dataset_purge` for permanent deletion
+  - Changed `organization_delete` to use `organization_purge` for permanent deletion
+  - CKAN's soft-delete left datasets in database, preventing organization deletion
+  - Now datasets and organizations are completely removed, enabling proper cleanup
+
 ## [0.3.3] - 2025-11-27
 
 ### Fixed
