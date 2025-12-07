@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-12-07
+
+### Added
+- SSL verification toggle for CKAN connections
+  - `CKAN_VERIFY_SSL` environment variable (default: True)
+  - `PRE_CKAN_VERIFY_SSL` environment variable (default: True)
+  - Allows disabling SSL certificate verification for self-signed certificates
+  - Fixes SSL errors when connecting to CKAN instances with self-signed certs
+
+### Changed
+- Refactored URL normalization into `_normalize_url` helper method in ckan_settings
+
 ## [0.4.0] - 2025-11-27
 
 ### Added
