@@ -105,3 +105,61 @@ class TestCKANSettings:
         assert settings.pre_ckan_enabled is True
         assert settings.pre_ckan_url == "http://custom-pre.com"
         assert settings.pre_ckan_api_key == "custom-pre-key"
+
+    def test_ckan_ssl_verify_default_true(self):
+        """Test SSL verification is enabled by default."""
+        settings = Settings(ckan_url="https://test-ckan.com")
+
+        assert settings.ckan_verify_ssl is True
+        ckan_client = settings.ckan
+        assert ckan_client.session.verify is True
+
+    def test_ckan_ssl_verify_disabled(self):
+        """Test SSL verification can be disabled."""
+        settings = Settings(
+            ckan_url="https://test-ckan.com",
+            ckan_verify_ssl=False
+        )
+
+        assert settings.ckan_verify_ssl is False
+        ckan_client = settings.ckan
+        assert ckan_client.session.verify is False
+
+    def test_ckan_no_api_key_ssl_verify(self):
+        """Test SSL verification applies to ckan_no_api_key."""
+        settings = Settings(
+            ckan_url="https://test-ckan.com",
+            ckan_verify_ssl=False
+        )
+
+        ckan_client = settings.ckan_no_api_key
+        assert ckan_client.session.verify is False
+
+    def test_pre_ckan_ssl_verify_default_true(self):
+        """Test Pre-CKAN SSL verification is enabled by default."""
+        settings = Settings(pre_ckan_url="https://pre-ckan.com")
+
+        assert settings.pre_ckan_verify_ssl is True
+        ckan_client = settings.pre_ckan
+        assert ckan_client.session.verify is True
+
+    def test_pre_ckan_ssl_verify_disabled(self):
+        """Test Pre-CKAN SSL verification can be disabled."""
+        settings = Settings(
+            pre_ckan_url="https://pre-ckan.com",
+            pre_ckan_verify_ssl=False
+        )
+
+        assert settings.pre_ckan_verify_ssl is False
+        ckan_client = settings.pre_ckan
+        assert ckan_client.session.verify is False
+
+    def test_pre_ckan_no_api_key_ssl_verify(self):
+        """Test SSL verification applies to pre_ckan_no_api_key."""
+        settings = Settings(
+            pre_ckan_url="https://pre-ckan.com",
+            pre_ckan_verify_ssl=False
+        )
+
+        ckan_client = settings.pre_ckan_no_api_key
+        assert ckan_client.session.verify is False
