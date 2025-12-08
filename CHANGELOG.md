@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-12-08
+
+### Added
+- Resource management endpoints by ID only (no dataset_id required)
+  - `GET /resource/{resource_id}` - Get resource by ID
+  - `PATCH /resource/{resource_id}` - Update resource by ID
+  - `DELETE /resource/{resource_id}` - Delete resource by ID
+- Resource search endpoint with filtering capabilities
+  - `GET /resources/search` - Search resources across all datasets
+  - Supports filters: `q` (general), `name`, `url`, `format`, `description`
+  - Pagination with `limit` and `offset` parameters
+  - Results include parent dataset context (dataset_id, dataset_name, dataset_title)
+- MongoDB-optimized `resource_search` implementation in repository layer
+
 ## [0.4.1] - 2025-12-07
 
 ### Added
