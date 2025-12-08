@@ -471,6 +471,188 @@ def test_service_routes():
         )
 
 
+def test_resource_by_id_routes():
+    """Test resource management by ID endpoints."""
+    print_section("RESOURCE BY ID ROUTES")
+
+    if "organization_name" not in created_resources:
+        results.add_skip("Resource by ID tests", "(No organization created)")
+        return
+
+    # First, create a URL resource to test with
+    url_data = {
+        "resource_name": f"test_resource_byid_{UNIQUE_SUFFIX}",
+        "resource_title": f"Test Resource By ID {UNIQUE_SUFFIX}",
+        "owner_org": created_resources["organization_name"],
+        "resource_url": "https://example.com/resource-test.csv",
+        "file_type": "CSV",
+        "notes": "Test resource for ID-based operations",
+    }
+    response = test_request(
+        "POST",
+        "/url",
+        "POST /url - Create resource for ID tests",
+        headers=HEADERS,
+        json_data=url_data,
+        params={"server": "local"},
+        expected_status=201,
+    )
+
+    if not response:
+        results.add_skip("Resource by ID tests", "(Failed to create test resource)")
+        return
+
+    dataset_id = response.json().get("id")
+    created_resources["resource_byid_dataset_id"] = dataset_id
+    created_resources["resource_byid_dataset_name"] = url_data["resource_name"]
+
+    # Search for the resource to get its ID
+    search_response = requests.get(
+        f"{BASE_URL}/resources/search",
+        headers=HEADERS,
+        params={"name": url_data["resource_name"], "server": "local"},
+        timeout=10,
+    )
+
+    if search_response.status_code != 200 or not search_response.json().get("results"):
+        results.add_skip("Resource by ID tests", "(Failed to find created resource)")
+        return
+
+    resource_id = search_response.json()["results"][0]["id"]
+    created_resources["test_resource_id"] = resource_id
+
+    # Test: GET /resource/{resource_id}
+    test_request(
+        "GET",
+        f"/resource/{resource_id}",
+        "GET /resource/{id} - Get resource by ID",
+        headers=HEADERS,
+        params={"server": "local"},
+    )
+
+    # Test: PATCH /resource/{resource_id}
+    patch_data = {"description": "Updated via PATCH /resource/{id}"}
+    test_request(
+        "PATCH",
+        f"/resource/{resource_id}",
+        "PATCH /resource/{id} - Update resource by ID",
+        headers=HEADERS,
+        json_data=patch_data,
+        params={"server": "local"},
+    )
+
+    # Verify the update worked by getting the resource again
+    verify_response = requests.get(
+        f"{BASE_URL}/resource/{resource_id}",
+        headers=HEADERS,
+        params={"server": "local"},
+        timeout=10,
+    )
+    if verify_response.status_code == 200:
+        updated_desc = verify_response.json().get("description", "")
+        if "Updated via PATCH" in updated_desc:
+            results.add_pass("PATCH /resource/{id} - Verify update", "(Update confirmed)")
+        else:
+            results.add_fail("PATCH /resource/{id} - Verify update", f"(Description not updated: {updated_desc})")
+    else:
+        results.add_fail("PATCH /resource/{id} - Verify update", f"(Failed to verify: {verify_response.status_code})")
+
+
+def test_resource_search_routes():
+    """Test resource search endpoint."""
+    print_section("RESOURCE SEARCH ROUTES")
+
+    # Test: GET /resources/search (no filters)
+    response = test_request(
+        "GET",
+        "/resources/search",
+        "GET /resources/search - Search all resources",
+        headers=HEADERS,
+        params={"server": "local", "limit": 5},
+    )
+
+    if response:
+        data = response.json()
+        count = data.get("count", 0)
+        results_count = len(data.get("results", []))
+        if count >= 0 and results_count <= 5:
+            results.add_pass(
+                "GET /resources/search - Response format",
+                f"(count={count}, results={results_count})"
+            )
+        else:
+            results.add_fail("GET /resources/search - Response format", f"(Invalid format)")
+
+    # Test: GET /resources/search with query filter
+    test_request(
+        "GET",
+        "/resources/search",
+        "GET /resources/search?q=test - Search with query",
+        headers=HEADERS,
+        params={"q": "test", "server": "local", "limit": 10},
+    )
+
+    # Test: GET /resources/search with format filter
+    test_request(
+        "GET",
+        "/resources/search",
+        "GET /resources/search?format=url - Search by format",
+        headers=HEADERS,
+        params={"format": "url", "server": "local", "limit": 10},
+    )
+
+    # Test: GET /resources/search with pagination
+    response = test_request(
+        "GET",
+        "/resources/search",
+        "GET /resources/search?offset=0&limit=2 - Search with pagination",
+        headers=HEADERS,
+        params={"offset": 0, "limit": 2, "server": "local"},
+    )
+
+    if response:
+        data = response.json()
+        results_count = len(data.get("results", []))
+        if results_count <= 2:
+            results.add_pass(
+                "GET /resources/search - Pagination limit",
+                f"(returned {results_count} results, limit=2)"
+            )
+        else:
+            results.add_fail(
+                "GET /resources/search - Pagination limit",
+                f"(returned {results_count} results, expected <=2)"
+            )
+
+    # Test: Verify results include dataset context
+    response = test_request(
+        "GET",
+        "/resources/search",
+        "GET /resources/search - Dataset context in results",
+        headers=HEADERS,
+        params={"server": "local", "limit": 1},
+    )
+
+    if response:
+        data = response.json()
+        if data.get("results"):
+            first_result = data["results"][0]
+            has_context = all(
+                key in first_result
+                for key in ["dataset_id", "dataset_name", "dataset_title"]
+            )
+            if has_context:
+                results.add_pass(
+                    "GET /resources/search - Has dataset context",
+                    "(dataset_id, dataset_name, dataset_title present)"
+                )
+            else:
+                results.add_fail(
+                    "GET /resources/search - Has dataset context",
+                    f"(Missing context keys: {list(first_result.keys())})"
+                )
+
+
 def test_kafka_routes():
     """Test Kafka resource CRUD operations."""
     print_section("KAFKA RESOURCE ROUTES")
@@ -670,6 +852,17 @@ def test_cleanup():
             expected_status=200,
         )
 
+    # Delete resource by ID test dataset
+    if "resource_byid_dataset_name" in created_resources:
+        test_request(
+            "DELETE",
+            f"/resource/{created_resources['resource_byid_dataset_name']}",
+            "DELETE /resource/{name} - Delete resource by ID test dataset",
+            headers=HEADERS,
+            params={"server": "local"},
+            expected_status=200,
+        )
+
     # Delete S3 dataset
     if "s3_dataset_name" in created_resources:
         test_request(
@@ -745,6 +938,8 @@ def main():
     test_url_resource_routes()
     test_s3_resource_routes()
     test_service_routes()
+    test_resource_by_id_routes()
+    test_resource_search_routes()
     test_kafka_routes()
     test_minio_bucket_routes()
     test_minio_object_routes()
