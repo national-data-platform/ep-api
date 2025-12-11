@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from .patch_general_dataset import router as patch_general_dataset
 from .patch_kafka import router as patch_kafka
+from .patch_resource import router as patch_resource
 from .patch_s3 import router as patch_s3
 from .patch_service import router as patch_service
 from .patch_url import router as patch_url
@@ -20,6 +21,7 @@ router.include_router(put_service)
 router.include_router(put_general_dataset)
 router.include_router(patch_general_dataset)
 router.include_router(patch_kafka)
+router.include_router(patch_resource)
 router.include_router(patch_s3)
 router.include_router(patch_service)
 router.include_router(patch_url)

@@ -170,13 +170,13 @@ async def create_service(
                 )
             # Use PreCKAN repository
             repository = catalog_settings.pre_catalog
-            ckan_instance = repository.ckan_instance
+            ckan_instance = repository.ckan
         else:
             # Use local catalog (respects LOCAL_CATALOG_BACKEND configuration)
             repository = catalog_settings.local_catalog
             # For backward compatibility, extract ckan_instance if it's a CKAN repository
             ckan_instance = (
-                repository.ckan_instance
+                repository.ckan
                 if isinstance(repository, CKANRepository)
                 else None
             )

@@ -1,0 +1,5 @@
+Origin:
+  Exports:
+    - StoragePrefix: /minio
+      FederationPrefix: /ndp-demo
+      Capabilities: ["PublicReads", "Writes", "Listings"]

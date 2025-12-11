@@ -2,3 +2,8 @@ __pycache__
 .env*
 .venv
 /logs
+CLAUDE.md
+uvicorn.log
+docs/.ipynb_checkpoints/
+.coverage
+htmlcov/

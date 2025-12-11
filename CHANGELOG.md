@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-12-08
+
+### Added
+- Resource management endpoints by ID only (no dataset_id required)
+  - `GET /resource/{resource_id}` - Get resource by ID
+  - `PATCH /resource/{resource_id}` - Update resource by ID
+  - `DELETE /resource/{resource_id}` - Delete resource by ID
+- Resource search endpoint with filtering capabilities
+  - `GET /resources/search` - Search resources across all datasets
+  - Supports filters: `q` (general), `name`, `url`, `format`, `description`
+  - Pagination with `limit` and `offset` parameters
+  - Results include parent dataset context (dataset_id, dataset_name, dataset_title)
+- MongoDB-optimized `resource_search` implementation in repository layer
+
+## [0.4.1] - 2025-12-07
+
+### Added
+- SSL verification toggle for CKAN connections
+  - `CKAN_VERIFY_SSL` environment variable (default: True)
+  - `PRE_CKAN_VERIFY_SSL` environment variable (default: True)
+  - Allows disabling SSL certificate verification for self-signed certificates
+  - Fixes SSL errors when connecting to CKAN instances with self-signed certs
+
+### Changed
+- Refactored URL normalization into `_normalize_url` helper method in ckan_settings
+
+## [0.4.0] - 2025-11-27
+
+### Added
+- New endpoint to delete individual resources from a dataset
+  - `DELETE /dataset/{dataset_id}/resource/{resource_id}` removes a single resource
+  - Dataset and other resources remain intact
+  - Supports both local and pre_ckan server parameters
+  - New service function `delete_resource()` in dataset_services
+- New endpoint to partially update individual resources (PATCH)
+  - `PATCH /dataset/{dataset_id}/resource/{resource_id}` updates only specified fields
+  - Supports updating name, url, description, format
+  - New `resource_patch` method in repositories (CKAN and MongoDB)
+  - New service function `patch_resource()` in dataset_services
+
+### Fixed
+- ROOT_PATH now properly propagates to Swagger UI requests (fixes #23)
+  - Added servers configuration to OpenAPI schema when ROOT_PATH is set
+
+### Documentation
+- Added link to "Adding New Catalog Backends" documentation in README (fixes #22)
+
+## [0.3.4] - 2025-11-27
+
+### Fixed
+- Use purge instead of delete for CKAN datasets and organizations
+  - Changed `package_delete` to use `dataset_purge` for permanent deletion
+  - Changed `organization_delete` to use `organization_purge` for permanent deletion
+  - CKAN's soft-delete left datasets in database, preventing organization deletion
+  - Now datasets and organizations are completely removed, enabling proper cleanup
+
+## [0.3.3] - 2025-11-27
+
+### Fixed
+- Fixed AttributeError in service routes when using CKAN backend
+  - Service routes accessed `repository.ckan_instance` but CKANRepository stores client as `self.ckan`
+  - Affected endpoints: POST /services, PUT /services/{id}, PATCH /services/{id}
+
 ## [0.3.2] - 2025-11-12
 
 ### Fixed

@@ -1,5 +1,5 @@
 # tests/test_general_dataset.py
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -347,3 +347,258 @@ class TestPatchGeneralDataset:
         assert result == "custom-patch-123"
         custom_repo.package_show.assert_called_once()
         custom_repo.package_update.assert_called_once()
+
+    def test_patch_with_all_field_types(self):
+        """Test patch with all different field types to cover all branches."""
+        mock_repo = MagicMock()
+        mock_repo.package_show.return_value = {
+            "id": "patch-all-123",
+            "name": "old_name",
+            "title": "Old Title",
+            "owner_org": "old_org",
+            "notes": "Old notes",
+            "private": False,
+            "license_id": "old-license",
+            "version": "1.0",
+            "tags": [],
+            "groups": [],
+            "extras": [],
+            "resources": [],
+        }
+        mock_repo.package_update.return_value = {"id": "patch-all-123"}
+
+        # Patch all fields to cover all conditional branches
+        result = patch_general_dataset(
+            dataset_id="patch-all-123",
+            name="new_name",
+            title="New Title",
+            owner_org="new_org",
+            notes="New notes",
+            private=True,
+            license_id="new-license",
+            version="2.0",
+            tags=["tag1", "tag2"],
+            groups=["group1"],
+            extras={"key1": "value1"},
+            resources=[{"url": "http://example.com", "name": "resource1"}],
+            repository=mock_repo,
+        )
+
+        assert result == "patch-all-123"
+        mock_repo.package_show.assert_called_once()
+
+        # Verify all fields were updated
+        call_args = mock_repo.package_update.call_args
+        updated_dataset = call_args[1] if call_args[1] else call_args[0][0]
+
+        assert updated_dataset["name"] == "new_name"
+        assert updated_dataset["title"] == "New Title"
+        assert updated_dataset["owner_org"] == "new_org"
+        assert updated_dataset["notes"] == "New notes"
+        assert updated_dataset["private"] is True
+        assert updated_dataset["license_id"] == "new-license"
+        assert updated_dataset["version"] == "2.0"
+        assert len(updated_dataset["tags"]) == 2
+        assert len(updated_dataset["groups"]) == 1
+        assert len(updated_dataset["extras"]) == 1
+        assert len(updated_dataset["resources"]) == 1
+
+    def test_patch_invalid_extras_type(self):
+        """Test patch with invalid extras type."""
+        mock_repo = MagicMock()
+
+        with pytest.raises(ValueError, match="Extras must be a dictionary or None"):
+            patch_general_dataset(
+                dataset_id="patch-123",
+                extras="not_a_dict",
+                repository=mock_repo,
+            )
+
+    def test_patch_reserved_keys_in_extras(self):
+        """Test patch with reserved keys in extras."""
+        mock_repo = MagicMock()
+
+        with pytest.raises(KeyError, match="Extras contain reserved keys"):
+            patch_general_dataset(
+                dataset_id="patch-123",
+                extras={"name": "invalid", "custom": "valid"},
+                repository=mock_repo,
+            )
+
+    def test_patch_fetch_error(self):
+        """Test patch when fetching dataset fails."""
+        mock_repo = MagicMock()
+        mock_repo.package_show.side_effect = Exception("Dataset not found")
+
+        with pytest.raises(Exception, match="Error fetching dataset"):
+            patch_general_dataset(
+                dataset_id="nonexistent-123",
+                title="New Title",
+                repository=mock_repo,
+            )
+
+    def test_patch_update_error(self):
+        """Test patch when package update fails."""
+        mock_repo = MagicMock()
+        mock_repo.package_show.return_value = {
+            "id": "patch-123",
+            "name": "test_dataset",
+            "title": "Test Dataset",
+            "owner_org": "test_org",
+        }
+        mock_repo.package_update.side_effect = Exception("Update failed")
+
+        with pytest.raises(Exception, match="Error updating general dataset"):
+            patch_general_dataset(
+                dataset_id="patch-123",
+                title="New Title",
+                repository=mock_repo,
+            )
+
+    def test_patch_with_resources_adding_new(self):
+        """Test patch adding new resources."""
+        mock_repo = MagicMock()
+        mock_repo.package_show.return_value = {
+            "id": "patch-res-123",
+            "name": "test_dataset",
+            "title": "Test Dataset",
+            "owner_org": "test_org",
+            "resources": [
+                {"url": "http://existing.com", "name": "existing_resource"}
+            ],
+        }
+        mock_repo.package_update.return_value = {"id": "patch-res-123"}
+
+        # Add a new resource
+        result = patch_general_dataset(
+            dataset_id="patch-res-123",
+            resources=[{"url": "http://new.com", "name": "new_resource"}],
+            repository=mock_repo,
+        )
+
+        assert result == "patch-res-123"
+
+        call_args = mock_repo.package_update.call_args
+        updated_dataset = call_args[1] if call_args[1] else call_args[0][0]
+
+        # Should have both resources
+        assert len(updated_dataset["resources"]) == 2
+
+    def test_patch_with_resources_updating_existing_by_url(self):
+        """Test patch updating existing resource by matching URL."""
+        mock_repo = MagicMock()
+        mock_repo.package_show.return_value = {
+            "id": "patch-res-123",
+            "name": "test_dataset",
+            "title": "Test Dataset",
+            "owner_org": "test_org",
+            "resources": [
+                {"url": "http://existing.com", "name": "old_name", "format": "CSV"}
+            ],
+        }
+        mock_repo.package_update.return_value = {"id": "patch-res-123"}
+
+        # Update existing resource by URL
+        result = patch_general_dataset(
+            dataset_id="patch-res-123",
+            resources=[{"url": "http://existing.com", "name": "new_name", "format": "JSON"}],
+            repository=mock_repo,
+        )
+
+        assert result == "patch-res-123"
+
+        call_args = mock_repo.package_update.call_args
+        updated_dataset = call_args[1] if call_args[1] else call_args[0][0]
+
+        # Should still have only one resource, but updated
+        assert len(updated_dataset["resources"]) == 1
+        assert updated_dataset["resources"][0]["name"] == "new_name"
+        assert updated_dataset["resources"][0]["format"] == "JSON"
+
+    def test_patch_with_resources_updating_existing_by_name(self):
+        """Test patch updating existing resource by matching name."""
+        mock_repo = MagicMock()
+        mock_repo.package_show.return_value = {
+            "id": "patch-res-123",
+            "name": "test_dataset",
+            "title": "Test Dataset",
+            "owner_org": "test_org",
+            "resources": [
+                {"url": "http://old.com", "name": "same_name", "format": "CSV"}
+            ],
+        }
+        mock_repo.package_update.return_value = {"id": "patch-res-123"}
+
+        # Update existing resource by name
+        result = patch_general_dataset(
+            dataset_id="patch-res-123",
+            resources=[{"url": "http://new.com", "name": "same_name", "format": "JSON"}],
+            repository=mock_repo,
+        )
+
+        assert result == "patch-res-123"
+
+        call_args = mock_repo.package_update.call_args
+        updated_dataset = call_args[1] if call_args[1] else call_args[0][0]
+
+        # Should still have only one resource, but with updated URL
+        assert len(updated_dataset["resources"]) == 1
+        assert updated_dataset["resources"][0]["url"] == "http://new.com"
+        assert updated_dataset["resources"][0]["format"] == "JSON"
+
+    def test_patch_with_extras_merging(self):
+        """Test patch merging new extras with existing ones."""
+        mock_repo = MagicMock()
+        mock_repo.package_show.return_value = {
+            "id": "patch-extras-123",
+            "name": "test_dataset",
+            "title": "Test Dataset",
+            "owner_org": "test_org",
+            "extras": [
+                {"key": "existing_key", "value": "existing_value"},
+                {"key": "key_to_update", "value": "old_value"},
+            ],
+        }
+        mock_repo.package_update.return_value = {"id": "patch-extras-123"}
+
+        # Add new extra and update existing one
+        result = patch_general_dataset(
+            dataset_id="patch-extras-123",
+            extras={"key_to_update": "new_value", "new_key": "new_value"},
+            repository=mock_repo,
+        )
+
+        assert result == "patch-extras-123"
+
+        call_args = mock_repo.package_update.call_args
+        updated_dataset = call_args[1] if call_args[1] else call_args[0][0]
+
+        extras_dict = {extra["key"]: extra["value"] for extra in updated_dataset["extras"]}
+
+        # Should have all three extras
+        assert len(extras_dict) == 3
+        assert extras_dict["existing_key"] == "existing_value"
+        assert extras_dict["key_to_update"] == "new_value"
+        assert extras_dict["new_key"] == "new_value"
+
+    def test_patch_default_repository(self):
+        """Test patch uses default repository when none provided."""
+        with patch("api.services.dataset_services.general_dataset.catalog_settings") as mock_settings:
+            mock_repo = MagicMock()
+            mock_repo.package_show.return_value = {
+                "id": "patch-default-123",
+                "name": "test_dataset",
+                "title": "Test Dataset",
+                "owner_org": "test_org",
+            }
+            mock_repo.package_update.return_value = {"id": "patch-default-123"}
+            mock_settings.local_catalog = mock_repo
+
+            result = patch_general_dataset(
+                dataset_id="patch-default-123",
+                title="Updated Title",
+            )
+
+            assert result == "patch-default-123"
+            mock_repo.package_show.assert_called_once()
+            mock_repo.package_update.assert_called_once()

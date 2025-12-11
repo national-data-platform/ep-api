@@ -578,6 +578,156 @@ class MongoDBRepository(DataCatalogRepository):
             {"$set": {"metadata_modified": datetime.utcnow().isoformat()}},
         )
 
+    def resource_patch(self, **kwargs) -> Dict[str, Any]:
+        """
+        Partially update a resource (only specified fields).
+
+        Parameters
+        ----------
+        id : str
+            Resource ID to patch
+        **kwargs
+            Fields to update (name, url, description, format, etc.)
+
+        Returns
+        -------
+        dict
+            Updated resource data
+
+        Raises
+        ------
+        Exception
+            If resource not found or patch fails
+        """
+        resource_id = kwargs.pop("id", None)
+        if not resource_id:
+            raise Exception("Resource ID is required for patch")
+
+        # Get existing resource
+        existing = self.resource_show(resource_id)
+        package_id = existing["package_id"]
+
+        # Update last_modified
+        kwargs["last_modified"] = datetime.utcnow().isoformat()
+
+        # Update in resources collection
+        result = self.resources.update_one({"id": resource_id}, {"$set": kwargs})
+
+        if result.matched_count == 0:
+            raise Exception(f"Resource '{resource_id}' not found")
+
+        # Update in package's resources array
+        update_fields = {f"resources.$.{k}": v for k, v in kwargs.items()}
+        self.packages.update_one(
+            {"id": package_id, "resources.id": resource_id},
+            {"$set": update_fields},
+        )
+
+        # Update package metadata_modified
+        self.packages.update_one(
+            {"id": package_id},
+            {"$set": {"metadata_modified": datetime.utcnow().isoformat()}},
+        )
+
+        return self.resource_show(resource_id)
+
+    def resource_search(
+        self,
+        query: Optional[str] = None,
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        format: Optional[str] = None,
+        description: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Search for resources matching the given criteria.
+
+        Optimized implementation for MongoDB that searches directly
+        in the resources collection.
+
+        Parameters
+        ----------
+        query : str, optional
+            General search query (searches name, url, description)
+        name : str, optional
+            Filter by resource name (partial match)
+        url : str, optional
+            Filter by resource URL (partial match)
+        format : str, optional
+            Filter by resource format (exact match, case-insensitive)
+        description : str, optional
+            Filter by description (partial match)
+        limit : int
+            Maximum number of results to return
+        offset : int
+            Number of results to skip for pagination
+
+        Returns
+        -------
+        dict
+            Search results with 'count' and 'results' keys
+        """
+        # Build MongoDB query
+        mongo_query: Dict[str, Any] = {}
+        conditions = []
+
+        if query:
+            # Search across multiple fields
+            query_regex = {"$regex": query, "$options": "i"}
+            conditions.append(
+                {
+                    "$or": [
+                        {"name": query_regex},
+                        {"url": query_regex},
+                        {"description": query_regex},
+                    ]
+                }
+            )
+
+        if name:
+            conditions.append({"name": {"$regex": name, "$options": "i"}})
+
+        if url:
+            conditions.append({"url": {"$regex": url, "$options": "i"}})
+
+        if format:
+            conditions.append({"format": {"$regex": f"^{format}$", "$options": "i"}})
+
+        if description:
+            conditions.append({"description": {"$regex": description, "$options": "i"}})
+
+        if conditions:
+            mongo_query["$and"] = conditions
+
+        # Get total count
+        total_count = self.resources.count_documents(mongo_query)
+
+        # Get paginated results
+        cursor = (
+            self.resources.find(mongo_query)
+            .skip(offset)
+            .limit(limit)
+            .sort("last_modified", -1)
+        )
+
+        results = []
+        for resource in cursor:
+            resource_data = self._clean_doc(resource)
+            # Add dataset context
+            try:
+                package = self.packages.find_one({"id": resource_data.get("package_id")})
+                if package:
+                    resource_data["dataset_id"] = package.get("id")
+                    resource_data["dataset_name"] = package.get("name")
+                    resource_data["dataset_title"] = package.get("title")
+            except Exception:
+                pass
+            results.append(resource_data)
+
+        return {"count": total_count, "results": results}
+
     def organization_create(self, **kwargs) -> Dict[str, Any]:
         """
         Create a new organization.

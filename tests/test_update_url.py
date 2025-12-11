@@ -457,6 +457,393 @@ class TestUpdateUrl:
         asyncio.run(run_test())
 
 
+@patch("api.services.url_services.update_url.ckan_settings")
+class TestPatchUrl:
+    """Test cases for patch_url function."""
+
+    @pytest.fixture
+    def sample_resource(self):
+        """Sample resource data for testing."""
+        return {
+            "id": "resource-123",
+            "name": "test_resource",
+            "title": "Test Resource",
+            "owner_org": "test_org",
+            "notes": "Test resource description",
+            "resources": [
+                {
+                    "id": "url-resource-456",
+                    "format": "URL",
+                    "url": "http://example.com/data",
+                }
+            ],
+            "extras": [
+                {"key": "file_type", "value": "CSV"},
+                {
+                    "key": "processing",
+                    "value": '{"delimiter": ",", "header_line": "0", "start_line": "1"}',
+                },
+                {"key": "mapping", "value": '{"field1": "col1"}'},
+                {"key": "custom_field", "value": "custom_value"},
+            ],
+        }
+
+    def test_patch_url_default_ckan_instance(
+        self, mock_ckan_settings, sample_resource
+    ):
+        """Test patch_url with default CKAN instance."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        # Setup mock
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan.action.package_update.return_value = None
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            result = await patch_url(
+                resource_id="resource-123", resource_name="patched_resource"
+            )
+
+            mock_ckan.action.package_show.assert_called_once_with(id="resource-123")
+            mock_ckan.action.package_update.assert_called_once()
+            assert result["message"] == "Resource updated successfully"
+
+        asyncio.run(run_test())
+
+    def test_patch_url_custom_ckan_instance(self, mock_ckan_settings, sample_resource):
+        """Test patch_url with custom CKAN instance."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        # Setup custom mock
+        custom_ckan = MagicMock()
+        custom_ckan.action.package_show.return_value = sample_resource
+        custom_ckan.action.package_update.return_value = None
+
+        async def run_test():
+            result = await patch_url(
+                resource_id="resource-123",
+                resource_name="patched_resource",
+                ckan_instance=custom_ckan,
+            )
+
+            custom_ckan.action.package_show.assert_called_once_with(id="resource-123")
+            custom_ckan.action.package_update.assert_called_once()
+            assert result["message"] == "Resource updated successfully"
+
+        asyncio.run(run_test())
+
+    def test_patch_url_fetch_error(self, mock_ckan_settings):
+        """Test patch_url when fetching resource fails."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        # Setup mock to raise exception
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.side_effect = Exception("Resource not found")
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            with pytest.raises(
+                Exception, match="Error fetching resource with ID resource-123"
+            ):
+                await patch_url(resource_id="resource-123")
+
+        asyncio.run(run_test())
+
+    def test_patch_url_partial_updates(self, mock_ckan_settings, sample_resource):
+        """Test patch_url with partial field updates - only updates provided fields."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan.action.package_update.return_value = None
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            # Only update title
+            result = await patch_url(
+                resource_id="resource-123",
+                resource_title="Patched Title Only",
+            )
+
+            mock_ckan.action.package_update.assert_called_once()
+            call_args = mock_ckan.action.package_update.call_args
+            updated_data = call_args[1]
+
+            # Should preserve all original values except title
+            assert updated_data["name"] == "test_resource"
+            assert updated_data["owner_org"] == "test_org"
+            assert updated_data["notes"] == "Test resource description"
+            # Should update title
+            assert updated_data["title"] == "Patched Title Only"
+
+            assert result["message"] == "Resource updated successfully"
+
+        asyncio.run(run_test())
+
+    def test_patch_url_with_resource_url_update(
+        self, mock_ckan_settings, sample_resource
+    ):
+        """Test patch_url updates resource URL."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan.action.package_update.return_value = None
+        mock_ckan.action.resource_update.return_value = None
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            result = await patch_url(
+                resource_id="resource-123",
+                resource_url="http://newurl.com/patched",
+            )
+
+            # Should update both package and resource
+            mock_ckan.action.package_update.assert_called_once()
+            mock_ckan.action.resource_update.assert_called_once_with(
+                id="url-resource-456",
+                url="http://newurl.com/patched",
+                package_id="resource-123",
+            )
+            assert result["message"] == "Resource updated successfully"
+
+        asyncio.run(run_test())
+
+    def test_patch_url_file_type_change_with_processing(
+        self, mock_ckan_settings, sample_resource
+    ):
+        """Test patch_url with file type change and new processing info."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan.action.package_update.return_value = None
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            new_processing = {
+                "info_key": "metadata",
+                "data_key": "data",
+            }
+            result = await patch_url(
+                resource_id="resource-123",
+                file_type="JSON",
+                processing=new_processing,
+            )
+
+            mock_ckan.action.package_update.assert_called_once()
+            call_args = mock_ckan.action.package_update.call_args
+            updated_data = call_args[1]
+
+            extras_dict = {
+                extra["key"]: extra["value"] for extra in updated_data["extras"]
+            }
+
+            # File type should be updated
+            assert extras_dict["file_type"] == "JSON"
+            # Processing should be updated and validated
+            import json
+            assert json.loads(extras_dict["processing"]) == new_processing
+
+        asyncio.run(run_test())
+
+    def test_patch_url_processing_update_only(
+        self, mock_ckan_settings, sample_resource
+    ):
+        """Test patch_url with only processing update (no file type change)."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan.action.package_update.return_value = None
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            # Update processing for existing CSV file type
+            new_processing = {
+                "delimiter": ";",
+                "header_line": "1",
+                "start_line": "2",
+                "comment_char": "#",
+            }
+            result = await patch_url(
+                resource_id="resource-123",
+                processing=new_processing,
+            )
+
+            mock_ckan.action.package_update.assert_called_once()
+            call_args = mock_ckan.action.package_update.call_args
+            updated_data = call_args[1]
+
+            extras_dict = {
+                extra["key"]: extra["value"] for extra in updated_data["extras"]
+            }
+
+            # File type should remain CSV
+            assert extras_dict["file_type"] == "CSV"
+            # Processing should be updated
+            import json
+            assert json.loads(extras_dict["processing"]) == new_processing
+
+        asyncio.run(run_test())
+
+    def test_patch_url_extras_with_reserved_keys(
+        self, mock_ckan_settings, sample_resource
+    ):
+        """Test patch_url with extras containing reserved keys."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            with pytest.raises(KeyError, match="Extras contain reserved keys"):
+                await patch_url(
+                    resource_id="resource-123",
+                    extras={"name": "invalid", "custom_field": "valid"},
+                )
+
+        asyncio.run(run_test())
+
+    def test_patch_url_preserve_existing_extras(
+        self, mock_ckan_settings, sample_resource
+    ):
+        """Test that patch_url preserves existing extras when adding new ones."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan.action.package_update.return_value = None
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            result = await patch_url(
+                resource_id="resource-123", extras={"new_extra": "new_patched_value"}
+            )
+
+            mock_ckan.action.package_update.assert_called_once()
+            call_args = mock_ckan.action.package_update.call_args
+            updated_data = call_args[1]
+
+            extras_dict = {
+                extra["key"]: extra["value"] for extra in updated_data["extras"]
+            }
+
+            # Should preserve all existing extras
+            assert extras_dict["file_type"] == "CSV"
+            assert "processing" in extras_dict
+            assert "mapping" in extras_dict
+            assert extras_dict["custom_field"] == "custom_value"
+            # Should add new extra
+            assert extras_dict["new_extra"] == "new_patched_value"
+
+            assert result["message"] == "Resource updated successfully"
+
+        asyncio.run(run_test())
+
+    def test_patch_url_package_update_error(self, mock_ckan_settings, sample_resource):
+        """Test patch_url when package update fails."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan.action.package_update.side_effect = Exception("Patch update failed")
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            with pytest.raises(
+                Exception, match="Error updating resource with ID resource-123"
+            ):
+                await patch_url(
+                    resource_id="resource-123", resource_name="patched_name"
+                )
+
+        asyncio.run(run_test())
+
+    def test_patch_url_with_mapping(self, mock_ckan_settings, sample_resource):
+        """Test patch_url with mapping update."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = sample_resource
+        mock_ckan.action.package_update.return_value = None
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            new_mapping = {"field2": "col2", "field3": "col3"}
+            result = await patch_url(
+                resource_id="resource-123",
+                mapping=new_mapping,
+            )
+
+            mock_ckan.action.package_update.assert_called_once()
+            call_args = mock_ckan.action.package_update.call_args
+            updated_data = call_args[1]
+
+            extras_dict = {
+                extra["key"]: extra["value"] for extra in updated_data["extras"]
+            }
+
+            # Mapping should be updated
+            import json
+            assert json.loads(extras_dict["mapping"]) == new_mapping
+
+        asyncio.run(run_test())
+
+    def test_patch_url_no_url_resource(self, mock_ckan_settings):
+        """Test patch_url when resource has no URL format resource."""
+        import asyncio
+        from api.services.url_services.update_url import patch_url
+
+        resource_no_url = {
+            "id": "resource-123",
+            "name": "test_resource",
+            "title": "Test Resource",
+            "owner_org": "test_org",
+            "notes": "Test resource description",
+            "resources": [
+                {
+                    "id": "other-resource-789",
+                    "format": "CSV",
+                    "url": "http://example.com/file.csv",
+                }
+            ],
+            "extras": [{"key": "file_type", "value": "CSV"}],
+        }
+
+        mock_ckan = MagicMock()
+        mock_ckan.action.package_show.return_value = resource_no_url
+        mock_ckan.action.package_update.return_value = None
+        mock_ckan_settings.ckan = mock_ckan
+
+        async def run_test():
+            result = await patch_url(
+                resource_id="resource-123",
+                resource_url="http://newexample.com/data",
+                resource_name="patched_name",
+            )
+
+            # Should update package but not call resource_update
+            mock_ckan.action.package_update.assert_called_once()
+            mock_ckan.action.resource_update.assert_not_called()
+            assert result["message"] == "Resource updated successfully"
+
+        asyncio.run(run_test())
+
+
 def test_reserved_keys_constant():
     """Test that RESERVED_KEYS constant contains expected keys."""
     expected_keys = {

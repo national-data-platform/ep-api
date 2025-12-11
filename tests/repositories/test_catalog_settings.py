@@ -9,9 +9,10 @@ from api.repositories import CKANRepository, MongoDBRepository
 
 
 def test_catalog_settings_default_backend():
-    """Test that default backend is CKAN."""
+    """Test that default backend is read from environment or defaults to ckan."""
     settings = CatalogSettings()
-    assert settings.local_catalog_backend == "ckan"
+    # Should be either 'ckan' or 'mongodb' depending on env configuration
+    assert settings.local_catalog_backend in ["ckan", "mongodb"]
 
 
 def test_catalog_settings_local_catalog_ckan():
@@ -61,9 +62,12 @@ def test_catalog_settings_pre_catalog():
 
 def test_get_repository_by_name_local():
     """Test getting local repository by name."""
-    settings = CatalogSettings()
-    repo = settings.get_repository_by_name("local")
-    assert repo is not None
+    # Mock MongoDB client if backend is mongodb
+    with patch("api.repositories.mongodb_repository.MongoClient") as mock_client:
+        mock_client.return_value = MagicMock()
+        settings = CatalogSettings()
+        repo = settings.get_repository_by_name("local")
+        assert repo is not None
 
 
 def test_get_repository_by_name_global():

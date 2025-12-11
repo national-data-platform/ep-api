@@ -20,6 +20,7 @@ minio
 pymongo>=4.0.0
 mongomock>=4.1.0
 fastapi-mcp
+pelicanfs>=0.1.0
 kubernetes
 packaging
 PyYAML

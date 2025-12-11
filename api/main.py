@@ -120,6 +120,8 @@ if ckan_settings.ckan_local_enabled:
     app.include_router(dataset_update_router, tags=["Update"])
 if ckan_settings.ckan_local_enabled:
     app.include_router(routes.delete_router, tags=["Delete"])
+    app.include_router(routes.resource_router, tags=["Resources"])
+    app.include_router(routes.resource_search_router, tags=["Resources"])
 app.include_router(routes.redirect_router, tags=["Redirect"])
 app.include_router(routes.status_router, prefix="/status", tags=["Status"])
 app.include_router(routes.user_router, tags=["User"])
@@ -127,6 +129,12 @@ if s3_settings.enabled:
     app.include_router(routes.minio_bucket_router, tags=["S3"])
     app.include_router(routes.minio_object_router, tags=["S3"])
 app.include_router(routes.rexec_router, tags=["Rexec"])
+
+# Include Pelican routes if enabled
+pelican_enabled = os.getenv("PELICAN_ENABLED", "false").lower() == "true"
+if pelican_enabled:
+    from api.routes.pelican_routes import router as pelican_router
+    app.include_router(pelican_router)
 
 # Initialize and mount FastAPI-MCP for AI agent communication
 mcp = FastApiMCP(app)
@@ -136,7 +144,7 @@ mcp.mount_http()
 def custom_openapi():
     """
     Customize the OpenAPI schema to support both username/password
-    and token-based authentication.
+    and token-based authentication, and propagate ROOT_PATH to Swagger UI.
     """
     if app.openapi_schema:
         return app.openapi_schema
@@ -147,6 +155,10 @@ def custom_openapi():
         description=app.description,
         routes=app.routes,
     )
+
+    # Propagate ROOT_PATH to Swagger UI servers
+    if swagger_settings.root_path:
+        openapi_schema["servers"] = [{"url": swagger_settings.root_path}]
 
     # Define security schemes for OAuth2 Password and Bearer Token
     openapi_schema["components"]["securitySchemes"] = {
