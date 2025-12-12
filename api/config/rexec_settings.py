@@ -13,6 +13,9 @@ class RexecSettings(BaseSettings):
     broker_service_name: str = "rexec-broker-internal-ip"
     broker_namespace: str = "rexec-broker"
     broker_port: int = 5560
+    broker_external_service_name: str | None = "rexec-broker-external-ip"
+    broker_external_host: str | None = None
+    broker_external_port: int | None = None
     container_name: str = "rexec-server"
     deployment_manifest_name: str = "rexec-server-deployment.yaml"
 

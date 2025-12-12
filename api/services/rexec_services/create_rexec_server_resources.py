@@ -8,7 +8,7 @@ import hashlib
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, Sequence, Tuple
 
 import yaml
 from kubernetes import client, config
@@ -211,6 +211,58 @@ def _get_cluster_ip(
     return cluster_ip
 
 
+def _get_nodeport_endpoint(
+    clients: KubernetesClients,
+    service_name: str,
+    namespace: str,
+) -> Tuple[str | None, int | None]:
+    """
+    Retrieve an externally reachable host and NodePort for a service.
+    """
+    try:
+        service = clients.core_v1.read_namespaced_service(
+            name=service_name,
+            namespace=namespace,
+        )
+    except k8s_exceptions.ApiException as exc:
+        raise RexecDeploymentError(
+            f"Failed to fetch service '{service_name}' in namespace '{namespace}': {exc}"
+        ) from exc
+
+    node_port: int | None = None
+    host: str | None = None
+
+    for port in service.spec.ports or []:
+        if port.node_port:
+            node_port = port.node_port
+            break
+    
+    try:
+        nodes = clients.core_v1.list_node().items
+    except k8s_exceptions.ApiException as exc:
+        raise RexecDeploymentError(
+            f"Failed to list cluster nodes for NodePort host resolution: {exc}"
+        ) from exc
+
+    for node in nodes:
+        addresses = node.status.addresses or []
+        # Prefer ExternalIP/InternalIP, otherwise take the first available address
+        host = next(
+            (
+                addr.address
+                for addr in addresses
+                if addr.type in ("ExternalIP", "InternalIP")
+            ),
+            host,
+        )
+        if not host and addresses:
+            host = addresses[0].address
+        if host:
+            break
+
+    return host, node_port
+
+
 def _deployment_with_digest_exists(
     clients: KubernetesClients,
     namespace: str,
@@ -410,3 +462,41 @@ def create_rexec_server_resources(
         _apply_manifest(clients, manifest, namespace=namespace)
 
     return "remote execution server instance created for user."
+
+
+def get_rexec_config(
+    *,
+    api_url: str | None,
+    settings: RexecSettings | None = None,
+) -> dict:
+    """
+    Retrieve broker connection details for an externally reachable broker endpoint.
+    """
+    resolved_settings = settings or rexec_settings
+    kubeconfig_path = _resolve_kubeconfig_path(resolved_settings)
+    clients = _load_kubernetes_clients(kubeconfig_path)
+
+    external_host: str | None = resolved_settings.broker_external_host
+    external_port: int | None = resolved_settings.broker_external_port
+
+    if not external_host or not external_port:
+        svc_name = resolved_settings.broker_external_service_name
+        if svc_name:
+            host, node_port = _get_nodeport_endpoint(
+                clients,
+                svc_name,
+                resolved_settings.broker_namespace,
+            )
+            external_host = external_host or host
+            external_port = external_port or node_port
+
+    external_url = None
+    if external_host and external_port:
+        external_url = f"{external_host}:{external_port}"
+
+    return {
+        "api_url": api_url,
+        "broker_external_host": external_host,
+        "broker_external_port": external_port,
+        "broker_external_url": external_url,
+    }
