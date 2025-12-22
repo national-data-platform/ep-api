@@ -1,8 +1,11 @@
 # api/routes/status_routes/kafka_details.py
 
-from fastapi import APIRouter, HTTPException
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.config.kafka_settings import kafka_settings
+from api.services.auth_services import get_current_user
 
 router = APIRouter()
 
@@ -15,7 +18,9 @@ router = APIRouter()
         "and max number of streams."
     ),
 )
-async def get_kafka_details():
+async def get_kafka_details(
+    user_info: Dict[str, Any] = Depends(get_current_user),
+):
     """
     Endpoint to retrieve Kafka connection details.
 

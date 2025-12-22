@@ -1,8 +1,11 @@
 # api/routes/status_routes/get.py
 
-from fastapi import APIRouter
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends
 
 from api.services import status_services
+from api.services.auth_services import get_current_user
 from api.services.status_services import get_full_metrics
 
 router = APIRouter()
@@ -12,9 +15,11 @@ router = APIRouter()
     "/",
     response_model=dict,
     summary="Check system status",
-    description=("Check if the CKAN and Keycloak servers are active " "andreachable."),
+    description=("Check if the CKAN and Keycloak servers are active " "and reachable."),
 )
-async def get_status():
+async def get_status(
+    user_info: Dict[str, Any] = Depends(get_current_user),
+):
     """
     Endpoint to check if CKAN and Keycloak are active and reachable.
 
@@ -40,7 +45,9 @@ async def get_status():
     summary="Retrieve system metrics",
     description="Returns detailed system metrics and service status.",
 )
-async def get_metrics():
+async def get_metrics(
+    user_info: Dict[str, Any] = Depends(get_current_user),
+):
     """
     Endpoint to retrieve detailed system metrics.
 
