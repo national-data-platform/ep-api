@@ -10,6 +10,7 @@ import httpx
 from api.config.catalog_settings import catalog_settings
 from api.config.ckan_settings import ckan_settings
 from api.config.kafka_settings import kafka_settings
+from api.config.minio_settings import s3_settings
 from api.config.swagger_settings import swagger_settings
 from api.services.status_services import (
     get_num_datasets,
@@ -58,7 +59,19 @@ async def record_system_metrics():
                 "num_services": num_services,
                 "services": services_titles,
                 "timestamp": timestamp,
+                # Infrastructure services
+                "jupyterlab_enabled": swagger_settings.use_jupyterlab,
+                "kafka_enabled": kafka_settings.kafka_connection,
+                "s3_enabled": s3_settings.s3_enabled,
+                "pre_ckan_enabled": ckan_settings.pre_ckan_enabled,
             }
+
+            # Add URLs/details for enabled infrastructure services
+            if swagger_settings.use_jupyterlab:
+                metrics_payload["jupyterlab_url"] = swagger_settings.jupyter_url
+            if kafka_settings.kafka_connection:
+                metrics_payload["kafka_host"] = kafka_settings.kafka_host
+                metrics_payload["kafka_port"] = kafka_settings.kafka_port
 
             # Log metrics as JSON
             logger.info(json.dumps(metrics_payload))
