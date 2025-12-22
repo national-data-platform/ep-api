@@ -1,6 +1,6 @@
 services:
   # ==============================================
-  # API Service
+  # API Service (always starts)
   # ==============================================
   api:
     build:
@@ -17,13 +17,6 @@ services:
     #   - ./logs:/code/logs
     networks:
       - ndp-network
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      minio:
-        condition: service_started
-      kafka:
-        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
@@ -38,6 +31,7 @@ services:
   mongodb:
     image: mongo:7
     container_name: ndp-mongodb
+    profiles: ["mongodb", "full"]
     ports:
       - "27018:27017"
     environment:
@@ -63,6 +57,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: ndp-minio
+    profiles: ["s3", "full"]
     ports:
       - "9002:9000"      # API port
       - "9003:9001"      # Console UI
@@ -87,6 +82,7 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: ndp-zookeeper
+    profiles: ["kafka", "full"]
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -109,6 +105,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: ndp-kafka
+    profiles: ["kafka", "full"]
     ports:
       - "9094:9092"      # External access
       - "9095:9093"      # Internal access
@@ -144,6 +141,7 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: ndp-kafka-ui
+    profiles: ["kafka", "full"]
     ports:
       - "8081:8080"
     environment:
@@ -164,6 +162,7 @@ services:
   mongo-express:
     image: mongo-express:latest
     container_name: ndp-mongo-express
+    profiles: ["mongodb", "full"]
     ports:
       - "8082:8081"
     environment:
@@ -186,6 +185,7 @@ services:
   frontend:
     image: rbardaji/ndp-ep-frontend:latest
     container_name: ndp-frontend
+    profiles: ["frontend", "full"]
     ports:
       - "3000:80"
     environment:
@@ -203,6 +203,7 @@ services:
   jupyterlab:
     image: jupyter/scipy-notebook:latest
     container_name: ndp-jupyterlab
+    profiles: ["jupyter", "full"]
     ports:
       - "8888:8888"
     environment:
@@ -221,6 +222,7 @@ services:
   pelican-registry:
     image: hub.opensciencegrid.org/pelican_platform/registry:latest
     container_name: ndp-pelican-registry
+    profiles: ["pelican", "full"]
     ports:
       - "8444:8444"      # Web interface
     environment:
@@ -240,6 +242,7 @@ services:
   pelican-director:
     image: hub.opensciencegrid.org/pelican_platform/director:latest
     container_name: ndp-pelican-director
+    profiles: ["pelican", "full"]
     ports:
       - "8445:8444"      # Web interface
     environment:
@@ -261,6 +264,7 @@ services:
   pelican-origin:
     image: hub.opensciencegrid.org/pelican_platform/origin:latest
     container_name: ndp-pelican-origin
+    profiles: ["pelican", "full"]
     ports:
       - "8446:8443"      # Data transfer port
       - "8447:8444"      # Web interface
@@ -279,7 +283,6 @@ services:
     depends_on:
       - pelican-director
       - pelican-registry
-      - minio
     restart: unless-stopped
 
   # ==============================================
@@ -288,6 +291,7 @@ services:
   pelican-cache:
     image: hub.opensciencegrid.org/pelican_platform/cache:latest
     container_name: ndp-pelican-cache
+    profiles: ["pelican", "full"]
     ports:
       - "8448:8443"      # Data transfer port
       - "8449:8444"      # Web interface

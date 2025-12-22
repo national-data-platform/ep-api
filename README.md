@@ -239,7 +239,40 @@ S3_REGION=us-east-1
 docker run -p 8001:8000 --env-file .env rbardaji/ndp-ep-api
 ```
 
-### 3. Verify Installation
+### 3. Run with Docker Compose (Optional Services)
+
+The `docker-compose.yml` uses **profiles** to let you choose which services to start. By default, only the API starts. Use profiles to add optional services:
+
+**Available Profiles:**
+| Profile | Services Included |
+|---------|-------------------|
+| `mongodb` | MongoDB + Mongo Express |
+| `kafka` | Kafka + Zookeeper + Kafka UI |
+| `s3` | MinIO (S3-compatible storage) |
+| `jupyter` | JupyterLab |
+| `pelican` | Pelican Federation (Registry, Director, Origin, Cache) |
+| `frontend` | NDP-EP Frontend Web UI |
+| `full` | All services |
+
+**Usage Examples:**
+
+```bash
+# API only (no additional services)
+docker compose up
+
+# API + MongoDB
+docker compose --profile mongodb up
+
+# API + MongoDB + Kafka
+docker compose --profile mongodb --profile kafka up
+
+# API + all services
+docker compose --profile full up
+```
+
+**Note:** When using external services (e.g., your own CKAN or Kafka), just run `docker compose up` and configure the external URLs in your `.env` file.
+
+### 4. Verify Installation
 
 Once the container is running, verify everything is working:
 
@@ -247,7 +280,7 @@ Once the container is running, verify everything is working:
 - **Health Check**: http://localhost:8001/status/
 - **Interactive API Explorer**: Available at the docs URL
 
-### 4. Common Configuration Scenarios
+### 5. Common Configuration Scenarios
 
 #### Scenario 1: NDP Central Catalog Only (Read-Only)
 ```bash
