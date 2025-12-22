@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-12-22
+
+### Fixed
+- Added authentication requirement to all `/status` endpoints
+- Fixed tests for `resource_patch` method in base repository
+- Fixed SSL verification test to use explicit configuration
+
 ## [0.5.0] - 2025-12-08
 
 ### Added
