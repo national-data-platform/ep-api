@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Installation script (`install.sh`) for fresh Ubuntu systems
+  - Interactive configuration prompts
+  - Automatic Docker installation
+  - Environment file generation with overwrite protection
+- Infrastructure services reporting to federation metrics
+  - `jupyterlab_enabled` + `jupyterlab_url`
+  - `kafka_enabled` + `kafka_host` + `kafka_port`
+  - `s3_enabled`
+  - `pre_ckan_enabled`
+- Docker Compose profiles for optional services
+  - `mongodb`: MongoDB + Mongo Express
+  - `kafka`: Kafka + Zookeeper + Kafka UI
+  - `s3`: MinIO
+  - `jupyter`: JupyterLab
+  - `pelican`: Pelican Federation services
+  - `frontend`: NDP-EP Frontend
+  - `full`: All services
+
+### Changed
+- Docker Compose now starts only the API by default
+- Healthcheck endpoint changed from `/status/` to `/` (status requires auth)
+
 ## [0.5.1] - 2025-12-22
 
 ### Fixed
