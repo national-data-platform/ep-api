@@ -1,10 +1,17 @@
 # api/services/url_services/add_url.py
 import json
+import logging
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
+
+import requests as http_requests
 
 from api.config import catalog_settings, ckan_settings
+from api.config.dspaces_settings import dspaces_settings
 from api.repositories import CKANRepository
 from api.services.metadata_services import inject_ndp_metadata
+
+logger = logging.getLogger(__name__)
 
 RESERVED_KEYS = {
     "name",
@@ -19,6 +26,57 @@ RESERVED_KEYS = {
     "processing",
     "file_type",
 }
+
+
+def _register_with_dspaces(resource_name: str, resource_url: str, file_type: str) -> Optional[Dict[str, Any]]:
+    """
+    Register a URL resource with the DataSpaces service for staging.
+
+    Parameters
+    ----------
+    resource_name : str
+        A unique name for the registration.
+    resource_url : str
+        The URL of the resource to register.
+    file_type : str
+        The type of file (e.g., 'NetCDF', 'CSV').
+
+    Returns
+    -------
+    dict or None
+        A dict with 'namespace' and 'parameters' on success, None on failure.
+    """
+    if not dspaces_settings.dspaces_enabled or not dspaces_settings.dspaces_url:
+        return None
+
+    # Use 'url' as the default registration type
+    # Other options based on dspaces.toml: 's3nc' for NetCDF on S3, 'gddp' for Azure
+    reg_type = "url"
+
+    # Build registration data - the URL is the key field for the url module
+    reg_data = {
+        "url": resource_url,
+    }
+
+    try:
+        dspaces_url = dspaces_settings.dspaces_url.rstrip("/")
+        # Use ~ as separator for / in names to comply with dspaces-api
+        safe_name = resource_name.replace("/", "~")
+        response = http_requests.post(
+            f"{dspaces_url}/dspaces/register/{reg_type}/{safe_name}",
+            json=reg_data,
+            timeout=30,
+        )
+        response.raise_for_status()
+        result = response.json()
+        logger.info(f"DataSpaces registration successful for {resource_name}: {result}")
+        return result
+    except http_requests.RequestException as e:
+        logger.warning(f"DataSpaces registration failed for {resource_name}: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Unexpected error during DataSpaces registration: {e}")
+        return None
 
 
 def add_url(
@@ -103,6 +161,19 @@ def add_url(
     # Inject NDP metadata if user_info is provided
     if user_info:
         extras_cleaned = inject_ndp_metadata(user_info, extras_cleaned)
+
+    # Register with DataSpaces if enabled for URL resources
+    if dspaces_settings.should_stage("url"):
+        staging_result = _register_with_dspaces(resource_name, resource_url, file_type)
+        if staging_result:
+            # Add staging metadata to extras
+            extras_cleaned["staging_handle"] = staging_result.get("namespace", "")
+            extras_cleaned["staging_socket"] = dspaces_settings.dspaces_url
+            if staging_result.get("parameters"):
+                extras_cleaned["staging_parameters"] = json.dumps(
+                    staging_result["parameters"]
+                )
+            logger.info(f"DataSpaces staging enabled for {resource_name}")
 
     try:
         resource_package_dict = {
