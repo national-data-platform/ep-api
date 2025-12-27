@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     swagger_title: str = "API Documentation"
     swagger_description: str = "This is the API documentation."
-    swagger_version: str = "0.5.2"
+    swagger_version: str = "0.5.3"
     root_path: str = ""  # API root path prefix (e.g., "/test" or "")
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"

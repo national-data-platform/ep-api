@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2025-12-27
+
+### Changed
+- Renamed `ENABLE_ORGANIZATION_BASED_ACCESS` to `ENABLE_GROUP_BASED_ACCESS`
+- Added `GROUP_NAMES` environment variable for comma-separated list of allowed groups
+- Authorization now checks if user belongs to any group in `GROUP_NAMES` instead of single organization
+- Backward compatibility maintained with function aliases
+
 ## [0.5.2] - 2025-12-22
 
 ### Added
