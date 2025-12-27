@@ -331,6 +331,60 @@ PRE_CKAN_URL=https://preckan.nationaldataplatform.org
 PRE_CKAN_API_KEY=your-ndp-preckan-api-key
 ```
 
+## 🔒 Group-Based Access Control
+
+The API supports optional group-based access control to restrict write operations (POST, PUT, DELETE) to users belonging to specific groups.
+
+### How It Works
+
+1. **Authentication**: When a user makes a request with a Bearer token, the API validates the token against the configured `AUTH_API_URL`
+2. **Group Retrieval**: The authentication service returns user information including their `groups` array
+3. **Authorization**: If `ENABLE_GROUP_BASED_ACCESS=True`, the API checks if any of the user's groups match the allowed groups in `GROUP_NAMES`
+4. **Access Decision**:
+   - ✅ User belongs to at least one allowed group → Write operation permitted
+   - ❌ User doesn't belong to any allowed group → 403 Forbidden
+
+### Configuration
+
+```bash
+# Enable group-based access control
+ENABLE_GROUP_BASED_ACCESS=True
+
+# Comma-separated list of groups allowed to perform write operations
+GROUP_NAMES=admins,developers,data-managers
+```
+
+### Behavior
+
+| Setting | Read (GET) | Write (POST/PUT/DELETE) |
+|---------|------------|-------------------------|
+| `ENABLE_GROUP_BASED_ACCESS=False` | ✅ Public | ✅ Any authenticated user |
+| `ENABLE_GROUP_BASED_ACCESS=True` | ✅ Public | ✅ Only users in `GROUP_NAMES` |
+
+### Example
+
+If your authentication service returns:
+```json
+{
+  "sub": "user123",
+  "groups": ["researchers", "data-managers"]
+}
+```
+
+And your configuration is:
+```bash
+ENABLE_GROUP_BASED_ACCESS=True
+GROUP_NAMES=admins,data-managers
+```
+
+The user **will be authorized** because `data-managers` is in both the user's groups and `GROUP_NAMES`.
+
+### Notes
+
+- Group matching is **case-insensitive** (`Admins` matches `admins`)
+- GET endpoints remain public regardless of this setting
+- If `ENABLE_GROUP_BASED_ACCESS=True` but `GROUP_NAMES` is empty, all write operations will be denied
+
 ## 📖 Usage Examples
 
 For detailed usage examples and tutorials, please check the documentation in the `/docs` folder.
