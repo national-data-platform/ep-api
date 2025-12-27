@@ -80,7 +80,7 @@ def get_status():
         "api_version": swagger_settings.swagger_version,
         "organization": swagger_settings.organization,
         "ep_name": swagger_settings.ep_name,
-        "organization_based_access": swagger_settings.enable_organization_based_access,
+        "group_based_access": swagger_settings.enable_group_based_access,
         "local_catalog_backend": catalog_settings.local_catalog_backend,
         "backend_connected": check_backend_connection(),
         "pre_ckan_enabled": ckan_settings.pre_ckan_enabled,

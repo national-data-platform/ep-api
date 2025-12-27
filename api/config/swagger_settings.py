@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     jupyter_url: str = "https://jupyter.org/try-jupyter/lab/"
     test_token: str = "testing_token"
     auth_api_url: str = "https://idp.nationaldataplatform.org/temp/information"
-    enable_organization_based_access: bool = False
+    enable_group_based_access: bool = False
+    group_names: str = ""  # Comma-separated list of allowed groups
 
     model_config = {
         "env_file": ".env",
