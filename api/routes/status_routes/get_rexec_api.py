@@ -1,8 +1,11 @@
 # api\routes\status_routes\get_rexec_api.py
 
-from fastapi import APIRouter, HTTPException
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.config.rexec_settings import rexec_settings
+from api.services.auth_services import get_user_for_write_operation
 
 router = APIRouter()
 
@@ -12,7 +15,9 @@ router = APIRouter()
     summary="Get rexec deployment api connection details",
     description=("Returns the the URL where the Remote Execution Deployment API is available."),
 )
-async def get_rexec_details():
+async def get_rexec_details(
+    _: Dict[str, Any] = Depends(get_user_for_write_operation)
+):
     """
     Endpoint to retrieve rexec deployment api connection details.
 
