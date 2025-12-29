@@ -31,307 +31,307 @@ services:
       retries: 3
       start_period: 40s
 
-  # ==============================================
-  # MongoDB - Local Catalog Backend
-  # ==============================================
-  mongodb:
-    image: mongo:7
-    container_name: ndp-mongodb
-    ports:
-      - "27018:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: admin123
-      MONGO_INITDB_DATABASE: ndp_local_catalog
-    volumes:
-      - mongodb_data:/data/db
-      - mongodb_config:/data/configdb
-    networks:
-      - ndp-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+#   # ==============================================
+#   # MongoDB - Local Catalog Backend
+#   # ==============================================
+#   mongodb:
+#     image: mongo:7
+#     container_name: ndp-mongodb
+#     ports:
+#       - "27018:27017"
+#     environment:
+#       MONGO_INITDB_ROOT_USERNAME: admin
+#       MONGO_INITDB_ROOT_PASSWORD: admin123
+#       MONGO_INITDB_DATABASE: ndp_local_catalog
+#     volumes:
+#       - mongodb_data:/data/db
+#       - mongodb_config:/data/configdb
+#     networks:
+#       - ndp-network
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+#       start_period: 20s
 
-  # ==============================================
-  # MinIO - S3-Compatible Object Storage
-  # ==============================================
-  minio:
-    image: minio/minio:latest
-    container_name: ndp-minio
-    ports:
-      - "9002:9000"      # API port
-      - "9003:9001"      # Console UI
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - ndp-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+#   # ==============================================
+#   # MinIO - S3-Compatible Object Storage
+#   # ==============================================
+#   minio:
+#     image: minio/minio:latest
+#     container_name: ndp-minio
+#     ports:
+#       - "9002:9000"      # API port
+#       - "9003:9001"      # Console UI
+#     environment:
+#       MINIO_ROOT_USER: minioadmin
+#       MINIO_ROOT_PASSWORD: minioadmin123
+#     command: server /data --console-address ":9001"
+#     volumes:
+#       - minio_data:/data
+#     networks:
+#       - ndp-network
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD", "mc", "ready", "local"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
 
-  # ==============================================
-  # Zookeeper - Required for Kafka
-  # ==============================================
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.0
-    container_name: ndp-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: WARN
-    volumes:
-      - zookeeper_data:/var/lib/zookeeper/data
-      - zookeeper_log:/var/lib/zookeeper/log
-    networks:
-      - ndp-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+#   # ==============================================
+#   # Zookeeper - Required for Kafka
+#   # ==============================================
+#   zookeeper:
+#     image: confluentinc/cp-zookeeper:7.6.0
+#     container_name: ndp-zookeeper
+#     environment:
+#       ZOOKEEPER_CLIENT_PORT: 2181
+#       ZOOKEEPER_TICK_TIME: 2000
+#       ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: WARN
+#     volumes:
+#       - zookeeper_data:/var/lib/zookeeper/data
+#       - zookeeper_log:/var/lib/zookeeper/log
+#     networks:
+#       - ndp-network
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD", "nc", "-z", "localhost", "2181"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
 
-  # ==============================================
-  # Kafka - Streaming Platform
-  # ==============================================
-  kafka:
-    image: confluentinc/cp-kafka:7.6.0
-    container_name: ndp-kafka
-    ports:
-      - "9094:9092"      # External access
-      - "9095:9093"      # Internal access
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9093,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
-      KAFKA_TOOLS_LOG4J_LOGLEVEL: ERROR
-    volumes:
-      - kafka_data:/var/lib/kafka/data
-    networks:
-      - ndp-network
-    depends_on:
-      zookeeper:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9093"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+#   # ==============================================
+#   # Kafka - Streaming Platform
+#   # ==============================================
+#   kafka:
+#     image: confluentinc/cp-kafka:7.6.0
+#     container_name: ndp-kafka
+#     ports:
+#       - "9094:9092"      # External access
+#       - "9095:9093"      # Internal access
+#     environment:
+#       KAFKA_BROKER_ID: 1
+#       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+#       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9093,PLAINTEXT_HOST://localhost:9092
+#       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+#       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+#       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+#       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+#       KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+#       KAFKA_TOOLS_LOG4J_LOGLEVEL: ERROR
+#     volumes:
+#       - kafka_data:/var/lib/kafka/data
+#     networks:
+#       - ndp-network
+#     depends_on:
+#       zookeeper:
+#         condition: service_healthy
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9093"]
+#       interval: 10s
+#       timeout: 10s
+#       retries: 5
+#       start_period: 30s
 
-  # ==============================================
-  # Kafka UI - Web Interface for Kafka Management
-  # ==============================================
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: ndp-kafka-ui
-    ports:
-      - "8081:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: ndp-demo
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-      DYNAMIC_CONFIG_ENABLED: 'true'
-    networks:
-      - ndp-network
-    depends_on:
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
+#   # ==============================================
+#   # Kafka UI - Web Interface for Kafka Management
+#   # ==============================================
+#   kafka-ui:
+#     image: provectuslabs/kafka-ui:latest
+#     container_name: ndp-kafka-ui
+#     ports:
+#       - "8081:8080"
+#     environment:
+#       KAFKA_CLUSTERS_0_NAME: ndp-demo
+#       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+#       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+#       DYNAMIC_CONFIG_ENABLED: 'true'
+#     networks:
+#       - ndp-network
+#     depends_on:
+#       kafka:
+#         condition: service_healthy
+#     restart: unless-stopped
 
-  # ==============================================
-  # Mongo Express - MongoDB Web UI
-  # ==============================================
-  mongo-express:
-    image: mongo-express:latest
-    container_name: ndp-mongo-express
-    ports:
-      - "8082:8081"
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: admin123
-      ME_CONFIG_MONGODB_URL: mongodb://admin:admin123@mongodb:27017/
-      ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: admin123
-      ME_CONFIG_MONGODB_ENABLE_ADMIN: 'true'
-    networks:
-      - ndp-network
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    restart: unless-stopped
+#   # ==============================================
+#   # Mongo Express - MongoDB Web UI
+#   # ==============================================
+#   mongo-express:
+#     image: mongo-express:latest
+#     container_name: ndp-mongo-express
+#     ports:
+#       - "8082:8081"
+#     environment:
+#       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+#       ME_CONFIG_MONGODB_ADMINPASSWORD: admin123
+#       ME_CONFIG_MONGODB_URL: mongodb://admin:admin123@mongodb:27017/
+#       ME_CONFIG_BASICAUTH_USERNAME: admin
+#       ME_CONFIG_BASICAUTH_PASSWORD: admin123
+#       ME_CONFIG_MONGODB_ENABLE_ADMIN: 'true'
+#     networks:
+#       - ndp-network
+#     depends_on:
+#       mongodb:
+#         condition: service_healthy
+#     restart: unless-stopped
 
-  # ==============================================
-  # NDP-EP Frontend - Web Interface
-  # ==============================================
-  frontend:
-    image: rbardaji/ndp-ep-frontend:latest
-    container_name: ndp-frontend
-    ports:
-      - "3000:80"
-    environment:
-      NDP_EP_API: https://ndp-ep-api.katxu.com
-    networks:
-      - ndp-network
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
+#   # ==============================================
+#   # NDP-EP Frontend - Web Interface
+#   # ==============================================
+#   frontend:
+#     image: rbardaji/ndp-ep-frontend:latest
+#     container_name: ndp-frontend
+#     ports:
+#       - "3000:80"
+#     environment:
+#       NDP_EP_API: https://ndp-ep-api.katxu.com
+#     networks:
+#       - ndp-network
+#     depends_on:
+#       api:
+#         condition: service_healthy
+#     restart: unless-stopped
 
-  # ==============================================
-  # JupyterLab - Interactive Development Environment
-  # ==============================================
-  jupyterlab:
-    image: jupyter/scipy-notebook:latest
-    container_name: ndp-jupyterlab
-    ports:
-      - "8888:8888"
-    environment:
-      JUPYTER_ENABLE_LAB: 'yes'
-      JUPYTER_TOKEN: testing_token
-    volumes:
-      - jupyterlab_data:/home/jovyan/work
-    networks:
-      - ndp-network
-    restart: unless-stopped
-    command: start-notebook.sh --NotebookApp.token='testing_token' --NotebookApp.password=''
+#   # ==============================================
+#   # JupyterLab - Interactive Development Environment
+#   # ==============================================
+#   jupyterlab:
+#     image: jupyter/scipy-notebook:latest
+#     container_name: ndp-jupyterlab
+#     ports:
+#       - "8888:8888"
+#     environment:
+#       JUPYTER_ENABLE_LAB: 'yes'
+#       JUPYTER_TOKEN: testing_token
+#     volumes:
+#       - jupyterlab_data:/home/jovyan/work
+#     networks:
+#       - ndp-network
+#     restart: unless-stopped
+#     command: start-notebook.sh --NotebookApp.token='testing_token' --NotebookApp.password=''
 
-  # ==============================================
-  # Pelican Registry - Namespace Management
-  # ==============================================
-  pelican-registry:
-    image: hub.opensciencegrid.org/pelican_platform/registry:latest
-    container_name: ndp-pelican-registry
-    ports:
-      - "8444:8444"      # Web interface
-    environment:
-      PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
-      PELICAN_SERVER_HOSTNAME: pelican-registry
-      PELICAN_TLSSKIPVERIFY: "true"
-      PELICAN_SERVER_ENABLEUI: "false"
-    volumes:
-      - pelican_registry_data:/var/lib/pelican
-    networks:
-      - ndp-network
-    restart: unless-stopped
+#   # ==============================================
+#   # Pelican Registry - Namespace Management
+#   # ==============================================
+#   pelican-registry:
+#     image: hub.opensciencegrid.org/pelican_platform/registry:latest
+#     container_name: ndp-pelican-registry
+#     ports:
+#       - "8444:8444"      # Web interface
+#     environment:
+#       PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
+#       PELICAN_SERVER_HOSTNAME: pelican-registry
+#       PELICAN_TLSSKIPVERIFY: "true"
+#       PELICAN_SERVER_ENABLEUI: "false"
+#     volumes:
+#       - pelican_registry_data:/var/lib/pelican
+#     networks:
+#       - ndp-network
+#     restart: unless-stopped
 
-  # ==============================================
-  # Pelican Director - Request Routing
-  # ==============================================
-  pelican-director:
-    image: hub.opensciencegrid.org/pelican_platform/director:latest
-    container_name: ndp-pelican-director
-    ports:
-      - "8445:8444"      # Web interface
-    environment:
-      PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
-      PELICAN_SERVER_HOSTNAME: pelican-director
-      PELICAN_TLSSKIPVERIFY: "true"
-      PELICAN_SERVER_ENABLEUI: "false"
-    volumes:
-      - pelican_director_data:/var/lib/pelican
-    networks:
-      - ndp-network
-    depends_on:
-      - pelican-registry
-    restart: unless-stopped
+#   # ==============================================
+#   # Pelican Director - Request Routing
+#   # ==============================================
+#   pelican-director:
+#     image: hub.opensciencegrid.org/pelican_platform/director:latest
+#     container_name: ndp-pelican-director
+#     ports:
+#       - "8445:8444"      # Web interface
+#     environment:
+#       PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
+#       PELICAN_SERVER_HOSTNAME: pelican-director
+#       PELICAN_TLSSKIPVERIFY: "true"
+#       PELICAN_SERVER_ENABLEUI: "false"
+#     volumes:
+#       - pelican_director_data:/var/lib/pelican
+#     networks:
+#       - ndp-network
+#     depends_on:
+#       - pelican-registry
+#     restart: unless-stopped
 
-  # ==============================================
-  # Pelican Origin - Serve MinIO Data to Federation
-  # ==============================================
-  pelican-origin:
-    image: hub.opensciencegrid.org/pelican_platform/origin:latest
-    container_name: ndp-pelican-origin
-    ports:
-      - "8446:8443"      # Data transfer port
-      - "8447:8444"      # Web interface
-    environment:
-      PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
-      PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
-      PELICAN_SERVER_HOSTNAME: pelican-origin
-      PELICAN_TLSSKIPVERIFY: "true"
-      PELICAN_SERVER_ENABLEUI: "false"
-    volumes:
-      - pelican_origin_data:/var/lib/pelican
-      - minio_data:/minio:ro        # Read-only access to MinIO data
-      - ./pelican-origin-config.yaml:/etc/pelican/config.d/10-origin.yaml:ro
-    networks:
-      - ndp-network
-    depends_on:
-      - pelican-director
-      - pelican-registry
-      - minio
-    restart: unless-stopped
+#   # ==============================================
+#   # Pelican Origin - Serve MinIO Data to Federation
+#   # ==============================================
+#   pelican-origin:
+#     image: hub.opensciencegrid.org/pelican_platform/origin:latest
+#     container_name: ndp-pelican-origin
+#     ports:
+#       - "8446:8443"      # Data transfer port
+#       - "8447:8444"      # Web interface
+#     environment:
+#       PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
+#       PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
+#       PELICAN_SERVER_HOSTNAME: pelican-origin
+#       PELICAN_TLSSKIPVERIFY: "true"
+#       PELICAN_SERVER_ENABLEUI: "false"
+#     volumes:
+#       - pelican_origin_data:/var/lib/pelican
+#       - minio_data:/minio:ro        # Read-only access to MinIO data
+#       - ./pelican-origin-config.yaml:/etc/pelican/config.d/10-origin.yaml:ro
+#     networks:
+#       - ndp-network
+#     depends_on:
+#       - pelican-director
+#       - pelican-registry
+#       - minio
+#     restart: unless-stopped
 
-  # ==============================================
-  # Pelican Cache - Accelerate Data Access
-  # ==============================================
-  pelican-cache:
-    image: hub.opensciencegrid.org/pelican_platform/cache:latest
-    container_name: ndp-pelican-cache
-    ports:
-      - "8448:8443"      # Data transfer port
-      - "8449:8444"      # Web interface
-    environment:
-      PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
-      PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
-      PELICAN_SERVER_HOSTNAME: pelican-cache
-      PELICAN_TLSSKIPVERIFY: "true"
-      PELICAN_SERVER_ENABLEUI: "false"
-    volumes:
-      - pelican_cache_data:/var/lib/pelican
-    networks:
-      - ndp-network
-    depends_on:
-      - pelican-director
-      - pelican-registry
-      - pelican-origin
-    restart: unless-stopped
+#   # ==============================================
+#   # Pelican Cache - Accelerate Data Access
+#   # ==============================================
+#   pelican-cache:
+#     image: hub.opensciencegrid.org/pelican_platform/cache:latest
+#     container_name: ndp-pelican-cache
+#     ports:
+#       - "8448:8443"      # Data transfer port
+#       - "8449:8444"      # Web interface
+#     environment:
+#       PELICAN_FEDERATION_DISCOVERYURL: https://pelican-director:8444
+#       PELICAN_FEDERATION_REGISTRYURL: https://pelican-registry:8444
+#       PELICAN_SERVER_HOSTNAME: pelican-cache
+#       PELICAN_TLSSKIPVERIFY: "true"
+#       PELICAN_SERVER_ENABLEUI: "false"
+#     volumes:
+#       - pelican_cache_data:/var/lib/pelican
+#     networks:
+#       - ndp-network
+#     depends_on:
+#       - pelican-director
+#       - pelican-registry
+#       - pelican-origin
+#     restart: unless-stopped
 
-# ==============================================
-# Volumes - Persistent Data Storage
-# ==============================================
-volumes:
-  mongodb_data:
-    driver: local
-  mongodb_config:
-    driver: local
-  minio_data:
-    driver: local
-  zookeeper_data:
-    driver: local
-  zookeeper_log:
-    driver: local
-  kafka_data:
-    driver: local
-  jupyterlab_data:
-    driver: local
-  pelican_registry_data:
-    driver: local
-  pelican_director_data:
-    driver: local
-  pelican_origin_data:
-    driver: local
-  pelican_cache_data:
-    driver: local
+# # ==============================================
+# # Volumes - Persistent Data Storage
+# # ==============================================
+# volumes:
+#   mongodb_data:
+#     driver: local
+#   mongodb_config:
+#     driver: local
+#   minio_data:
+#     driver: local
+#   zookeeper_data:
+#     driver: local
+#   zookeeper_log:
+#     driver: local
+#   kafka_data:
+#     driver: local
+#   jupyterlab_data:
+#     driver: local
+#   pelican_registry_data:
+#     driver: local
+#   pelican_director_data:
+#     driver: local
+#   pelican_origin_data:
+#     driver: local
+#   pelican_cache_data:
+#     driver: local
 
 # ==============================================
 # Network Configuration

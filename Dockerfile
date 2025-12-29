@@ -9,6 +9,12 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/code
 
+# # Install system dependencies (including curl for health check)
+# RUN apt-get update \
+#     && apt-get install -y --no-install-recommends \
+#         gcc \
+#         curl \
+#         && rm -rf /var/lib/apt/lists/*
 # Install system dependencies (including curl for health check)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
