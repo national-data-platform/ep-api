@@ -1,8 +1,11 @@
-# api\routes\status_routes\get_jupyter.py
+# api/routes/status_routes/get_jupyter.py
 
-from fastapi import APIRouter, HTTPException
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.config.swagger_settings import swagger_settings
+from api.services.auth_services import get_current_user
 
 router = APIRouter()
 
@@ -10,9 +13,11 @@ router = APIRouter()
 @router.get(
     "/jupyter",
     summary="Get jupyter connection details",
-    description=("Returns the the URL where the JupyterHub."),
+    description=("Returns the URL where the JupyterHub is available."),
 )
-async def get_jupyter_details():
+async def get_jupyter_details(
+    user_info: Dict[str, Any] = Depends(get_current_user),
+):
     """
     Endpoint to retrieve jupyter connection details.
 

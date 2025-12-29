@@ -125,12 +125,16 @@ AUTH_API_URL=https://idp.nationaldataplatform.org/temp/information
 # ==============================================
 # ACCESS CONTROL (Optional)
 # ==============================================
-# Enable organization-based access control (True/False)
-# When enabled, only users belonging to the configured ORGANIZATION
+# Enable group-based access control (True/False)
+# When enabled, only users belonging to one of the groups in GROUP_NAMES
 # can perform POST, PUT, DELETE operations. Other authenticated users
 # will receive 403 Forbidden on write operations.
 # GET endpoints remain public regardless of this setting.
-ENABLE_ORGANIZATION_BASED_ACCESS=False
+ENABLE_GROUP_BASED_ACCESS=False
+
+# Comma-separated list of allowed groups for write operations
+# Only used when ENABLE_GROUP_BASED_ACCESS=True
+GROUP_NAMES=admins,developers
 
 # ==============================================
 # LOCAL CATALOG CONFIGURATION
@@ -239,7 +243,40 @@ S3_REGION=us-east-1
 docker run -p 8001:8000 --env-file .env rbardaji/ndp-ep-api
 ```
 
-### 3. Verify Installation
+### 3. Run with Docker Compose (Optional Services)
+
+The `docker-compose.yml` uses **profiles** to let you choose which services to start. By default, only the API starts. Use profiles to add optional services:
+
+**Available Profiles:**
+| Profile | Services Included |
+|---------|-------------------|
+| `mongodb` | MongoDB + Mongo Express |
+| `kafka` | Kafka + Zookeeper + Kafka UI |
+| `s3` | MinIO (S3-compatible storage) |
+| `jupyter` | JupyterLab |
+| `pelican` | Pelican Federation (Registry, Director, Origin, Cache) |
+| `frontend` | NDP-EP Frontend Web UI |
+| `full` | All services |
+
+**Usage Examples:**
+
+```bash
+# API only (no additional services)
+docker compose up
+
+# API + MongoDB
+docker compose --profile mongodb up
+
+# API + MongoDB + Kafka
+docker compose --profile mongodb --profile kafka up
+
+# API + all services
+docker compose --profile full up
+```
+
+**Note:** When using external services (e.g., your own CKAN or Kafka), just run `docker compose up` and configure the external URLs in your `.env` file.
+
+### 4. Verify Installation
 
 Once the container is running, verify everything is working:
 
@@ -247,7 +284,7 @@ Once the container is running, verify everything is working:
 - **Health Check**: http://localhost:8001/status/
 - **Interactive API Explorer**: Available at the docs URL
 
-### 4. Common Configuration Scenarios
+### 5. Common Configuration Scenarios
 
 #### Scenario 1: NDP Central Catalog Only (Read-Only)
 ```bash
@@ -293,6 +330,60 @@ PRE_CKAN_ENABLED=True
 PRE_CKAN_URL=https://preckan.nationaldataplatform.org
 PRE_CKAN_API_KEY=your-ndp-preckan-api-key
 ```
+
+## 🔒 Group-Based Access Control
+
+The API supports optional group-based access control to restrict write operations (POST, PUT, DELETE) to users belonging to specific groups.
+
+### How It Works
+
+1. **Authentication**: When a user makes a request with a Bearer token, the API validates the token against the configured `AUTH_API_URL`
+2. **Group Retrieval**: The authentication service returns user information including their `groups` array
+3. **Authorization**: If `ENABLE_GROUP_BASED_ACCESS=True`, the API checks if any of the user's groups match the allowed groups in `GROUP_NAMES`
+4. **Access Decision**:
+   - ✅ User belongs to at least one allowed group → Write operation permitted
+   - ❌ User doesn't belong to any allowed group → 403 Forbidden
+
+### Configuration
+
+```bash
+# Enable group-based access control
+ENABLE_GROUP_BASED_ACCESS=True
+
+# Comma-separated list of groups allowed to perform write operations
+GROUP_NAMES=admins,developers,data-managers
+```
+
+### Behavior
+
+| Setting | Read (GET) | Write (POST/PUT/DELETE) |
+|---------|------------|-------------------------|
+| `ENABLE_GROUP_BASED_ACCESS=False` | ✅ Public | ✅ Any authenticated user |
+| `ENABLE_GROUP_BASED_ACCESS=True` | ✅ Public | ✅ Only users in `GROUP_NAMES` |
+
+### Example
+
+If your authentication service returns:
+```json
+{
+  "sub": "user123",
+  "groups": ["researchers", "data-managers"]
+}
+```
+
+And your configuration is:
+```bash
+ENABLE_GROUP_BASED_ACCESS=True
+GROUP_NAMES=admins,data-managers
+```
+
+The user **will be authorized** because `data-managers` is in both the user's groups and `GROUP_NAMES`.
+
+### Notes
+
+- Group matching is **case-insensitive** (`Admins` matches `admins`)
+- GET endpoints remain public regardless of this setting
+- If `ENABLE_GROUP_BASED_ACCESS=True` but `GROUP_NAMES` is empty, all write operations will be denied
 
 ## 📖 Usage Examples
 

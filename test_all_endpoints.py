@@ -161,16 +161,28 @@ def test_status_routes():
     print_section("STATUS ROUTES")
 
     # Test 2: Status endpoint
-    test_request("GET", "/status/", "GET /status/ - System status", skip_if_unavailable=True)
+    test_request(
+        "GET",
+        "/status/",
+        "GET /status/ - System status",
+        headers=HEADERS,
+        skip_if_unavailable=True,
+    )
 
     # Test 3: Metrics endpoint
-    test_request("GET", "/status/metrics", "GET /status/metrics - System metrics")
+    test_request(
+        "GET",
+        "/status/metrics",
+        "GET /status/metrics - System metrics",
+        headers=HEADERS,
+    )
 
     # Test 4: Kafka details
     test_request(
         "GET",
         "/status/kafka-details",
         "GET /status/kafka-details - Kafka details",
+        headers=HEADERS,
         skip_if_unavailable=True,
     )
 
@@ -179,6 +191,7 @@ def test_status_routes():
         "GET",
         "/status/jupyter",
         "GET /status/jupyter - Jupyter details",
+        headers=HEADERS,
         skip_if_unavailable=True,
     )
 

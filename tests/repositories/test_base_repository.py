@@ -68,6 +68,11 @@ class ConcreteTestRepository(DataCatalogRepository):
         """Test implementation of resource_delete."""
         self.calls.append(("resource_delete", {"id": id}))
 
+    def resource_patch(self, id: str, **kwargs) -> Dict[str, Any]:
+        """Test implementation of resource_patch."""
+        self.calls.append(("resource_patch", {"id": id, **kwargs}))
+        return {"id": id, **kwargs}
+
     def organization_create(self, **kwargs) -> Dict[str, Any]:
         """Test implementation of organization_create."""
         self.calls.append(("organization_create", kwargs))

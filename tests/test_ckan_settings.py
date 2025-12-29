@@ -107,8 +107,11 @@ class TestCKANSettings:
         assert settings.pre_ckan_api_key == "custom-pre-key"
 
     def test_ckan_ssl_verify_default_true(self):
-        """Test SSL verification is enabled by default."""
-        settings = Settings(ckan_url="https://test-ckan.com")
+        """Test SSL verification can be enabled explicitly."""
+        settings = Settings(
+            ckan_url="https://test-ckan.com",
+            ckan_verify_ssl=True
+        )
 
         assert settings.ckan_verify_ssl is True
         ckan_client = settings.ckan

@@ -2,64 +2,64 @@ import pytest
 from unittest.mock import Mock, patch
 from fastapi import HTTPException
 
-from api.services.auth_services.authorization_service import check_organization_membership
+from api.services.auth_services.authorization_service import check_group_membership
 
 
 class TestAuthServices:
     """Test authentication and authorization services."""
-    
-    def test_check_organization_membership_enabled_matching_org(self):
-        """Test organization membership check when enabled and org matches."""
-        user_info = {"groups": ["Test Org"]}
-        
+
+    def test_check_group_membership_enabled_matching_group(self):
+        """Test group membership check when enabled and group matches."""
+        user_info = {"groups": ["Test Group"]}
+
         with patch('api.services.auth_services.authorization_service.swagger_settings') as mock_settings:
-            mock_settings.enable_organization_based_access = True
-            mock_settings.organization = "Test Org"
-            
-            result = check_organization_membership(user_info)
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "Test Group,admins"
+
+            result = check_group_membership(user_info)
             assert result is True
-    
-    def test_check_organization_membership_enabled_different_org(self):
-        """Test organization membership check when enabled and org doesn't match."""
-        user_info = {"groups": ["Different Org"]}
-        
+
+    def test_check_group_membership_enabled_different_group(self):
+        """Test group membership check when enabled and group doesn't match."""
+        user_info = {"groups": ["Different Group"]}
+
         with patch('api.services.auth_services.authorization_service.swagger_settings') as mock_settings:
-            mock_settings.enable_organization_based_access = True
-            mock_settings.organization = "Test Org"
-            
-            result = check_organization_membership(user_info)
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "Test Group,admins"
+
+            result = check_group_membership(user_info)
             assert result is False
-    
-    def test_check_organization_membership_disabled(self):
-        """Test organization membership check when disabled."""
-        user_info = {"groups": ["Any Org"]}
-        
+
+    def test_check_group_membership_disabled(self):
+        """Test group membership check when disabled."""
+        user_info = {"groups": ["Any Group"]}
+
         with patch('api.services.auth_services.authorization_service.swagger_settings') as mock_settings:
-            mock_settings.enable_organization_based_access = False
-            
-            result = check_organization_membership(user_info)
+            mock_settings.enable_group_based_access = False
+
+            result = check_group_membership(user_info)
             assert result is True
-    
-    def test_organization_membership_empty_groups(self):
-        """Test organization membership with empty groups."""
+
+    def test_group_membership_empty_groups(self):
+        """Test group membership with empty groups."""
         user_info = {"groups": []}
-        
+
         with patch('api.services.auth_services.authorization_service.swagger_settings') as mock_settings:
-            mock_settings.enable_organization_based_access = True
-            mock_settings.organization = "Test Org"
-            
-            result = check_organization_membership(user_info)
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "Test Group"
+
+            result = check_group_membership(user_info)
             assert result is False
-    
-    def test_organization_membership_case_insensitive(self):
-        """Test organization membership is case insensitive."""
-        user_info = {"groups": ["test org"]}
-        
+
+    def test_group_membership_case_insensitive(self):
+        """Test group membership is case insensitive."""
+        user_info = {"groups": ["test group"]}
+
         with patch('api.services.auth_services.authorization_service.swagger_settings') as mock_settings:
-            mock_settings.enable_organization_based_access = True
-            mock_settings.organization = "Test Org"
-            
-            result = check_organization_membership(user_info)
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "Test Group"
+
+            result = check_group_membership(user_info)
             assert result is True
 
 
