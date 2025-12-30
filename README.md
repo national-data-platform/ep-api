@@ -367,7 +367,7 @@ If your authentication service returns:
 ```json
 {
   "sub": "user123",
-  "groups": ["researchers", "data-managers"]
+  "groups": ["researchers", "data-managers"] # from ndp keycloak 
 }
 ```
 
