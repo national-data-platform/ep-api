@@ -53,8 +53,20 @@ def check_group_membership(user_info: Dict[str, Any]) -> bool:
 
     # Check if any of the user's groups matches an allowed group
     for group in user_groups:
-        if isinstance(group, str) and group.lower() in allowed_groups:
-            logger.info(f"User authorized: belongs to allowed group '{group}'")
+        if isinstance(group, str):
+            group_value = group.lower()
+        elif isinstance(group, dict):
+            group_value = str(
+                group.get("path")
+                or group.get("name")
+                or ""
+            ).lower()
+        else:
+            continue
+
+        logger.info(f"checking group: {group_value}")
+        if group_value and group_value in allowed_groups:
+            logger.info(f"User authorized: belongs to allowed group '{group_value}'")
             return True
 
     logger.warning(
