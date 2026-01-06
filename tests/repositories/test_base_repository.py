@@ -300,3 +300,227 @@ class TestConcreteRepositoryHealthCheck:
 
         assert result is True
         assert ("check_health", {}) in repo.calls
+
+
+class ResourceSearchTestRepository(DataCatalogRepository):
+    """Repository for testing default resource_search implementation."""
+
+    def __init__(self, packages_data):
+        self.packages_data = packages_data
+
+    def package_create(self, **kwargs):
+        return {}
+
+    def package_show(self, id):
+        return {}
+
+    def package_update(self, **kwargs):
+        return {}
+
+    def package_patch(self, **kwargs):
+        return {}
+
+    def package_delete(self, id):
+        pass
+
+    def package_search(self, q="*:*", fq="", rows=10, start=0, sort="", **kwargs):
+        return {"count": len(self.packages_data), "results": self.packages_data}
+
+    def resource_create(self, **kwargs):
+        return {}
+
+    def resource_show(self, id):
+        return {}
+
+    def resource_delete(self, id):
+        pass
+
+    def resource_patch(self, **kwargs):
+        return {}
+
+    def organization_create(self, **kwargs):
+        return {}
+
+    def organization_show(self, id):
+        return {}
+
+    def organization_list(self, all_fields=False, **kwargs):
+        return []
+
+    def organization_delete(self, id):
+        pass
+
+    def check_health(self):
+        return True
+
+
+class TestDefaultResourceSearch:
+    """Tests for the default resource_search implementation in DataCatalogRepository."""
+
+    @pytest.fixture
+    def sample_packages(self):
+        return [
+            {
+                "id": "pkg-1",
+                "name": "weather-data",
+                "title": "Weather Dataset",
+                "resources": [
+                    {
+                        "id": "res-1",
+                        "name": "temperature",
+                        "url": "https://example.com/temp.csv",
+                        "format": "csv",
+                        "description": "Temperature readings",
+                    },
+                    {
+                        "id": "res-2",
+                        "name": "humidity",
+                        "url": "https://example.com/humid.json",
+                        "format": "json",
+                        "description": "Humidity data",
+                    },
+                ],
+            },
+            {
+                "id": "pkg-2",
+                "name": "climate-data",
+                "title": "Climate Dataset",
+                "resources": [
+                    {
+                        "id": "res-3",
+                        "name": "rainfall",
+                        "url": "https://api.weather.org/rain",
+                        "format": "csv",
+                        "description": "Annual rainfall data",
+                    },
+                ],
+            },
+        ]
+
+    def test_search_all_resources(self, sample_packages):
+        """Test searching for all resources."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search()
+
+        assert results["count"] == 3
+        assert len(results["results"]) == 3
+
+    def test_search_by_query_name(self, sample_packages):
+        """Test searching by query matching name."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(query="temperature")
+
+        assert results["count"] == 1
+        assert results["results"][0]["name"] == "temperature"
+
+    def test_search_by_query_url(self, sample_packages):
+        """Test searching by query matching url."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(query="weather.org")
+
+        assert results["count"] == 1
+        assert "weather.org" in results["results"][0]["url"]
+
+    def test_search_by_query_description(self, sample_packages):
+        """Test searching by query matching description."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(query="rainfall")
+
+        assert results["count"] == 1
+        assert "rainfall" in results["results"][0]["description"].lower()
+
+    def test_search_by_name_filter(self, sample_packages):
+        """Test searching by name filter."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(name="humid")
+
+        assert results["count"] == 1
+        assert results["results"][0]["name"] == "humidity"
+
+    def test_search_by_url_filter(self, sample_packages):
+        """Test searching by url filter."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(url="example.com")
+
+        assert results["count"] == 2
+
+    def test_search_by_format_filter(self, sample_packages):
+        """Test searching by format filter."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(format="csv")
+
+        assert results["count"] == 2
+        assert all(r["format"] == "csv" for r in results["results"])
+
+    def test_search_by_description_filter(self, sample_packages):
+        """Test searching by description filter."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(description="readings")
+
+        assert results["count"] == 1
+        assert "readings" in results["results"][0]["description"].lower()
+
+    def test_search_pagination_limit(self, sample_packages):
+        """Test pagination with limit."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(limit=2)
+
+        assert results["count"] == 3
+        assert len(results["results"]) == 2
+
+    def test_search_pagination_offset(self, sample_packages):
+        """Test pagination with offset."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(offset=2)
+
+        assert results["count"] == 3
+        assert len(results["results"]) == 1
+
+    def test_search_adds_context(self, sample_packages):
+        """Test that dataset context is added to resources."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search()
+
+        for resource in results["results"]:
+            assert "dataset_id" in resource
+            assert "dataset_name" in resource
+            assert "dataset_title" in resource
+
+    def test_search_no_match(self, sample_packages):
+        """Test searching with no matches."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(query="nonexistent")
+
+        assert results["count"] == 0
+        assert len(results["results"]) == 0
+
+    def test_search_format_case_insensitive(self, sample_packages):
+        """Test format filter is case insensitive."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(format="CSV")
+
+        assert results["count"] == 2
+
+    def test_search_empty_packages(self):
+        """Test searching when no packages exist."""
+        repo = ResourceSearchTestRepository([])
+        results = repo.resource_search()
+
+        assert results["count"] == 0
+        assert len(results["results"]) == 0
+
+    def test_search_packages_without_resources(self):
+        """Test searching packages that have no resources."""
+        packages = [{"id": "pkg-1", "name": "empty", "title": "Empty"}]
+        repo = ResourceSearchTestRepository(packages)
+        results = repo.resource_search()
+
+        assert results["count"] == 0
+
+    def test_search_combined_filters(self, sample_packages):
+        """Test searching with multiple filters."""
+        repo = ResourceSearchTestRepository(sample_packages)
+        results = repo.resource_search(format="csv", url="example.com")
+
+        assert results["count"] == 1
+        assert results["results"][0]["name"] == "temperature"

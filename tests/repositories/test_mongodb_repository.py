@@ -345,3 +345,188 @@ def test_duplicate_organization_name(mongodb_repo):
             name="duplicate-org",
             title="Second Org"
         )
+
+
+def test_resource_patch(mongodb_repo):
+    """Test partially updating a resource."""
+    package = mongodb_repo.package_create(
+        name="test-pkg-patch-res",
+        title="Test Package",
+        owner_org="test-org"
+    )
+    resource = mongodb_repo.resource_create(
+        package_id=package["id"],
+        name="original-name",
+        url="https://example.com/original.csv",
+        format="csv"
+    )
+
+    patched = mongodb_repo.resource_patch(
+        id=resource["id"],
+        name="updated-name"
+    )
+
+    assert patched["name"] == "updated-name"
+    assert patched["url"] == "https://example.com/original.csv"
+
+
+def test_resource_search_basic(mongodb_repo):
+    """Test basic resource search."""
+    package = mongodb_repo.package_create(
+        name="test-pkg-search-res",
+        title="Test Package",
+        owner_org="test-org"
+    )
+    mongodb_repo.resource_create(
+        package_id=package["id"],
+        name="search-resource",
+        url="https://example.com/data.csv",
+        format="csv"
+    )
+
+    results = mongodb_repo.resource_search()
+    assert results["count"] >= 1
+
+
+def test_check_health(mongodb_repo):
+    """Test check_health returns True."""
+    result = mongodb_repo.check_health()
+    assert result is True
+
+
+def test_package_search_with_fq(mongodb_repo):
+    """Test package search with filter query."""
+    mongodb_repo.package_create(
+        name="fq-test-pkg",
+        title="FQ Test",
+        owner_org="test-org"
+    )
+
+    results = mongodb_repo.package_search(fq="owner_org:test-org")
+    assert results["count"] >= 1
+
+
+def test_package_search_with_fq_list(mongodb_repo):
+    """Test package search with filter query list."""
+    mongodb_repo.package_create(
+        name="fq-list-pkg",
+        title="FQ List Test",
+        owner_org="test-org"
+    )
+
+    results = mongodb_repo.package_search(fq_list=["owner_org:test-org"])
+    assert results["count"] >= 1
+
+
+def test_resource_search_by_name(mongodb_repo):
+    """Test resource search by name."""
+    package = mongodb_repo.package_create(
+        name="test-pkg-res-name",
+        title="Test Package",
+        owner_org="test-org"
+    )
+    mongodb_repo.resource_create(
+        package_id=package["id"],
+        name="unique-name-xyz",
+        url="https://example.com/data.csv",
+        format="csv"
+    )
+
+    results = mongodb_repo.resource_search(name="unique-name")
+    assert results["count"] >= 1
+
+
+def test_resource_search_by_format(mongodb_repo):
+    """Test resource search by format."""
+    package = mongodb_repo.package_create(
+        name="test-pkg-res-format",
+        title="Test Package",
+        owner_org="test-org"
+    )
+    mongodb_repo.resource_create(
+        package_id=package["id"],
+        name="json-resource",
+        url="https://example.com/data.json",
+        format="json"
+    )
+
+    results = mongodb_repo.resource_search(format="json")
+    assert results["count"] >= 1
+
+
+def test_resource_search_by_query(mongodb_repo):
+    """Test resource search with query."""
+    package = mongodb_repo.package_create(
+        name="test-pkg-res-query",
+        title="Test Package",
+        owner_org="test-org"
+    )
+    mongodb_repo.resource_create(
+        package_id=package["id"],
+        name="weather-data",
+        url="https://example.com/weather.csv",
+        description="Weather data",
+        format="csv"
+    )
+
+    results = mongodb_repo.resource_search(query="weather")
+    assert results["count"] >= 1
+
+
+def test_resource_search_by_url(mongodb_repo):
+    """Test resource search by URL."""
+    package = mongodb_repo.package_create(
+        name="test-pkg-res-url",
+        title="Test Package",
+        owner_org="test-org"
+    )
+    mongodb_repo.resource_create(
+        package_id=package["id"],
+        name="url-resource",
+        url="https://unique-domain.example.org/data.csv",
+        format="csv"
+    )
+
+    results = mongodb_repo.resource_search(url="unique-domain")
+    assert results["count"] >= 1
+
+
+def test_resource_search_by_description(mongodb_repo):
+    """Test resource search by description."""
+    package = mongodb_repo.package_create(
+        name="test-pkg-res-desc",
+        title="Test Package",
+        owner_org="test-org"
+    )
+    mongodb_repo.resource_create(
+        package_id=package["id"],
+        name="desc-resource",
+        url="https://example.com/data.csv",
+        description="unique-description-xyz",
+        format="csv"
+    )
+
+    results = mongodb_repo.resource_search(description="unique-description")
+    assert results["count"] >= 1
+
+
+def test_package_create_invalid_org(mongodb_repo):
+    """Test package create with invalid org."""
+    with pytest.raises(Exception, match="Organization does not exist"):
+        mongodb_repo.package_create(
+            name="invalid-org-pkg",
+            title="Test",
+            owner_org="non-existent-org"
+        )
+
+
+def test_package_update_no_id(mongodb_repo):
+    """Test package update without ID."""
+    with pytest.raises(Exception, match="Package ID is required"):
+        mongodb_repo.package_update(title="New Title")
+
+
+def test_resource_create_no_package(mongodb_repo):
+    """Test resource create without package_id."""
+    with pytest.raises(Exception, match="package_id is required"):
+        mongodb_repo.resource_create(name="orphan", url="https://example.com")
