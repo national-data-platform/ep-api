@@ -1,11 +1,11 @@
-# api/config/kafka_settings.py
+# api/config/rexec_settings.py
 
 from pydantic_settings import BaseSettings
 
 
 class RexecSettings(BaseSettings):
     connection: bool = False
-    deployment_api_url: str = False
+    deployment_api_url: str = ""
 
     model_config = {
         "env_file": ".env",

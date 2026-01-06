@@ -1,4 +1,4 @@
-# api\routes\status_routes\get_rexec_api.py
+# api/routes/status_routes/get_rexec_api.py
 
 from typing import Any, Dict
 
@@ -29,7 +29,7 @@ async def get_rexec_details(
     Raises
     ------
     HTTPException
-        If there is an error retrieving Kafka details, an HTTPException
+        If there is an error retrieving Rexec details, an HTTPException
         is raised with a 500 status code.
     """
     try:
