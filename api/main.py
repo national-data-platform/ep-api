@@ -13,6 +13,8 @@ from fastapi.openapi.utils import get_openapi
 from fastapi_mcp import FastApiMCP
 
 import api.routes as routes
+from api.middleware import CorrelationIdMiddleware
+from api.exceptions import register_exception_handlers
 from api.config import ckan_settings, swagger_settings
 from api.config.minio_settings import s3_settings
 from api.routes.update_routes.put_dataset import router as dataset_update_router
@@ -103,6 +105,9 @@ app = FastAPI(
 )
 
 
+# Add Correlation ID middleware (must be added before CORS)
+app.add_middleware(CorrelationIdMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -110,6 +115,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register global exception handlers
+register_exception_handlers(app)
 
 app.include_router(routes.default_router, include_in_schema=False)
 if ckan_settings.ckan_local_enabled:
