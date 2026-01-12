@@ -29,7 +29,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_local_success(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test successful service creation on local."""
         from api.routes.register_routes.post_service import create_service
@@ -41,9 +45,7 @@ class TestCreateServiceRoute:
         mock_add_service.return_value = "service-123"
 
         result = await create_service(
-            data=mock_service_request,
-            server="local",
-            user_info={"user": "test"}
+            data=mock_service_request, server="local", user_info={"user": "test"}
         )
 
         assert result["id"] == "service-123"
@@ -54,7 +56,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_pre_ckan_disabled(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with pre_ckan disabled."""
         from api.routes.register_routes.post_service import create_service
@@ -63,9 +69,7 @@ class TestCreateServiceRoute:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_service(
-                data=mock_service_request,
-                server="pre_ckan",
-                user_info={"user": "test"}
+                data=mock_service_request, server="pre_ckan", user_info={"user": "test"}
             )
 
         assert exc_info.value.status_code == 400
@@ -76,7 +80,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_pre_ckan_enabled(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with pre_ckan enabled."""
         from api.routes.register_routes.post_service import create_service
@@ -88,9 +96,7 @@ class TestCreateServiceRoute:
         mock_add_service.return_value = "service-456"
 
         result = await create_service(
-            data=mock_service_request,
-            server="pre_ckan",
-            user_info={"user": "test"}
+            data=mock_service_request, server="pre_ckan", user_info={"user": "test"}
         )
 
         assert result["id"] == "service-456"
@@ -100,7 +106,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_value_error(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with ValueError."""
         from api.routes.register_routes.post_service import create_service
@@ -113,9 +123,7 @@ class TestCreateServiceRoute:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_service(
-                data=mock_service_request,
-                server="local",
-                user_info={"user": "test"}
+                data=mock_service_request, server="local", user_info={"user": "test"}
             )
 
         assert exc_info.value.status_code == 400
@@ -126,7 +134,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_key_error(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with KeyError."""
         from api.routes.register_routes.post_service import create_service
@@ -139,9 +151,7 @@ class TestCreateServiceRoute:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_service(
-                data=mock_service_request,
-                server="local",
-                user_info={"user": "test"}
+                data=mock_service_request, server="local", user_info={"user": "test"}
             )
 
         assert exc_info.value.status_code == 400
@@ -152,7 +162,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_duplicate_url(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with duplicate URL."""
         from api.routes.register_routes.post_service import create_service
@@ -165,9 +179,7 @@ class TestCreateServiceRoute:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_service(
-                data=mock_service_request,
-                server="local",
-                user_info={"user": "test"}
+                data=mock_service_request, server="local", user_info={"user": "test"}
             )
 
         assert exc_info.value.status_code == 409
@@ -178,7 +190,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_duplicate_name(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with duplicate name."""
         from api.routes.register_routes.post_service import create_service
@@ -191,9 +207,7 @@ class TestCreateServiceRoute:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_service(
-                data=mock_service_request,
-                server="local",
-                user_info={"user": "test"}
+                data=mock_service_request, server="local", user_info={"user": "test"}
             )
 
         assert exc_info.value.status_code == 409
@@ -203,7 +217,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_no_scheme(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with No scheme supplied error."""
         from api.routes.register_routes.post_service import create_service
@@ -216,9 +234,7 @@ class TestCreateServiceRoute:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_service(
-                data=mock_service_request,
-                server="local",
-                user_info={"user": "test"}
+                data=mock_service_request, server="local", user_info={"user": "test"}
             )
 
         assert exc_info.value.status_code == 400
@@ -229,7 +245,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_generic_error(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with generic error."""
         from api.routes.register_routes.post_service import create_service
@@ -242,9 +262,7 @@ class TestCreateServiceRoute:
 
         with pytest.raises(HTTPException) as exc_info:
             await create_service(
-                data=mock_service_request,
-                server="local",
-                user_info={"user": "test"}
+                data=mock_service_request, server="local", user_info={"user": "test"}
             )
 
         assert exc_info.value.status_code == 400
@@ -255,7 +273,11 @@ class TestCreateServiceRoute:
     @patch("api.routes.register_routes.post_service.catalog_settings")
     @patch("api.routes.register_routes.post_service.ckan_settings")
     async def test_create_service_non_ckan_repository(
-        self, mock_ckan_settings, mock_catalog_settings, mock_add_service, mock_service_request
+        self,
+        mock_ckan_settings,
+        mock_catalog_settings,
+        mock_add_service,
+        mock_service_request,
     ):
         """Test create service with non-CKAN repository (MongoDB)."""
         from api.routes.register_routes.post_service import create_service
@@ -265,9 +287,7 @@ class TestCreateServiceRoute:
         mock_add_service.return_value = "service-789"
 
         result = await create_service(
-            data=mock_service_request,
-            server="local",
-            user_info={"user": "test"}
+            data=mock_service_request, server="local", user_info={"user": "test"}
         )
 
         assert result["id"] == "service-789"

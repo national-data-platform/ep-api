@@ -50,7 +50,10 @@ class ConcreteTestRepository(DataCatalogRepository):
     ) -> Dict[str, Any]:
         """Test implementation of package_search."""
         self.calls.append(
-            ("package_search", {"q": q, "fq": fq, "rows": rows, "start": start, "sort": sort})
+            (
+                "package_search",
+                {"q": q, "fq": fq, "rows": rows, "start": start, "sort": sort},
+            )
         )
         return {"count": 1, "results": [{"id": "pkg-123"}]}
 
@@ -148,7 +151,10 @@ class TestConcreteRepositoryPackageOperations:
 
         assert result["id"] == "pkg-123"
         assert result["name"] == "test-package"
-        assert ("package_create", {"name": "test-package", "title": "Test Package"}) in repo.calls
+        assert (
+            "package_create",
+            {"name": "test-package", "title": "Test Package"},
+        ) in repo.calls
 
     def test_package_show_returns_package_data(self):
         """Test retrieving a package."""
@@ -166,7 +172,10 @@ class TestConcreteRepositoryPackageOperations:
 
         assert result["id"] == "pkg-123"
         assert result["name"] == "updated-name"
-        assert ("package_update", {"id": "pkg-123", "name": "updated-name"}) in repo.calls
+        assert (
+            "package_update",
+            {"id": "pkg-123", "name": "updated-name"},
+        ) in repo.calls
 
     def test_package_patch_partial_update(self):
         """Test patching a package."""
@@ -191,13 +200,16 @@ class TestConcreteRepositoryPackageOperations:
 
         assert result["count"] == 1
         assert len(result["results"]) == 1
-        assert ("package_search", {
-            "q": "*:*",
-            "fq": "",
-            "rows": 10,
-            "start": 0,
-            "sort": "score desc, metadata_modified desc"
-        }) in repo.calls
+        assert (
+            "package_search",
+            {
+                "q": "*:*",
+                "fq": "",
+                "rows": 10,
+                "start": 0,
+                "sort": "score desc, metadata_modified desc",
+            },
+        ) in repo.calls
 
     def test_package_search_with_custom_parameters(self):
         """Test searching packages with custom parameters."""
@@ -205,13 +217,16 @@ class TestConcreteRepositoryPackageOperations:
         result = repo.package_search(q="test", rows=20, start=10)
 
         assert result["count"] == 1
-        assert ("package_search", {
-            "q": "test",
-            "fq": "",
-            "rows": 20,
-            "start": 10,
-            "sort": "score desc, metadata_modified desc"
-        }) in repo.calls
+        assert (
+            "package_search",
+            {
+                "q": "test",
+                "fq": "",
+                "rows": 20,
+                "start": 10,
+                "sort": "score desc, metadata_modified desc",
+            },
+        ) in repo.calls
 
 
 class TestConcreteRepositoryResourceOperations:
@@ -224,7 +239,10 @@ class TestConcreteRepositoryResourceOperations:
 
         assert result["id"] == "res-123"
         assert result["package_id"] == "pkg-123"
-        assert ("resource_create", {"package_id": "pkg-123", "name": "test.csv"}) in repo.calls
+        assert (
+            "resource_create",
+            {"package_id": "pkg-123", "name": "test.csv"},
+        ) in repo.calls
 
     def test_resource_show_returns_resource_data(self):
         """Test retrieving a resource."""
@@ -253,7 +271,10 @@ class TestConcreteRepositoryOrganizationOperations:
 
         assert result["id"] == "org-123"
         assert result["name"] == "test-org"
-        assert ("organization_create", {"name": "test-org", "title": "Test Organization"}) in repo.calls
+        assert (
+            "organization_create",
+            {"name": "test-org", "title": "Test Organization"},
+        ) in repo.calls
 
     def test_organization_show_returns_org_data(self):
         """Test retrieving an organization."""

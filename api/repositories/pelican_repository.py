@@ -25,7 +25,7 @@ class PelicanRepository:
         self,
         federation_url: str,
         direct_reads: bool = False,
-        preferred_caches: Optional[List[str]] = None
+        preferred_caches: Optional[List[str]] = None,
     ):
         """
         Initialize Pelican filesystem connection.
@@ -52,15 +52,11 @@ class PelicanRepository:
             self._fs = PelicanFileSystem(
                 self.federation_url,
                 direct_reads=self.direct_reads,
-                preferred_caches=self.preferred_caches
+                preferred_caches=self.preferred_caches,
             )
         return self._fs
 
-    def list_files(
-        self,
-        path: str,
-        detail: bool = False
-    ) -> List[Dict[str, Any]]:
+    def list_files(self, path: str, detail: bool = False) -> List[Dict[str, Any]]:
         """
         List files in a Pelican namespace path.
 
@@ -85,7 +81,7 @@ class PelicanRepository:
                         "name": f.get("name", ""),
                         "size": f.get("size", 0),
                         "type": f.get("type", "file"),
-                        "modified": f.get("mtime", None)
+                        "modified": f.get("mtime", None),
                     }
                     for f in files
                 ]
@@ -136,7 +132,7 @@ class PelicanRepository:
                 "name": info.get("name", ""),
                 "size": info.get("size", 0),
                 "type": info.get("type", "file"),
-                "modified": info.get("mtime", None)
+                "modified": info.get("mtime", None),
             }
         except Exception as e:
             logger.error(f"Error getting info for {path}: {e}")

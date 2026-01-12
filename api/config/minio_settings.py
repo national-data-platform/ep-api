@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class S3Settings(BaseSettings):
     """S3-compatible storage configuration settings."""
-    
+
     s3_enabled: bool = False
     s3_endpoint: str = "localhost:9000"
     s3_access_key: str = "minioadmin"

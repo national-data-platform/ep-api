@@ -25,8 +25,7 @@ class TestPelicanRepositoryInit:
     def test_init_with_direct_reads(self):
         """Test initialization with direct reads enabled."""
         repo = PelicanRepository(
-            federation_url="pelican://path-cc.io",
-            direct_reads=True
+            federation_url="pelican://path-cc.io", direct_reads=True
         )
 
         assert repo.direct_reads is True
@@ -35,8 +34,7 @@ class TestPelicanRepositoryInit:
         """Test initialization with preferred caches."""
         caches = ["cache1.example.com", "cache2.example.com"]
         repo = PelicanRepository(
-            federation_url="pelican://osg-htc.org",
-            preferred_caches=caches
+            federation_url="pelican://osg-htc.org", preferred_caches=caches
         )
 
         assert repo.preferred_caches == caches
@@ -61,9 +59,7 @@ class TestPelicanRepositoryFilesystemProperty:
 
         assert fs == mock_fs_instance
         mock_fs_class.assert_called_once_with(
-            "pelican://osg-htc.org",
-            direct_reads=False,
-            preferred_caches=[]
+            "pelican://osg-htc.org", direct_reads=False, preferred_caches=[]
         )
 
     @patch("api.repositories.pelican_repository.PelicanFileSystem")
@@ -93,7 +89,7 @@ class TestListFiles:
         mock_fs = Mock()
         mock_fs.ls.return_value = [
             {"name": "file1.nc", "type": "file"},
-            {"name": "file2.nc", "type": "file"}
+            {"name": "file2.nc", "type": "file"},
         ]
         mock_fs_class.return_value = mock_fs
 
@@ -109,7 +105,7 @@ class TestListFiles:
         mock_fs = Mock()
         mock_fs.ls.return_value = [
             {"name": "file1.nc", "type": "file", "size": 1024},
-            {"name": "dir1", "type": "directory"}
+            {"name": "dir1", "type": "directory"},
         ]
         mock_fs_class.return_value = mock_fs
 
@@ -149,7 +145,7 @@ class TestFileInfo:
             "name": "/ospool/data/test.nc",
             "type": "file",
             "size": 2048,
-            "mtime": 1234567890
+            "mtime": 1234567890,
         }
         mock_fs_class.return_value = mock_fs
 
@@ -259,7 +255,7 @@ class TestRepositoryProperties:
         repo = PelicanRepository(
             federation_url="pelican://osg-htc.org",
             direct_reads=True,
-            preferred_caches=["cache1", "cache2"]
+            preferred_caches=["cache1", "cache2"],
         )
 
         assert repo.federation_url == "pelican://osg-htc.org"

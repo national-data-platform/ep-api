@@ -9,15 +9,10 @@ import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from api.services.pelican_services.browse_federation import (
     browse_namespace,
-    get_file_info
+    get_file_info,
 )
-from api.services.pelican_services.download_file import (
-    download_file,
-    stream_file
-)
-from api.services.pelican_services.import_metadata import (
-    import_file_as_resource
-)
+from api.services.pelican_services.download_file import download_file, stream_file
+from api.services.pelican_services.import_metadata import import_file_as_resource
 
 
 class TestBrowseNamespace:
@@ -26,15 +21,10 @@ class TestBrowseNamespace:
     def test_browse_namespace_without_detail(self):
         """Test browsing namespace without details."""
         mock_repo = Mock()
-        mock_repo.list_files.return_value = [
-            {"name": "file1.nc"},
-            {"name": "file2.nc"}
-        ]
+        mock_repo.list_files.return_value = [{"name": "file1.nc"}, {"name": "file2.nc"}]
 
         result = browse_namespace(
-            pelican_repo=mock_repo,
-            path="/ospool/data",
-            detail=False
+            pelican_repo=mock_repo, path="/ospool/data", detail=False
         )
 
         assert result["success"] is True
@@ -50,9 +40,7 @@ class TestBrowseNamespace:
         ]
 
         result = browse_namespace(
-            pelican_repo=mock_repo,
-            path="/ospool/data",
-            detail=True
+            pelican_repo=mock_repo, path="/ospool/data", detail=True
         )
 
         assert result["success"] is True
@@ -65,11 +53,7 @@ class TestBrowseNamespace:
         mock_repo = Mock()
         mock_repo.list_files.side_effect = Exception("Connection failed")
 
-        result = browse_namespace(
-            pelican_repo=mock_repo,
-            path="/ospool",
-            detail=False
-        )
+        result = browse_namespace(pelican_repo=mock_repo, path="/ospool", detail=False)
 
         assert result["success"] is False
         assert "error" in result
@@ -87,13 +71,10 @@ class TestGetFileInfo:
             "name": "/ospool/data/test.nc",
             "size": 2048,
             "type": "file",
-            "modified": 1234567890
+            "modified": 1234567890,
         }
 
-        result = get_file_info(
-            pelican_repo=mock_repo,
-            path="/ospool/data/test.nc"
-        )
+        result = get_file_info(pelican_repo=mock_repo, path="/ospool/data/test.nc")
 
         assert result["success"] is True
         assert result["file"]["name"] == "/ospool/data/test.nc"
@@ -105,10 +86,7 @@ class TestGetFileInfo:
         mock_repo = Mock()
         mock_repo.file_info.side_effect = FileNotFoundError("File not found")
 
-        result = get_file_info(
-            pelican_repo=mock_repo,
-            path="/ospool/missing.nc"
-        )
+        result = get_file_info(pelican_repo=mock_repo, path="/ospool/missing.nc")
 
         assert result["success"] is False
         assert "error" in result
@@ -122,10 +100,7 @@ class TestDownloadFile:
         mock_repo = Mock()
         mock_repo.read_file.return_value = b"netcdf data content"
 
-        content = download_file(
-            pelican_repo=mock_repo,
-            path="/ospool/data/test.nc"
-        )
+        content = download_file(pelican_repo=mock_repo, path="/ospool/data/test.nc")
 
         assert content == b"netcdf data content"
         mock_repo.read_file.assert_called_once_with("/ospool/data/test.nc")
@@ -136,10 +111,7 @@ class TestDownloadFile:
         mock_repo.read_file.side_effect = Exception("Download failed")
 
         with pytest.raises(Exception, match="Download failed"):
-            download_file(
-                pelican_repo=mock_repo,
-                path="/ospool/file.nc"
-            )
+            download_file(pelican_repo=mock_repo, path="/ospool/file.nc")
 
 
 class TestStreamFile:
@@ -151,10 +123,7 @@ class TestStreamFile:
         mock_stream = Mock()
         mock_repo.open_file.return_value = mock_stream
 
-        stream = stream_file(
-            pelican_repo=mock_repo,
-            path="/ospool/data/large.nc"
-        )
+        stream = stream_file(pelican_repo=mock_repo, path="/ospool/data/large.nc")
 
         assert stream == mock_stream
         mock_repo.open_file.assert_called_once_with("/ospool/data/large.nc", mode="rb")
@@ -165,10 +134,7 @@ class TestStreamFile:
         mock_repo.open_file.side_effect = Exception("Cannot open stream")
 
         with pytest.raises(Exception, match="Cannot open stream"):
-            stream_file(
-                pelican_repo=mock_repo,
-                path="/ospool/data/file.nc"
-            )
+            stream_file(pelican_repo=mock_repo, path="/ospool/data/file.nc")
 
 
 class TestImportFileAsResource:
@@ -181,12 +147,12 @@ class TestImportFileAsResource:
         mock_repo.file_info.return_value = {
             "name": "/ospool/data/file.nc",
             "size": 1024,
-            "type": "file"
+            "type": "file",
         }
 
         mock_catalog.local_catalog.resource_create.return_value = {
             "id": "resource-456",
-            "name": "Test Resource"
+            "name": "Test Resource",
         }
 
         result = import_file_as_resource(
@@ -194,7 +160,7 @@ class TestImportFileAsResource:
             pelican_url="pelican://osg-htc.org/ospool/data/file.nc",
             package_id="package-123",
             resource_name="Test Resource",
-            resource_description="Test description"
+            resource_description="Test description",
         )
 
         assert result["success"] is True
@@ -208,18 +174,16 @@ class TestImportFileAsResource:
         mock_repo.file_info.return_value = {
             "name": "/file.nc",
             "size": 512,
-            "type": "file"
+            "type": "file",
         }
 
-        mock_catalog.local_catalog.resource_create.return_value = {
-            "id": "resource-789"
-        }
+        mock_catalog.local_catalog.resource_create.return_value = {"id": "resource-789"}
 
         result = import_file_as_resource(
             pelican_repo=mock_repo,
             pelican_url="pelican://osg-htc.org/file.nc",
             package_id="package-123",
-            resource_name="Resource"
+            resource_name="Resource",
         )
 
         assert result["success"] is True
@@ -235,7 +199,7 @@ class TestImportFileAsResource:
             pelican_repo=mock_repo,
             pelican_url="http://example.com/file.nc",
             package_id="package-123",
-            resource_name="Resource"
+            resource_name="Resource",
         )
 
         assert result["success"] is False
@@ -251,7 +215,7 @@ class TestImportFileAsResource:
             pelican_repo=mock_repo,
             pelican_url="pelican://osg-htc.org/missing.nc",
             package_id="package-123",
-            resource_name="Resource"
+            resource_name="Resource",
         )
 
         assert result["success"] is False

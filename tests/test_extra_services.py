@@ -85,7 +85,9 @@ class TestStreamMatchesKeywords:
 
     def test_matches_all(self):
         """Test matching all keywords."""
-        from api.services.datasource_services.search_datasource import stream_matches_keywords
+        from api.services.datasource_services.search_datasource import (
+            stream_matches_keywords,
+        )
         from unittest.mock import Mock
 
         stream = Mock()
@@ -96,7 +98,9 @@ class TestStreamMatchesKeywords:
 
     def test_no_match(self):
         """Test not matching keywords."""
-        from api.services.datasource_services.search_datasource import stream_matches_keywords
+        from api.services.datasource_services.search_datasource import (
+            stream_matches_keywords,
+        )
         from unittest.mock import Mock
 
         stream = Mock()
@@ -142,7 +146,7 @@ class TestSearchDatasourceWithResults:
                 dataset_title="Title",
                 owner_org="org",
                 dataset_description="desc",
-                server="local"
+                server="local",
             )
 
         asyncio.run(run())

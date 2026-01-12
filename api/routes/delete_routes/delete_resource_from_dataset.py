@@ -75,9 +75,7 @@ async def delete_resource_from_dataset(
                 )
             repository = CKANRepository(ckan_settings.pre_ckan)
 
-        dataset_services.delete_resource(
-            resource_id=resource_id, repository=repository
-        )
+        dataset_services.delete_resource(resource_id=resource_id, repository=repository)
         return {"message": f"Resource '{resource_id}' deleted successfully"}
 
     except Exception as e:

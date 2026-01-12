@@ -10,10 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def download_file(
-    pelican_repo: PelicanRepository,
-    path: str
-) -> bytes:
+def download_file(pelican_repo: PelicanRepository, path: str) -> bytes:
     """
     Download file contents from Pelican federation.
 
@@ -44,10 +41,7 @@ def download_file(
         raise
 
 
-def stream_file(
-    pelican_repo: PelicanRepository,
-    path: str
-):
+def stream_file(pelican_repo: PelicanRepository, path: str):
     """
     Open file for streaming from Pelican federation.
 

@@ -109,7 +109,7 @@ class TestInjectNdpMetadata:
         existing_extras = {
             "ndp_group_id": "old-org",
             "ndp_user_id": "old-hash",
-            "other": "data"
+            "other": "data",
         }
 
         result = inject_ndp_metadata(user_info, existing_extras)

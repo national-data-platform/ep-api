@@ -53,9 +53,7 @@ def _build_error_response(
     return JSONResponse(status_code=status_code, content=response_body)
 
 
-async def http_exception_handler(
-    request: Request, exc: HTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """
     Handle HTTPException with standardized response format.
 
@@ -153,9 +151,7 @@ async def validation_exception_handler(
     )
 
 
-async def generic_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
     Handle unexpected exceptions with standardized response format.
 

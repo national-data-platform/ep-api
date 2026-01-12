@@ -14,6 +14,7 @@ class TestListFederations:
     async def test_list_federations_no_custom(self, mock_getenv):
         """Test listing federations without custom URL."""
         from api.routes.pelican_routes import list_federations
+
         mock_getenv.return_value = None
 
         result = await list_federations()
@@ -27,6 +28,7 @@ class TestListFederations:
     async def test_list_federations_with_custom(self, mock_getenv):
         """Test listing federations with custom URL."""
         from api.routes.pelican_routes import list_federations
+
         mock_getenv.return_value = "pelican://custom.org"
 
         result = await list_federations()
@@ -45,13 +47,14 @@ class TestBrowseFiles:
     async def test_browse_files_success(self, mock_browse, mock_get_repo):
         """Test successful file browsing."""
         from api.routes.pelican_routes import browse_files
+
         mock_repo = MagicMock()
         mock_get_repo.return_value = mock_repo
         mock_browse.return_value = {
             "success": True,
             "path": "/test/path",
             "files": [{"name": "file1.txt"}],
-            "count": 1
+            "count": 1,
         }
 
         result = await browse_files(path="/test/path", federation="osdf", detail=False)
@@ -65,6 +68,7 @@ class TestBrowseFiles:
     async def test_browse_files_not_found(self, mock_browse, mock_get_repo):
         """Test browsing non-existent path."""
         from api.routes.pelican_routes import browse_files
+
         mock_repo = MagicMock()
         mock_get_repo.return_value = mock_repo
         mock_browse.return_value = {"success": False, "error": "Path not found"}
@@ -84,9 +88,13 @@ class TestGetInfo:
     async def test_get_info_success(self, mock_get_file_info, mock_get_repo):
         """Test successful file info retrieval."""
         from api.routes.pelican_routes import get_info
+
         mock_repo = MagicMock()
         mock_get_repo.return_value = mock_repo
-        mock_get_file_info.return_value = {"success": True, "file": {"name": "test.txt"}}
+        mock_get_file_info.return_value = {
+            "success": True,
+            "file": {"name": "test.txt"},
+        }
 
         result = await get_info(path="/test/file.txt", federation="osdf")
 
@@ -98,6 +106,7 @@ class TestGetInfo:
     async def test_get_info_not_found(self, mock_get_file_info, mock_get_repo):
         """Test file info for non-existent file."""
         from api.routes.pelican_routes import get_info
+
         mock_repo = MagicMock()
         mock_get_repo.return_value = mock_repo
         mock_get_file_info.return_value = {"success": False, "error": "Not found"}
@@ -117,6 +126,7 @@ class TestDownload:
     async def test_download_success(self, mock_download, mock_get_repo):
         """Test successful file download."""
         from api.routes.pelican_routes import download
+
         mock_repo = MagicMock()
         mock_get_repo.return_value = mock_repo
         mock_download.return_value = b"file contents"
@@ -135,8 +145,7 @@ class TestImportMetadata:
         from api.routes.pelican_routes import import_metadata, ImportMetadataRequest
 
         request = ImportMetadataRequest(
-            pelican_url="https://example.org/file.txt",
-            package_id="pkg-123"
+            pelican_url="https://example.org/file.txt", package_id="pkg-123"
         )
 
         with pytest.raises(HTTPException) as exc_info:

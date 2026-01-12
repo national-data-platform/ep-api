@@ -27,9 +27,7 @@ class TestAddDatasource:
             mock_repo.package_create.return_value = mock_dataset
 
             # Mock successful resource creation
-            mock_repo.resource_create.return_value = {
-                "id": "test-resource-id-123"
-            }
+            mock_repo.resource_create.return_value = {"id": "test-resource-id-123"}
 
             result = add_datasource(
                 dataset_name="test_dataset",
@@ -68,9 +66,7 @@ class TestAddDatasource:
 
             mock_dataset = {"id": "test-dataset-id-456"}
             mock_repo.package_create.return_value = mock_dataset
-            mock_repo.resource_create.return_value = {
-                "id": "test-resource-id-456"
-            }
+            mock_repo.resource_create.return_value = {"id": "test-resource-id-456"}
 
             extras = {"custom_field": "custom_value", "category": "finance"}
 
@@ -99,9 +95,7 @@ class TestAddDatasource:
                     {"key": "category", "value": "finance"},
                 ],
             }
-            mock_repo.package_create.assert_called_once_with(
-                **expected_dataset_dict
-            )
+            mock_repo.package_create.assert_called_once_with(**expected_dataset_dict)
 
             # Verify resource creation with all parameters
             mock_repo.resource_create.assert_called_once_with(
@@ -122,9 +116,7 @@ class TestAddDatasource:
 
             mock_dataset = {"id": "test-dataset-id-789"}
             mock_repo.package_create.return_value = mock_dataset
-            mock_repo.resource_create.return_value = {
-                "id": "test-resource-id-789"
-            }
+            mock_repo.resource_create.return_value = {"id": "test-resource-id-789"}
 
             result = add_datasource(
                 dataset_name="empty_extras_dataset",
@@ -338,9 +330,7 @@ class TestAddDatasource:
 
             mock_dataset = {"id": "test-dataset-id-none"}
             mock_repo.package_create.return_value = mock_dataset
-            mock_repo.resource_create.return_value = {
-                "id": "test-resource-id-none"
-            }
+            mock_repo.resource_create.return_value = {"id": "test-resource-id-none"}
 
             result = add_datasource(
                 dataset_name="none_extras_dataset",

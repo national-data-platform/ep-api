@@ -52,7 +52,10 @@ class TestListOrganization:
         """Test filtering organizations by name."""
         mock_repository = MagicMock()
         mock_repository.organization_list.return_value = [
-            "test-org", "production-org", "test-api", "development"
+            "test-org",
+            "production-org",
+            "test-api",
+            "development",
         ]
         mock_catalog_settings.global_catalog = mock_repository
 
@@ -65,7 +68,10 @@ class TestListOrganization:
         """Test that name filter is case-insensitive."""
         mock_repository = MagicMock()
         mock_repository.organization_list.return_value = [
-            "TestOrg", "PRODUCTION", "testApi", "Development"
+            "TestOrg",
+            "PRODUCTION",
+            "testApi",
+            "Development",
         ]
         mock_catalog_settings.global_catalog = mock_repository
 
@@ -97,7 +103,9 @@ class TestListOrganization:
         mock_repository.organization_list.assert_called_once_with(all_fields=False)
 
     @patch("api.services.organization_services.list_organization.catalog_settings")
-    def test_list_organization_unrecognized_server_uses_local(self, mock_catalog_settings):
+    def test_list_organization_unrecognized_server_uses_local(
+        self, mock_catalog_settings
+    ):
         """Test that unrecognized server defaults to local."""
         mock_repository = MagicMock()
         mock_repository.organization_list.return_value = ["local-org"]
@@ -137,7 +145,9 @@ class TestListOrganization:
         """Test that partial name matching works."""
         mock_repository = MagicMock()
         mock_repository.organization_list.return_value = [
-            "my-organization", "your-organization", "their-team"
+            "my-organization",
+            "your-organization",
+            "their-team",
         ]
         mock_catalog_settings.global_catalog = mock_repository
 

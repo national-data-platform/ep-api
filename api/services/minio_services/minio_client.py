@@ -9,16 +9,16 @@ logger = logging.getLogger(__name__)
 
 class MinioClient:
     """MINIO client wrapper."""
-    
+
     def __init__(self):
         self._client: Optional[Minio] = None
-    
+
     @property
     def client(self) -> Minio:
         """Get MINIO client instance."""
         if not s3_settings.is_configured:
             raise ValueError("S3 is not properly configured")
-        
+
         if self._client is None:
             try:
                 self._client = Minio(
@@ -26,15 +26,17 @@ class MinioClient:
                     access_key=s3_settings.access_key,
                     secret_key=s3_settings.secret_key,
                     secure=s3_settings.secure,
-                    region=s3_settings.region
+                    region=s3_settings.region,
                 )
-                logger.info(f"S3 client initialized for endpoint: {s3_settings.endpoint}")
+                logger.info(
+                    f"S3 client initialized for endpoint: {s3_settings.endpoint}"
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize S3 client: {str(e)}")
                 raise
-        
+
         return self._client
-    
+
     def test_connection(self) -> bool:
         """Test S3 connection."""
         try:

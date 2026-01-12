@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 from api.repositories.pelican_repository import PelicanRepository
 from api.services.pelican_services.browse_federation import (
     browse_namespace,
-    get_file_info
+    get_file_info,
 )
 from api.services.pelican_services.download_file import download_file, stream_file
 from api.services.pelican_services.import_metadata import import_file_as_resource
@@ -55,13 +55,12 @@ def get_pelican_repo(federation: str = "osdf") -> PelicanRepository:
     }
 
     federation_url = os.getenv("PELICAN_FEDERATION_URL") or federations.get(
-        federation.lower(),
-        federations["osdf"]
+        federation.lower(), federations["osdf"]
     )
 
     return PelicanRepository(
         federation_url=federation_url,
-        direct_reads=os.getenv("PELICAN_DIRECT_READS", "false").lower() == "true"
+        direct_reads=os.getenv("PELICAN_DIRECT_READS", "false").lower() == "true",
     )
 
 
@@ -79,13 +78,13 @@ async def list_federations():
         "osdf": {
             "name": "Open Science Data Federation",
             "url": "pelican://osg-htc.org",
-            "description": "Primary federation for scientific data sharing"
+            "description": "Primary federation for scientific data sharing",
         },
         "path-cc": {
             "name": "PATh Credit Compute",
             "url": "pelican://path-cc.io",
-            "description": "PATh Facility data federation"
-        }
+            "description": "PATh Facility data federation",
+        },
     }
 
     # Check if custom federation URL is configured
@@ -94,21 +93,17 @@ async def list_federations():
         federations["custom"] = {
             "name": "Custom Federation",
             "url": custom_url,
-            "description": "Configured via PELICAN_FEDERATION_URL"
+            "description": "Configured via PELICAN_FEDERATION_URL",
         }
 
-    return {
-        "success": True,
-        "federations": federations,
-        "count": len(federations)
-    }
+    return {"success": True, "federations": federations, "count": len(federations)}
 
 
 @router.get("/browse")
 async def browse_files(
     path: str = Query(..., description="Namespace path to browse"),
     federation: str = Query("osdf", description="Federation to query"),
-    detail: bool = Query(False, description="Include detailed file information")
+    detail: bool = Query(False, description="Include detailed file information"),
 ):
     """
     Browse files in a Pelican federation namespace.
@@ -132,7 +127,9 @@ async def browse_files(
         result = browse_namespace(pelican_repo, path, detail=detail)
 
         if not result["success"]:
-            raise HTTPException(status_code=404, detail=result.get("error", "Path not found"))
+            raise HTTPException(
+                status_code=404, detail=result.get("error", "Path not found")
+            )
 
         return result
 
@@ -146,7 +143,7 @@ async def browse_files(
 @router.get("/info")
 async def get_info(
     path: str = Query(..., description="File path"),
-    federation: str = Query("osdf", description="Federation to query")
+    federation: str = Query("osdf", description="Federation to query"),
 ):
     """
     Get metadata for a file without downloading it.
@@ -168,7 +165,9 @@ async def get_info(
         result = get_file_info(pelican_repo, path)
 
         if not result["success"]:
-            raise HTTPException(status_code=404, detail=result.get("error", "File not found"))
+            raise HTTPException(
+                status_code=404, detail=result.get("error", "File not found")
+            )
 
         return result
 
@@ -176,14 +175,18 @@ async def get_info(
         raise
     except Exception as e:
         logger.error(f"Error getting file info for {path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error getting file info: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error getting file info: {str(e)}"
+        )
 
 
 @router.get("/download")
 async def download(
     path: str = Query(..., description="File path to download"),
     federation: str = Query("osdf", description="Federation to query"),
-    stream: bool = Query(False, description="Stream file instead of downloading all at once")
+    stream: bool = Query(
+        False, description="Stream file instead of downloading all at once"
+    ),
 ):
     """
     Download a file from Pelican federation.
@@ -212,7 +215,7 @@ async def download(
             return StreamingResponse(
                 file_handle,
                 media_type="application/octet-stream",
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
             )
         else:
             # Download entire file
@@ -222,7 +225,7 @@ async def download(
             return Response(
                 content=contents,
                 media_type="application/octet-stream",
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
             )
 
     except Exception as e:
@@ -252,17 +255,13 @@ async def import_metadata(request: ImportMetadataRequest):
         # Extract federation from URL
         if not request.pelican_url.startswith("pelican://"):
             raise HTTPException(
-                status_code=400,
-                detail="URL must start with pelican://"
+                status_code=400, detail="URL must start with pelican://"
             )
 
         federation_part = request.pelican_url.replace("pelican://", "").split("/")[0]
 
         # Map federation hostname to our federation names
-        federation_map = {
-            "osg-htc.org": "osdf",
-            "path-cc.io": "path-cc"
-        }
+        federation_map = {"osg-htc.org": "osdf", "path-cc.io": "path-cc"}
         federation = federation_map.get(federation_part, "osdf")
 
         pelican_repo = get_pelican_repo(federation)
@@ -272,13 +271,12 @@ async def import_metadata(request: ImportMetadataRequest):
             pelican_url=request.pelican_url,
             package_id=request.package_id,
             resource_name=request.resource_name,
-            resource_description=request.resource_description
+            resource_description=request.resource_description,
         )
 
         if not result["success"]:
             raise HTTPException(
-                status_code=400,
-                detail=result.get("error", "Import failed")
+                status_code=400, detail=result.get("error", "Import failed")
             )
 
         return result

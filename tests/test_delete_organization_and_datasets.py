@@ -14,7 +14,9 @@ from api.services.organization_services.delete_organization_and_datasets import 
 class TestDeleteOrganizationAndDatasets:
     """Tests for delete_organization_and_datasets service."""
 
-    @patch("api.services.organization_services.delete_organization_and_datasets.ckan_settings")
+    @patch(
+        "api.services.organization_services.delete_organization_and_datasets.ckan_settings"
+    )
     def test_delete_success_with_datasets(self, mock_ckan_settings):
         """Test successful deletion of organization with datasets."""
         mock_ckan = MagicMock()
@@ -34,7 +36,9 @@ class TestDeleteOrganizationAndDatasets:
         assert mock_ckan.action.package_delete.call_count == 3
         mock_ckan.action.organization_delete.assert_called_once_with(id="test-org")
 
-    @patch("api.services.organization_services.delete_organization_and_datasets.ckan_settings")
+    @patch(
+        "api.services.organization_services.delete_organization_and_datasets.ckan_settings"
+    )
     def test_delete_success_no_datasets(self, mock_ckan_settings):
         """Test successful deletion of organization with no datasets."""
         mock_ckan = MagicMock()
@@ -48,7 +52,9 @@ class TestDeleteOrganizationAndDatasets:
         mock_ckan.action.package_delete.assert_not_called()
         mock_ckan.action.organization_delete.assert_called_once_with(id="empty-org")
 
-    @patch("api.services.organization_services.delete_organization_and_datasets.ckan_settings")
+    @patch(
+        "api.services.organization_services.delete_organization_and_datasets.ckan_settings"
+    )
     def test_delete_validation_error(self, mock_ckan_settings):
         """Test validation error during deletion."""
         mock_ckan = MagicMock()
@@ -62,7 +68,9 @@ class TestDeleteOrganizationAndDatasets:
 
         assert "Validation error" in str(exc_info.value)
 
-    @patch("api.services.organization_services.delete_organization_and_datasets.ckan_settings")
+    @patch(
+        "api.services.organization_services.delete_organization_and_datasets.ckan_settings"
+    )
     def test_delete_not_found_error(self, mock_ckan_settings):
         """Test organization not found error."""
         mock_ckan = MagicMock()
@@ -75,7 +83,9 @@ class TestDeleteOrganizationAndDatasets:
 
         assert "not found" in str(exc_info.value).lower()
 
-    @patch("api.services.organization_services.delete_organization_and_datasets.ckan_settings")
+    @patch(
+        "api.services.organization_services.delete_organization_and_datasets.ckan_settings"
+    )
     def test_delete_generic_error(self, mock_ckan_settings):
         """Test generic error during deletion."""
         mock_ckan = MagicMock()
@@ -87,7 +97,9 @@ class TestDeleteOrganizationAndDatasets:
 
         assert "Error deleting organization" in str(exc_info.value)
 
-    @patch("api.services.organization_services.delete_organization_and_datasets.ckan_settings")
+    @patch(
+        "api.services.organization_services.delete_organization_and_datasets.ckan_settings"
+    )
     def test_delete_dataset_error(self, mock_ckan_settings):
         """Test error when deleting a dataset."""
         mock_ckan = MagicMock()
@@ -102,7 +114,9 @@ class TestDeleteOrganizationAndDatasets:
 
         assert "Error deleting organization" in str(exc_info.value)
 
-    @patch("api.services.organization_services.delete_organization_and_datasets.ckan_settings")
+    @patch(
+        "api.services.organization_services.delete_organization_and_datasets.ckan_settings"
+    )
     def test_delete_many_datasets(self, mock_ckan_settings):
         """Test deletion of organization with many datasets."""
         mock_ckan = MagicMock()

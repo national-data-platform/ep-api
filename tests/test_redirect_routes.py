@@ -197,7 +197,7 @@ class TestProxyRequest:
         mock_request.headers.items.return_value = [
             ("accept", "application/json"),
             ("host", "original-host.com"),  # Should be excluded
-            ("connection", "keep-alive"),   # Should be excluded
+            ("connection", "keep-alive"),  # Should be excluded
             ("content-type", "application/json"),
         ]
 
@@ -232,7 +232,9 @@ class TestProxyToServiceFunctional:
     @patch("api.routes.redirect_routes.service_redirect.get_service_url")
     async def test_proxy_success(self, mock_get_url, mock_proxy):
         """Test successful proxy to service."""
-        from api.routes.redirect_routes.service_redirect import proxy_to_service_functional
+        from api.routes.redirect_routes.service_redirect import (
+            proxy_to_service_functional,
+        )
 
         mock_get_url.return_value = ("https://api.example.com", None)
         mock_proxy.return_value = MagicMock(status_code=200)
@@ -247,7 +249,9 @@ class TestProxyToServiceFunctional:
     @patch("api.routes.redirect_routes.service_redirect.get_service_url")
     async def test_proxy_service_not_found(self, mock_get_url):
         """Test proxy with service not found."""
-        from api.routes.redirect_routes.service_redirect import proxy_to_service_functional
+        from api.routes.redirect_routes.service_redirect import (
+            proxy_to_service_functional,
+        )
 
         mock_get_url.return_value = (None, "Service not found")
 
@@ -317,7 +321,9 @@ class TestDocsOnlyEndpoints:
     @pytest.mark.asyncio
     async def test_redirect_with_path_docs_only(self):
         """Test docs-only with path endpoint raises 501."""
-        from api.routes.redirect_routes.service_redirect import redirect_with_path_docs_only
+        from api.routes.redirect_routes.service_redirect import (
+            redirect_with_path_docs_only,
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             await redirect_with_path_docs_only("my-service", "users/123")

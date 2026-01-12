@@ -31,7 +31,7 @@ class TestServiceUpdateRequestValidation:
             notes="Test notes",
             extras={"version": "1.0"},
             health_check_url="https://example.com/health",
-            documentation_url="https://example.com/docs"
+            documentation_url="https://example.com/docs",
         )
 
         assert request.service_name == "test_service"
@@ -42,8 +42,7 @@ class TestServiceUpdateRequestValidation:
     def test_partial_update_with_few_fields(self):
         """Test partial update with only some fields."""
         request = ServiceUpdateRequest(
-            service_title="Updated Title",
-            notes="Updated notes"
+            service_title="Updated Title", notes="Updated notes"
         )
 
         assert request.service_title == "Updated Title"
@@ -65,7 +64,9 @@ class TestOwnerOrgValidation:
         with pytest.raises(ValidationError) as exc_info:
             ServiceUpdateRequest(owner_org="invalid-org")
 
-        assert "pattern" in str(exc_info.value).lower() or "services" in str(exc_info.value)
+        assert "pattern" in str(exc_info.value).lower() or "services" in str(
+            exc_info.value
+        )
 
     def test_owner_org_can_be_none(self):
         """Test that owner_org can be None."""
@@ -125,9 +126,7 @@ class TestURLValidation:
     def test_all_urls_can_be_none(self):
         """Test that all URL fields can be None."""
         request = ServiceUpdateRequest(
-            service_url=None,
-            health_check_url=None,
-            documentation_url=None
+            service_url=None, health_check_url=None, documentation_url=None
         )
 
         assert request.service_url is None
@@ -187,9 +186,7 @@ class TestExtrasField:
 
     def test_extras_with_nested_dict(self):
         """Test that extras accepts nested dict values."""
-        request = ServiceUpdateRequest(
-            extras={"config": {"timeout": 30, "retries": 3}}
-        )
+        request = ServiceUpdateRequest(extras={"config": {"timeout": 30, "retries": 3}})
 
         assert request.extras == {"config": {"timeout": 30, "retries": 3}}
 

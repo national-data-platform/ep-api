@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def browse_namespace(
-    pelican_repo: PelicanRepository,
-    path: str,
-    detail: bool = False
+    pelican_repo: PelicanRepository, path: str, detail: bool = False
 ) -> Dict[str, Any]:
     """
     Browse files in a Pelican federation namespace.
@@ -35,12 +33,7 @@ def browse_namespace(
     try:
         files = pelican_repo.list_files(path, detail=detail)
 
-        return {
-            "success": True,
-            "path": path,
-            "files": files,
-            "count": len(files)
-        }
+        return {"success": True, "path": path, "files": files, "count": len(files)}
     except Exception as e:
         logger.error(f"Error browsing namespace {path}: {e}")
         return {
@@ -48,14 +41,11 @@ def browse_namespace(
             "path": path,
             "error": str(e),
             "files": [],
-            "count": 0
+            "count": 0,
         }
 
 
-def get_file_info(
-    pelican_repo: PelicanRepository,
-    path: str
-) -> Dict[str, Any]:
+def get_file_info(pelican_repo: PelicanRepository, path: str) -> Dict[str, Any]:
     """
     Get metadata for a specific file without downloading.
 
@@ -73,13 +63,7 @@ def get_file_info(
     """
     try:
         info = pelican_repo.file_info(path)
-        return {
-            "success": True,
-            "file": info
-        }
+        return {"success": True, "file": info}
     except Exception as e:
         logger.error(f"Error getting file info for {path}: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}

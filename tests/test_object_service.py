@@ -83,7 +83,7 @@ class TestUploadObject:
             "test.txt",
             file_data,
             content_type="text/plain",
-            metadata={"author": "test"}
+            metadata={"author": "test"},
         )
 
         assert result.size == 4
@@ -114,7 +114,9 @@ class TestUploadObject:
 
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = True
-        mock_client.put_object.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.put_object.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:
@@ -191,7 +193,9 @@ class TestListObjects:
         assert len(result.objects) == 1
         assert result.objects[0].key == "folder/file.txt"
         assert result.prefix == "folder/"
-        mock_client.list_objects.assert_called_with("test-bucket", prefix="folder/", recursive=True)
+        mock_client.list_objects.assert_called_with(
+            "test-bucket", prefix="folder/", recursive=True
+        )
 
     @pytest.mark.asyncio
     @patch("api.services.minio_services.object_service.minio_client")
@@ -225,7 +229,9 @@ class TestListObjects:
         """Test listing objects with S3Error."""
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = True
-        mock_client.list_objects.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.list_objects.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:
@@ -363,7 +369,9 @@ class TestDeleteObject:
 
         mock_client = MagicMock()
         mock_client.stat_object.return_value = mock_stat
-        mock_client.remove_object.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.remove_object.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:
@@ -394,7 +402,9 @@ class TestGeneratePresignedUploadUrl:
         """Test generating presigned upload URL successfully."""
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = True
-        mock_client.presigned_put_object.return_value = "https://presigned-url.com/upload"
+        mock_client.presigned_put_object.return_value = (
+            "https://presigned-url.com/upload"
+        )
         mock_minio_client.client = mock_client
 
         result = await generate_presigned_upload_url("test-bucket", "test.txt")
@@ -409,10 +419,14 @@ class TestGeneratePresignedUploadUrl:
         """Test generating presigned URL with custom expiry time."""
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = True
-        mock_client.presigned_put_object.return_value = "https://presigned-url.com/upload"
+        mock_client.presigned_put_object.return_value = (
+            "https://presigned-url.com/upload"
+        )
         mock_minio_client.client = mock_client
 
-        result = await generate_presigned_upload_url("test-bucket", "test.txt", expires_in=7200)
+        result = await generate_presigned_upload_url(
+            "test-bucket", "test.txt", expires_in=7200
+        )
 
         assert result.expires_in == 7200
         call_args = mock_client.presigned_put_object.call_args
@@ -420,7 +434,9 @@ class TestGeneratePresignedUploadUrl:
 
     @pytest.mark.asyncio
     @patch("api.services.minio_services.object_service.minio_client")
-    async def test_generate_presigned_upload_url_bucket_not_exists(self, mock_minio_client):
+    async def test_generate_presigned_upload_url_bucket_not_exists(
+        self, mock_minio_client
+    ):
         """Test generating URL for non-existent bucket."""
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = False
@@ -437,7 +453,9 @@ class TestGeneratePresignedUploadUrl:
         """Test generating URL with S3Error."""
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = True
-        mock_client.presigned_put_object.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.presigned_put_object.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:
@@ -447,7 +465,9 @@ class TestGeneratePresignedUploadUrl:
 
     @pytest.mark.asyncio
     @patch("api.services.minio_services.object_service.minio_client")
-    async def test_generate_presigned_upload_url_unexpected_error(self, mock_minio_client):
+    async def test_generate_presigned_upload_url_unexpected_error(
+        self, mock_minio_client
+    ):
         """Test generating URL with unexpected error."""
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = True
@@ -471,7 +491,9 @@ class TestGeneratePresignedDownloadUrl:
 
         mock_client = MagicMock()
         mock_client.stat_object.return_value = mock_stat
-        mock_client.presigned_get_object.return_value = "https://presigned-url.com/download"
+        mock_client.presigned_get_object.return_value = (
+            "https://presigned-url.com/download"
+        )
         mock_minio_client.client = mock_client
 
         result = await generate_presigned_download_url("test-bucket", "test.txt")
@@ -482,16 +504,22 @@ class TestGeneratePresignedDownloadUrl:
 
     @pytest.mark.asyncio
     @patch("api.services.minio_services.object_service.minio_client")
-    async def test_generate_presigned_download_url_custom_expiry(self, mock_minio_client):
+    async def test_generate_presigned_download_url_custom_expiry(
+        self, mock_minio_client
+    ):
         """Test generating download URL with custom expiry time."""
         mock_stat = MagicMock()
 
         mock_client = MagicMock()
         mock_client.stat_object.return_value = mock_stat
-        mock_client.presigned_get_object.return_value = "https://presigned-url.com/download"
+        mock_client.presigned_get_object.return_value = (
+            "https://presigned-url.com/download"
+        )
         mock_minio_client.client = mock_client
 
-        result = await generate_presigned_download_url("test-bucket", "test.txt", expires_in=1800)
+        result = await generate_presigned_download_url(
+            "test-bucket", "test.txt", expires_in=1800
+        )
 
         assert result.expires_in == 1800
         call_args = mock_client.presigned_get_object.call_args
@@ -499,7 +527,9 @@ class TestGeneratePresignedDownloadUrl:
 
     @pytest.mark.asyncio
     @patch("api.services.minio_services.object_service.minio_client")
-    async def test_generate_presigned_download_url_object_not_exists(self, mock_minio_client):
+    async def test_generate_presigned_download_url_object_not_exists(
+        self, mock_minio_client
+    ):
         """Test generating download URL for non-existent object."""
         mock_client = MagicMock()
         mock_client.stat_object.side_effect = create_s3_error("Not found", "NoSuchKey")
@@ -518,7 +548,9 @@ class TestGeneratePresignedDownloadUrl:
 
         mock_client = MagicMock()
         mock_client.stat_object.return_value = mock_stat
-        mock_client.presigned_get_object.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.presigned_get_object.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:
@@ -528,7 +560,9 @@ class TestGeneratePresignedDownloadUrl:
 
     @pytest.mark.asyncio
     @patch("api.services.minio_services.object_service.minio_client")
-    async def test_generate_presigned_download_url_unexpected_error(self, mock_minio_client):
+    async def test_generate_presigned_download_url_unexpected_error(
+        self, mock_minio_client
+    ):
         """Test generating download URL with unexpected error."""
         mock_client = MagicMock()
         mock_client.stat_object.side_effect = Exception("Network error")

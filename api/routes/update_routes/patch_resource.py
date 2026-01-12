@@ -134,4 +134,6 @@ async def patch_resource_endpoint(
                 status_code=400,
                 detail="Pre-CKAN server is not configured or unreachable.",
             )
-        raise HTTPException(status_code=400, detail=f"Error updating resource: {error_msg}")
+        raise HTTPException(
+            status_code=400, detail=f"Error updating resource: {error_msg}"
+        )

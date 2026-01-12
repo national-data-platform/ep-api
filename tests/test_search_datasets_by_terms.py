@@ -50,7 +50,10 @@ class TestEscapeSolrSpecialChars:
         assert escape_solr_special_chars("test\\query") == "test\\\\query"
 
     def test_escape_multiple(self):
-        assert escape_solr_special_chars("test+query-with*special?chars") == "test\\+query\\-with\\*special\\?chars"
+        assert (
+            escape_solr_special_chars("test+query-with*special?chars")
+            == "test\\+query\\-with\\*special\\?chars"
+        )
 
     def test_no_escape_needed(self):
         assert escape_solr_special_chars("simple query") == "simple query"
@@ -156,9 +159,7 @@ class TestSearchDatasetsByTerms:
         mock_catalog.local_catalog = mock_repo
 
         results = await search_datasets_by_terms(
-            ["test", "value"],
-            keys_list=["title", None],
-            server="local"
+            ["test", "value"], keys_list=["title", None], server="local"
         )
 
         mock_repo.package_search.assert_called_once()
@@ -173,11 +174,7 @@ class TestSearchDatasetsByTerms:
         mock_repo.package_search.return_value = {"results": []}
         mock_catalog.local_catalog = mock_repo
 
-        await search_datasets_by_terms(
-            ["test"],
-            keys_list=["null"],
-            server="local"
-        )
+        await search_datasets_by_terms(["test"], keys_list=["null"], server="local")
 
         # Should treat "null" as None (global search)
         mock_repo.package_search.assert_called_once()
@@ -341,9 +338,7 @@ class TestSearchDatasetsByTerms:
                     "name": "test",
                     "title": "Test",
                     "organization": None,
-                    "extras": [
-                        {"key": "mapping", "value": '{"field": "value"}'}
-                    ],
+                    "extras": [{"key": "mapping", "value": '{"field": "value"}'}],
                     "resources": [],
                 }
             ]
@@ -367,9 +362,7 @@ class TestSearchDatasetsByTerms:
                     "name": "test",
                     "title": "Test",
                     "organization": None,
-                    "extras": [
-                        {"key": "mapping", "value": "invalid json"}
-                    ],
+                    "extras": [{"key": "mapping", "value": "invalid json"}],
                     "resources": [],
                 }
             ]
@@ -393,9 +386,7 @@ class TestSearchDatasetsByTerms:
                     "name": "test",
                     "title": "Test",
                     "organization": None,
-                    "extras": [
-                        {"key": "processing", "value": '{"step": "transform"}'}
-                    ],
+                    "extras": [{"key": "processing", "value": '{"step": "transform"}'}],
                     "resources": [],
                 }
             ]
@@ -419,9 +410,7 @@ class TestSearchDatasetsByTerms:
                     "name": "test",
                     "title": "Test",
                     "organization": None,
-                    "extras": [
-                        {"key": "processing", "value": "not valid json"}
-                    ],
+                    "extras": [{"key": "processing", "value": "not valid json"}],
                     "resources": [],
                 }
             ]

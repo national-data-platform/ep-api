@@ -13,11 +13,11 @@ router = APIRouter()
 @router.get(
     "/rexec",
     summary="Get rexec deployment api connection details",
-    description=("Returns the the URL where the Remote Execution Deployment API is available."),
+    description=(
+        "Returns the the URL where the Remote Execution Deployment API is available."
+    ),
 )
-async def get_rexec_details(
-    _: Dict[str, Any] = Depends(get_user_for_write_operation)
-):
+async def get_rexec_details(_: Dict[str, Any] = Depends(get_user_for_write_operation)):
     """
     Endpoint to retrieve rexec deployment api connection details.
 
@@ -36,5 +36,6 @@ async def get_rexec_details(
         return {"deployment_api_url": rexec_settings.deployment_api_url}
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error retrieving Rexec deployment API details: {str(e)}"
+            status_code=500,
+            detail=f"Error retrieving Rexec deployment API details: {str(e)}",
         )

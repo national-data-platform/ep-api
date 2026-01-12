@@ -17,7 +17,7 @@ def import_file_as_resource(
     pelican_url: str,
     package_id: str,
     resource_name: str = None,
-    resource_description: str = None
+    resource_description: str = None,
 ) -> Dict[str, Any]:
     """
     Import a Pelican file as a resource in the local catalog.
@@ -69,20 +69,14 @@ def import_file_as_resource(
             "url": pelican_url,  # Store original pelican:// URL
             "description": resource_description or f"Pelican federated file: {path}",
             "format": "pelican",
-            "size": file_info.get("size", 0)
+            "size": file_info.get("size", 0),
         }
 
         created_resource = repository.resource_create(**resource_data)
         logger.info(f"Imported Pelican file as resource: {pelican_url}")
 
-        return {
-            "success": True,
-            "resource": created_resource
-        }
+        return {"success": True, "resource": created_resource}
 
     except Exception as e:
         logger.error(f"Error importing Pelican file {pelican_url}: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}

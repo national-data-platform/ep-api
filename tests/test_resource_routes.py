@@ -19,7 +19,7 @@ class TestGetResourceById:
         mock_services.get_resource.return_value = {
             "id": "res-123",
             "name": "test-resource",
-            "url": "https://example.com/data.csv"
+            "url": "https://example.com/data.csv",
         }
 
         result = await get_resource_by_id(resource_id="res-123", server="local")
@@ -30,7 +30,9 @@ class TestGetResourceById:
     @pytest.mark.asyncio
     @patch("api.routes.resource_routes.resource_by_id.dataset_services")
     @patch("api.routes.resource_routes.resource_by_id.ckan_settings")
-    async def test_get_resource_pre_ckan_disabled(self, mock_ckan_settings, mock_services):
+    async def test_get_resource_pre_ckan_disabled(
+        self, mock_ckan_settings, mock_services
+    ):
         """Test get resource with pre_ckan disabled."""
         from api.routes.resource_routes.resource_by_id import get_resource_by_id
 
@@ -110,13 +112,16 @@ class TestPatchResourceById:
         """Test successful resource patch."""
         from api.routes.resource_routes.resource_by_id import patch_resource_by_id
 
-        mock_services.patch_resource.return_value = {"id": "res-123", "name": "updated-name"}
+        mock_services.patch_resource.return_value = {
+            "id": "res-123",
+            "name": "updated-name",
+        }
 
         result = await patch_resource_by_id(
             resource_id="res-123",
             data=mock_patch_request,
             server="local",
-            _={"user": "test"}
+            _={"user": "test"},
         )
 
         assert result["id"] == "res-123"
@@ -138,7 +143,7 @@ class TestPatchResourceById:
                 resource_id="res-123",
                 data=mock_patch_request,
                 server="pre_ckan",
-                _={"user": "test"}
+                _={"user": "test"},
             )
 
         assert exc_info.value.status_code == 400
@@ -161,7 +166,7 @@ class TestPatchResourceById:
             resource_id="res-123",
             data=mock_patch_request,
             server="pre_ckan",
-            _={"user": "test"}
+            _={"user": "test"},
         )
 
         assert result["id"] == "res-123"
@@ -182,7 +187,7 @@ class TestPatchResourceById:
                 resource_id="missing",
                 data=mock_patch_request,
                 server="local",
-                _={"user": "test"}
+                _={"user": "test"},
             )
 
         assert exc_info.value.status_code == 404
@@ -203,7 +208,7 @@ class TestPatchResourceById:
                 resource_id="res-123",
                 data=mock_patch_request,
                 server="local",
-                _={"user": "test"}
+                _={"user": "test"},
             )
 
         assert exc_info.value.status_code == 400
@@ -227,7 +232,7 @@ class TestPatchResourceById:
                 resource_id="res-123",
                 data=mock_patch_request,
                 server="local",
-                _={"user": "test"}
+                _={"user": "test"},
             )
 
         assert exc_info.value.status_code == 403
@@ -246,9 +251,7 @@ class TestDeleteResourceById:
         mock_services.delete_resource.return_value = None
 
         result = await delete_resource_by_id(
-            resource_id="res-123",
-            server="local",
-            _={"user": "test"}
+            resource_id="res-123", server="local", _={"user": "test"}
         )
 
         assert "deleted successfully" in result["message"]
@@ -256,7 +259,9 @@ class TestDeleteResourceById:
     @pytest.mark.asyncio
     @patch("api.routes.resource_routes.resource_by_id.dataset_services")
     @patch("api.routes.resource_routes.resource_by_id.ckan_settings")
-    async def test_delete_resource_pre_ckan_disabled(self, mock_ckan_settings, mock_services):
+    async def test_delete_resource_pre_ckan_disabled(
+        self, mock_ckan_settings, mock_services
+    ):
         """Test delete resource with pre_ckan disabled."""
         from api.routes.resource_routes.resource_by_id import delete_resource_by_id
 
@@ -264,9 +269,7 @@ class TestDeleteResourceById:
 
         with pytest.raises(HTTPException) as exc_info:
             await delete_resource_by_id(
-                resource_id="res-123",
-                server="pre_ckan",
-                _={"user": "test"}
+                resource_id="res-123", server="pre_ckan", _={"user": "test"}
             )
 
         assert exc_info.value.status_code == 400
@@ -286,9 +289,7 @@ class TestDeleteResourceById:
         mock_services.delete_resource.return_value = None
 
         result = await delete_resource_by_id(
-            resource_id="res-123",
-            server="pre_ckan",
-            _={"user": "test"}
+            resource_id="res-123", server="pre_ckan", _={"user": "test"}
         )
 
         assert "deleted successfully" in result["message"]
@@ -304,9 +305,7 @@ class TestDeleteResourceById:
 
         with pytest.raises(HTTPException) as exc_info:
             await delete_resource_by_id(
-                resource_id="missing",
-                server="local",
-                _={"user": "test"}
+                resource_id="missing", server="local", _={"user": "test"}
             )
 
         assert exc_info.value.status_code == 404
@@ -314,7 +313,9 @@ class TestDeleteResourceById:
     @pytest.mark.asyncio
     @patch("api.routes.resource_routes.resource_by_id.dataset_services")
     @patch("api.routes.resource_routes.resource_by_id.ckan_settings")
-    async def test_delete_resource_generic_error(self, mock_ckan_settings, mock_services):
+    async def test_delete_resource_generic_error(
+        self, mock_ckan_settings, mock_services
+    ):
         """Test delete resource generic error."""
         from api.routes.resource_routes.resource_by_id import delete_resource_by_id
 
@@ -322,9 +323,7 @@ class TestDeleteResourceById:
 
         with pytest.raises(HTTPException) as exc_info:
             await delete_resource_by_id(
-                resource_id="res-123",
-                server="local",
-                _={"user": "test"}
+                resource_id="res-123", server="local", _={"user": "test"}
             )
 
         assert exc_info.value.status_code == 400

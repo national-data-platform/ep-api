@@ -144,9 +144,7 @@ class TestAddUrl:
         """Test add_url when package creation fails."""
         # Setup mock to raise exception
         mock_repo = MagicMock()
-        mock_repo.package_create.side_effect = Exception(
-            "Package creation failed"
-        )
+        mock_repo.package_create.side_effect = Exception("Package creation failed")
         mock_catalog_settings.local_catalog = mock_repo
 
         with pytest.raises(Exception, match="Error creating resource package"):
@@ -162,9 +160,7 @@ class TestAddUrl:
         # Setup mock where package creation succeeds but resource creation fails
         mock_repo = MagicMock()
         mock_repo.package_create.return_value = {"id": "package-123"}
-        mock_repo.resource_create.side_effect = Exception(
-            "Resource creation failed"
-        )
+        mock_repo.resource_create.side_effect = Exception("Resource creation failed")
         mock_catalog_settings.local_catalog = mock_repo
 
         with pytest.raises(Exception, match="Error creating resource"):

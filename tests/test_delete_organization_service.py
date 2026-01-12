@@ -17,12 +17,9 @@ class TestDeleteOrganization:
         mock_repository = MagicMock()
         mock_repository.organization_show.return_value = {
             "id": "org-123",
-            "name": "test-org"
+            "name": "test-org",
         }
-        mock_repository.package_search.return_value = {
-            "count": 0,
-            "results": []
-        }
+        mock_repository.package_search.return_value = {"count": 0, "results": []}
         mock_repository.organization_delete.return_value = None
         mock_repository.organization_purge.return_value = None
         mock_catalog_settings.local_catalog = mock_repository
@@ -40,14 +37,14 @@ class TestDeleteOrganization:
         mock_repository = MagicMock()
         mock_repository.organization_show.return_value = {
             "id": "org-456",
-            "name": "org-with-data"
+            "name": "org-with-data",
         }
         mock_repository.package_search.return_value = {
             "count": 2,
             "results": [
                 {"id": "dataset-1", "name": "ds1"},
-                {"id": "dataset-2", "name": "ds2"}
-            ]
+                {"id": "dataset-2", "name": "ds2"},
+            ],
         }
         mock_repository.package_delete.return_value = None
         mock_repository.organization_delete.return_value = None
@@ -68,11 +65,9 @@ class TestDeleteOrganization:
         mock_repository = MagicMock()
         mock_repository.organization_show.return_value = {
             "id": "custom-org",
-            "name": "custom"
+            "name": "custom",
         }
-        mock_repository.package_search.return_value = {
-            "results": []
-        }
+        mock_repository.package_search.return_value = {"results": []}
         mock_repository.organization_delete.return_value = None
         mock_repository.organization_purge.return_value = None
 
@@ -85,7 +80,9 @@ class TestDeleteOrganization:
     def test_delete_organization_not_found(self, mock_catalog_settings):
         """Test deleting non-existent organization."""
         mock_repository = MagicMock()
-        mock_repository.organization_show.side_effect = Exception("Organization not found")
+        mock_repository.organization_show.side_effect = Exception(
+            "Organization not found"
+        )
         mock_catalog_settings.local_catalog = mock_repository
 
         with pytest.raises(Exception) as exc_info:
@@ -99,11 +96,9 @@ class TestDeleteOrganization:
         mock_repository = MagicMock()
         mock_repository.organization_show.return_value = {
             "id": "mongo-org",
-            "name": "mongo"
+            "name": "mongo",
         }
-        mock_repository.package_search.return_value = {
-            "results": []
-        }
+        mock_repository.package_search.return_value = {"results": []}
         mock_repository.organization_delete.return_value = None
         # Simulate MongoDB repo without purge method
         del mock_repository.organization_purge
@@ -115,16 +110,16 @@ class TestDeleteOrganization:
         mock_repository.organization_delete.assert_called_once_with(id="mongo-org")
 
     @patch("api.services.organization_services.delete_organization.catalog_settings")
-    def test_delete_organization_search_with_correct_filter(self, mock_catalog_settings):
+    def test_delete_organization_search_with_correct_filter(
+        self, mock_catalog_settings
+    ):
         """Test that package search uses correct filter query."""
         mock_repository = MagicMock()
         mock_repository.organization_show.return_value = {
             "id": "filter-org-id",
-            "name": "filter-org"
+            "name": "filter-org",
         }
-        mock_repository.package_search.return_value = {
-            "results": []
-        }
+        mock_repository.package_search.return_value = {"results": []}
         mock_repository.organization_delete.return_value = None
         mock_repository.organization_purge.return_value = None
         mock_catalog_settings.local_catalog = mock_repository
@@ -157,16 +152,15 @@ class TestDeleteOrganization:
         def track_delete(call_type):
             def _delete(*args, **kwargs):
                 deletion_order.append(call_type)
+
             return _delete
 
         mock_repository = MagicMock()
         mock_repository.organization_show.return_value = {
             "id": "order-org",
-            "name": "order"
+            "name": "order",
         }
-        mock_repository.package_search.return_value = {
-            "results": [{"id": "ds-1"}]
-        }
+        mock_repository.package_search.return_value = {"results": [{"id": "ds-1"}]}
         mock_repository.package_delete.side_effect = track_delete("dataset")
         mock_repository.organization_delete.side_effect = track_delete("organization")
         mock_repository.organization_purge.return_value = None

@@ -25,11 +25,14 @@ def test_catalog_settings_local_catalog_ckan():
 
 def test_catalog_settings_local_catalog_mongodb():
     """Test getting MongoDB repository for local catalog."""
-    with patch.dict("os.environ", {
-        "LOCAL_CATALOG_BACKEND": "mongodb",
-        "MONGODB_CONNECTION_STRING": "mongodb://localhost:27017",
-        "MONGODB_DATABASE": "test_db"
-    }):
+    with patch.dict(
+        "os.environ",
+        {
+            "LOCAL_CATALOG_BACKEND": "mongodb",
+            "MONGODB_CONNECTION_STRING": "mongodb://localhost:27017",
+            "MONGODB_DATABASE": "test_db",
+        },
+    ):
         # Mock MongoClient to avoid actual MongoDB connection
         with patch("api.repositories.mongodb_repository.MongoClient") as mock_client:
             mock_client.return_value = MagicMock()
@@ -96,11 +99,14 @@ def test_mongodb_settings_custom_values():
     custom_connection = "mongodb://custom-host:27017"
     custom_db = "custom_database"
 
-    with patch.dict("os.environ", {
-        "LOCAL_CATALOG_BACKEND": "mongodb",
-        "MONGODB_CONNECTION_STRING": custom_connection,
-        "MONGODB_DATABASE": custom_db
-    }):
+    with patch.dict(
+        "os.environ",
+        {
+            "LOCAL_CATALOG_BACKEND": "mongodb",
+            "MONGODB_CONNECTION_STRING": custom_connection,
+            "MONGODB_DATABASE": custom_db,
+        },
+    ):
         # Mock MongoClient to avoid actual MongoDB connection
         with patch("api.repositories.mongodb_repository.MongoClient") as mock_client:
             mock_client.return_value = MagicMock()

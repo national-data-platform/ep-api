@@ -58,7 +58,7 @@ def get_pelican_repo_for_url(url: str) -> PelicanRepository:
 
     return PelicanRepository(
         federation_url=federation_url,
-        direct_reads=os.getenv("PELICAN_DIRECT_READS", "false").lower() == "true"
+        direct_reads=os.getenv("PELICAN_DIRECT_READS", "false").lower() == "true",
     )
 
 

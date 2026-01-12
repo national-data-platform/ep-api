@@ -38,7 +38,9 @@ class MongoDBRepository(DataCatalogRepository):
         Name of the database to use (default: "ndp_local_catalog")
     """
 
-    def __init__(self, connection_string: str, database_name: str = "ndp_local_catalog"):
+    def __init__(
+        self, connection_string: str, database_name: str = "ndp_local_catalog"
+    ):
         """
         Initialize MongoDB repository.
 
@@ -119,10 +121,14 @@ class MongoDBRepository(DataCatalogRepository):
         # Validate that organization exists (matching CKAN behavior)
         owner_org = kwargs.get("owner_org")
         if owner_org:
-            org = self.organizations.find_one({"$or": [{"id": owner_org}, {"name": owner_org}]})
+            org = self.organizations.find_one(
+                {"$or": [{"id": owner_org}, {"name": owner_org}]}
+            )
             if not org:
                 # Match CKAN's error format exactly
-                raise Exception("{'owner_org': ['Organization does not exist'], '__type': 'Validation Error'}")
+                raise Exception(
+                    "{'owner_org': ['Organization does not exist'], '__type': 'Validation Error'}"
+                )
             # Use the organization ID (not name) for consistency
             owner_org = org["id"]
 
@@ -438,7 +444,12 @@ class MongoDBRepository(DataCatalogRepository):
         for result in results:
             if result.get("owner_org"):
                 org = self.organizations.find_one(
-                    {"$or": [{"id": result["owner_org"]}, {"name": result["owner_org"]}]}
+                    {
+                        "$or": [
+                            {"id": result["owner_org"]},
+                            {"name": result["owner_org"]},
+                        ]
+                    }
                 )
                 if org:
                     result["organization"] = {
@@ -717,7 +728,9 @@ class MongoDBRepository(DataCatalogRepository):
             resource_data = self._clean_doc(resource)
             # Add dataset context
             try:
-                package = self.packages.find_one({"id": resource_data.get("package_id")})
+                package = self.packages.find_one(
+                    {"id": resource_data.get("package_id")}
+                )
                 if package:
                     resource_data["dataset_id"] = package.get("id")
                     resource_data["dataset_name"] = package.get("name")

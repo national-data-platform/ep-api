@@ -463,9 +463,7 @@ class TestPatchGeneralDataset:
             "name": "test_dataset",
             "title": "Test Dataset",
             "owner_org": "test_org",
-            "resources": [
-                {"url": "http://existing.com", "name": "existing_resource"}
-            ],
+            "resources": [{"url": "http://existing.com", "name": "existing_resource"}],
         }
         mock_repo.package_update.return_value = {"id": "patch-res-123"}
 
@@ -501,7 +499,9 @@ class TestPatchGeneralDataset:
         # Update existing resource by URL
         result = patch_general_dataset(
             dataset_id="patch-res-123",
-            resources=[{"url": "http://existing.com", "name": "new_name", "format": "JSON"}],
+            resources=[
+                {"url": "http://existing.com", "name": "new_name", "format": "JSON"}
+            ],
             repository=mock_repo,
         )
 
@@ -532,7 +532,9 @@ class TestPatchGeneralDataset:
         # Update existing resource by name
         result = patch_general_dataset(
             dataset_id="patch-res-123",
-            resources=[{"url": "http://new.com", "name": "same_name", "format": "JSON"}],
+            resources=[
+                {"url": "http://new.com", "name": "same_name", "format": "JSON"}
+            ],
             repository=mock_repo,
         )
 
@@ -573,7 +575,9 @@ class TestPatchGeneralDataset:
         call_args = mock_repo.package_update.call_args
         updated_dataset = call_args[1] if call_args[1] else call_args[0][0]
 
-        extras_dict = {extra["key"]: extra["value"] for extra in updated_dataset["extras"]}
+        extras_dict = {
+            extra["key"]: extra["value"] for extra in updated_dataset["extras"]
+        }
 
         # Should have all three extras
         assert len(extras_dict) == 3
@@ -583,7 +587,9 @@ class TestPatchGeneralDataset:
 
     def test_patch_default_repository(self):
         """Test patch uses default repository when none provided."""
-        with patch("api.services.dataset_services.general_dataset.catalog_settings") as mock_settings:
+        with patch(
+            "api.services.dataset_services.general_dataset.catalog_settings"
+        ) as mock_settings:
             mock_repo = MagicMock()
             mock_repo.package_show.return_value = {
                 "id": "patch-default-123",

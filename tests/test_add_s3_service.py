@@ -24,9 +24,7 @@ class TestAddS3Service:
             mock_repo.package_create.return_value = mock_package
 
             # Mock successful resource creation
-            mock_repo.resource_create.return_value = {
-                "id": "test-resource-id-123"
-            }
+            mock_repo.resource_create.return_value = {"id": "test-resource-id-123"}
 
             result = add_s3(
                 resource_name="test_s3_resource",
@@ -68,9 +66,7 @@ class TestAddS3Service:
 
             mock_package = {"id": "test-package-id-456"}
             mock_repo.package_create.return_value = mock_package
-            mock_repo.resource_create.return_value = {
-                "id": "test-resource-id-456"
-            }
+            mock_repo.resource_create.return_value = {"id": "test-resource-id-456"}
 
             # Mock NDP metadata injection
             original_extras = {"custom_field": "custom_value"}
@@ -105,9 +101,7 @@ class TestAddS3Service:
                     {"key": "ndp_user", "value": "test_user"},
                 ],
             }
-            mock_repo.package_create.assert_called_once_with(
-                **expected_package_dict
-            )
+            mock_repo.package_create.assert_called_once_with(**expected_package_dict)
 
     def test_add_s3_success_with_custom_ckan_instance(self):
         """Test successful S3 resource creation with custom CKAN instance."""
@@ -459,9 +453,7 @@ class TestAddS3Service:
 
             mock_package = {"id": "url-format-test-id"}
             mock_repo.package_create.return_value = mock_package
-            mock_repo.resource_create.return_value = {
-                "id": "url-format-resource-id"
-            }
+            mock_repo.resource_create.return_value = {"id": "url-format-resource-id"}
 
             s3_urls = [
                 "s3://bucket/file.csv",

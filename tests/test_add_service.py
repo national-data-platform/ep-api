@@ -154,9 +154,7 @@ class TestAddService:
         """Test add_service when package creation fails."""
         # Setup mock to raise exception
         mock_ckan = MagicMock()
-        mock_ckan.package_create.side_effect = Exception(
-            "Package creation failed"
-        )
+        mock_ckan.package_create.side_effect = Exception("Package creation failed")
         mock_catalog_settings.local_catalog = mock_ckan
 
         with pytest.raises(Exception, match="Error creating service package"):
@@ -172,9 +170,7 @@ class TestAddService:
         # Setup mock where package creation succeeds but resource creation fails
         mock_ckan = MagicMock()
         mock_ckan.package_create.return_value = {"id": "service-123"}
-        mock_ckan.resource_create.side_effect = Exception(
-            "Resource creation failed"
-        )
+        mock_ckan.resource_create.side_effect = Exception("Resource creation failed")
         mock_catalog_settings.local_catalog = mock_ckan
 
         with pytest.raises(Exception, match="Error creating service resource"):

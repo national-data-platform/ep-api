@@ -2,9 +2,7 @@
 from api.config import catalog_settings
 
 
-def delete_organization(
-    organization_name: str, repository=None
-):
+def delete_organization(organization_name: str, repository=None):
     """
     Delete an organization from catalog by its name.
 

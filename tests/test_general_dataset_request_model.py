@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from api.models.general_dataset_request_model import (
     ResourceRequest,
     GeneralDatasetRequest,
-    GeneralDatasetUpdateRequest
+    GeneralDatasetUpdateRequest,
 )
 
 
@@ -20,8 +20,7 @@ class TestResourceRequest:
     def test_create_with_required_fields(self):
         """Test creating ResourceRequest with required fields only."""
         resource = ResourceRequest(
-            url="http://example.com/data.csv",
-            name="test_resource"
+            url="http://example.com/data.csv", name="test_resource"
         )
 
         assert resource.url == "http://example.com/data.csv"
@@ -39,7 +38,7 @@ class TestResourceRequest:
             format="JSON",
             description="A complete test resource",
             mimetype="application/json",
-            size=2048
+            size=2048,
         )
 
         assert resource.url == "https://api.example.com/data.json"
@@ -68,7 +67,7 @@ class TestResourceRequest:
             resource = ResourceRequest(
                 url=f"http://example.com/data.{fmt.lower()}",
                 name=f"resource_{fmt}",
-                format=fmt
+                format=fmt,
             )
             assert resource.format == fmt
 
@@ -79,9 +78,7 @@ class TestGeneralDatasetRequest:
     def test_create_with_required_fields(self):
         """Test creating GeneralDatasetRequest with required fields only."""
         dataset = GeneralDatasetRequest(
-            name="test_dataset",
-            title="Test Dataset",
-            owner_org="org-123"
+            name="test_dataset", title="Test Dataset", owner_org="org-123"
         )
 
         assert dataset.name == "test_dataset"
@@ -100,7 +97,7 @@ class TestGeneralDatasetRequest:
         """Test creating GeneralDatasetRequest with all fields."""
         resources = [
             ResourceRequest(url="http://ex.com/1", name="res1"),
-            ResourceRequest(url="http://ex.com/2", name="res2")
+            ResourceRequest(url="http://ex.com/2", name="res2"),
         ]
 
         dataset = GeneralDatasetRequest(
@@ -114,7 +111,7 @@ class TestGeneralDatasetRequest:
             resources=resources,
             private=True,
             license_id="cc-by-4.0",
-            version="1.0.0"
+            version="1.0.0",
         )
 
         assert dataset.name == "complete_dataset"
@@ -134,7 +131,7 @@ class TestGeneralDatasetRequest:
         with pytest.raises(ValidationError) as exc_info:
             GeneralDatasetRequest(
                 name="test",
-                title="Test"
+                title="Test",
                 # Missing owner_org
             )
 
@@ -147,7 +144,7 @@ class TestGeneralDatasetRequest:
             ResourceRequest(
                 url=f"http://example.com/file{i}.csv",
                 name=f"resource_{i}",
-                format="CSV"
+                format="CSV",
             )
             for i in range(5)
         ]
@@ -156,7 +153,7 @@ class TestGeneralDatasetRequest:
             name="multi_resource_dataset",
             title="Multi Resource Dataset",
             owner_org="org-789",
-            resources=resources
+            resources=resources,
         )
 
         assert len(dataset.resources) == 5
@@ -169,7 +166,7 @@ class TestGeneralDatasetRequest:
             name="tagged_dataset",
             title="Tagged Dataset",
             owner_org="org-123",
-            tags=["climate", "weather", "temperature", "precipitation"]
+            tags=["climate", "weather", "temperature", "precipitation"],
         )
 
         assert len(dataset.tags) == 4
@@ -186,8 +183,8 @@ class TestGeneralDatasetRequest:
                 "spatial_coverage": "global",
                 "temporal_coverage": "2020-2023",
                 "update_frequency": "daily",
-                "quality_score": 95
-            }
+                "quality_score": 95,
+            },
         )
 
         assert dataset.extras["spatial_coverage"] == "global"
@@ -196,21 +193,14 @@ class TestGeneralDatasetRequest:
 
     def test_private_field_defaults_to_false(self):
         """Test that private field defaults to False."""
-        dataset = GeneralDatasetRequest(
-            name="test",
-            title="Test",
-            owner_org="org-123"
-        )
+        dataset = GeneralDatasetRequest(name="test", title="Test", owner_org="org-123")
 
         assert dataset.private is False
 
     def test_private_field_can_be_true(self):
         """Test that private field can be set to True."""
         dataset = GeneralDatasetRequest(
-            name="test",
-            title="Test",
-            owner_org="org-123",
-            private=True
+            name="test", title="Test", owner_org="org-123", private=True
         )
 
         assert dataset.private is True
@@ -249,7 +239,7 @@ class TestGeneralDatasetUpdateRequest:
             title="Updated Title",
             notes="Updated description",
             tags=["new_tag"],
-            private=True
+            private=True,
         )
 
         assert update.title == "Updated Title"
@@ -259,9 +249,7 @@ class TestGeneralDatasetUpdateRequest:
 
     def test_update_with_all_fields(self):
         """Test update with all fields."""
-        resources = [
-            ResourceRequest(url="http://ex.com/updated", name="updated_res")
-        ]
+        resources = [ResourceRequest(url="http://ex.com/updated", name="updated_res")]
 
         update = GeneralDatasetUpdateRequest(
             name="updated_dataset",
@@ -274,7 +262,7 @@ class TestGeneralDatasetUpdateRequest:
             resources=resources,
             private=False,
             license_id="mit",
-            version="2.0.0"
+            version="2.0.0",
         )
 
         assert update.name == "updated_dataset"
@@ -313,7 +301,7 @@ class TestModelDictConversion:
             name="test_resource",
             format="CSV",
             description="Test",
-            size=1024
+            size=1024,
         )
 
         data = resource.model_dump()
@@ -325,8 +313,7 @@ class TestModelDictConversion:
     def test_resource_request_model_dump_exclude_none(self):
         """Test ResourceRequest model_dump with exclude_none."""
         resource = ResourceRequest(
-            url="http://example.com/data.csv",
-            name="test_resource"
+            url="http://example.com/data.csv", name="test_resource"
         )
 
         data = resource.model_dump(exclude_none=True)
@@ -343,7 +330,7 @@ class TestModelDictConversion:
             name="test",
             title="Test Dataset",
             owner_org="org-123",
-            tags=["tag1", "tag2"]
+            tags=["tag1", "tag2"],
         )
 
         data = dataset.model_dump()
@@ -355,8 +342,7 @@ class TestModelDictConversion:
     def test_update_model_dump_exclude_none(self):
         """Test GeneralDatasetUpdateRequest model_dump with exclude_none."""
         update = GeneralDatasetUpdateRequest(
-            title="Updated Title",
-            notes="Updated notes"
+            title="Updated Title", notes="Updated notes"
         )
 
         data = update.model_dump(exclude_none=True)
@@ -377,9 +363,7 @@ class TestNestedValidation:
                 name="test",
                 title="Test",
                 owner_org="org-123",
-                resources=[
-                    {"url": "http://example.com"}  # Missing name
-                ]
+                resources=[{"url": "http://example.com"}],  # Missing name
             )
 
     def test_dataset_with_valid_resource_dicts(self):
@@ -390,8 +374,8 @@ class TestNestedValidation:
             owner_org="org-123",
             resources=[
                 {"url": "http://ex.com/1", "name": "res1"},
-                {"url": "http://ex.com/2", "name": "res2", "format": "CSV"}
-            ]
+                {"url": "http://ex.com/2", "name": "res2", "format": "CSV"},
+            ],
         )
 
         assert len(dataset.resources) == 2

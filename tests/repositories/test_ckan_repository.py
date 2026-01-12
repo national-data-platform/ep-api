@@ -20,7 +20,9 @@ class TestCKANRepositoryPackageOperations:
         result = repo.package_create(name="test", title="Test Package")
 
         assert result == {"id": "pkg-123", "name": "test"}
-        mock_ckan.action.package_create.assert_called_once_with(name="test", title="Test Package")
+        mock_ckan.action.package_create.assert_called_once_with(
+            name="test", title="Test Package"
+        )
 
     def test_package_show(self):
         """Test retrieving a package."""
@@ -36,24 +38,34 @@ class TestCKANRepositoryPackageOperations:
     def test_package_update(self):
         """Test updating a package."""
         mock_ckan = MagicMock()
-        mock_ckan.action.package_update.return_value = {"id": "pkg-123", "title": "Updated"}
+        mock_ckan.action.package_update.return_value = {
+            "id": "pkg-123",
+            "title": "Updated",
+        }
 
         repo = CKANRepository(mock_ckan)
         result = repo.package_update(id="pkg-123", title="Updated")
 
         assert result == {"id": "pkg-123", "title": "Updated"}
-        mock_ckan.action.package_update.assert_called_once_with(id="pkg-123", title="Updated")
+        mock_ckan.action.package_update.assert_called_once_with(
+            id="pkg-123", title="Updated"
+        )
 
     def test_package_patch(self):
         """Test patching a package."""
         mock_ckan = MagicMock()
-        mock_ckan.action.package_patch.return_value = {"id": "pkg-123", "title": "Patched"}
+        mock_ckan.action.package_patch.return_value = {
+            "id": "pkg-123",
+            "title": "Patched",
+        }
 
         repo = CKANRepository(mock_ckan)
         result = repo.package_patch(id="pkg-123", title="Patched")
 
         assert result == {"id": "pkg-123", "title": "Patched"}
-        mock_ckan.action.package_patch.assert_called_once_with(id="pkg-123", title="Patched")
+        mock_ckan.action.package_patch.assert_called_once_with(
+            id="pkg-123", title="Patched"
+        )
 
     def test_package_delete(self):
         """Test deleting a package (uses dataset_purge for permanent deletion)."""
@@ -68,7 +80,10 @@ class TestCKANRepositoryPackageOperations:
     def test_package_search(self):
         """Test searching packages."""
         mock_ckan = MagicMock()
-        mock_ckan.action.package_search.return_value = {"count": 1, "results": [{"id": "pkg-123"}]}
+        mock_ckan.action.package_search.return_value = {
+            "count": 1,
+            "results": [{"id": "pkg-123"}],
+        }
 
         repo = CKANRepository(mock_ckan)
         result = repo.package_search(q="test", rows=10)
@@ -83,18 +98,26 @@ class TestCKANRepositoryResourceOperations:
     def test_resource_create(self):
         """Test creating a resource."""
         mock_ckan = MagicMock()
-        mock_ckan.action.resource_create.return_value = {"id": "res-123", "name": "test.csv"}
+        mock_ckan.action.resource_create.return_value = {
+            "id": "res-123",
+            "name": "test.csv",
+        }
 
         repo = CKANRepository(mock_ckan)
         result = repo.resource_create(package_id="pkg-123", name="test.csv")
 
         assert result == {"id": "res-123", "name": "test.csv"}
-        mock_ckan.action.resource_create.assert_called_once_with(package_id="pkg-123", name="test.csv")
+        mock_ckan.action.resource_create.assert_called_once_with(
+            package_id="pkg-123", name="test.csv"
+        )
 
     def test_resource_show(self):
         """Test retrieving a resource."""
         mock_ckan = MagicMock()
-        mock_ckan.action.resource_show.return_value = {"id": "res-123", "name": "test.csv"}
+        mock_ckan.action.resource_show.return_value = {
+            "id": "res-123",
+            "name": "test.csv",
+        }
 
         repo = CKANRepository(mock_ckan)
         result = repo.resource_show(id="res-123")
@@ -119,18 +142,26 @@ class TestCKANRepositoryOrganizationOperations:
     def test_organization_create(self):
         """Test creating an organization."""
         mock_ckan = MagicMock()
-        mock_ckan.action.organization_create.return_value = {"id": "org-123", "name": "test-org"}
+        mock_ckan.action.organization_create.return_value = {
+            "id": "org-123",
+            "name": "test-org",
+        }
 
         repo = CKANRepository(mock_ckan)
         result = repo.organization_create(name="test-org", title="Test Org")
 
         assert result == {"id": "org-123", "name": "test-org"}
-        mock_ckan.action.organization_create.assert_called_once_with(name="test-org", title="Test Org")
+        mock_ckan.action.organization_create.assert_called_once_with(
+            name="test-org", title="Test Org"
+        )
 
     def test_organization_show(self):
         """Test retrieving an organization."""
         mock_ckan = MagicMock()
-        mock_ckan.action.organization_show.return_value = {"id": "org-123", "name": "test-org"}
+        mock_ckan.action.organization_show.return_value = {
+            "id": "org-123",
+            "name": "test-org",
+        }
 
         repo = CKANRepository(mock_ckan)
         result = repo.organization_show(id="org-123")
@@ -141,7 +172,9 @@ class TestCKANRepositoryOrganizationOperations:
     def test_organization_list(self):
         """Test listing organizations."""
         mock_ckan = MagicMock()
-        mock_ckan.action.organization_list.return_value = [{"id": "org-123", "name": "test-org"}]
+        mock_ckan.action.organization_list.return_value = [
+            {"id": "org-123", "name": "test-org"}
+        ]
 
         repo = CKANRepository(mock_ckan)
         result = repo.organization_list(all_fields=True)

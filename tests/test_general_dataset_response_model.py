@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 from api.models.general_dataset_response_model import (
     ResourceResponse,
-    GeneralDatasetResponse
+    GeneralDatasetResponse,
 )
 
 
@@ -19,9 +19,7 @@ class TestResourceResponse:
     def test_create_with_required_fields(self):
         """Test creating ResourceResponse with required fields only."""
         resource = ResourceResponse(
-            id="resource-123",
-            url="http://example.com/data.csv",
-            name="test_resource"
+            id="resource-123", url="http://example.com/data.csv", name="test_resource"
         )
 
         assert resource.id == "resource-123"
@@ -45,7 +43,7 @@ class TestResourceResponse:
             mimetype="application/json",
             size=2048,
             created="2023-01-01T00:00:00Z",
-            last_modified="2023-06-01T12:00:00Z"
+            last_modified="2023-06-01T12:00:00Z",
         )
 
         assert resource.id == "resource-456"
@@ -63,7 +61,7 @@ class TestResourceResponse:
         with pytest.raises(ValidationError) as exc_info:
             ResourceResponse(
                 id="resource-123",
-                url="http://example.com/data.csv"
+                url="http://example.com/data.csv",
                 # Missing name
             )
 
@@ -79,7 +77,7 @@ class TestResourceResponse:
                 id=f"resource-{fmt}",
                 url=f"http://example.com/data.{fmt.lower()}",
                 name=f"resource_{fmt}",
-                format=fmt
+                format=fmt,
             )
             assert resource.format == fmt
 
@@ -90,7 +88,7 @@ class TestResourceResponse:
             url="http://example.com/data.nc",
             name="timestamped_resource",
             created="2023-01-15T10:30:00Z",
-            last_modified="2023-07-20T15:45:30Z"
+            last_modified="2023-07-20T15:45:30Z",
         )
 
         assert resource.created == "2023-01-15T10:30:00Z"
@@ -103,9 +101,7 @@ class TestGeneralDatasetResponse:
     def test_create_with_required_fields(self):
         """Test creating GeneralDatasetResponse with required fields only."""
         dataset = GeneralDatasetResponse(
-            id="dataset-123",
-            name="test_dataset",
-            title="Test Dataset"
+            id="dataset-123", name="test_dataset", title="Test Dataset"
         )
 
         assert dataset.id == "dataset-123"
@@ -129,7 +125,7 @@ class TestGeneralDatasetResponse:
         """Test creating GeneralDatasetResponse with all fields."""
         resources = [
             ResourceResponse(id="res-1", url="http://ex.com/1", name="res1"),
-            ResourceResponse(id="res-2", url="http://ex.com/2", name="res2")
+            ResourceResponse(id="res-2", url="http://ex.com/2", name="res2"),
         ]
 
         dataset = GeneralDatasetResponse(
@@ -148,7 +144,7 @@ class TestGeneralDatasetResponse:
             created="2023-01-01T00:00:00Z",
             last_modified="2023-06-01T00:00:00Z",
             url="https://catalog.example.com/dataset/complete_dataset",
-            state="active"
+            state="active",
         )
 
         assert dataset.id == "dataset-456"
@@ -173,7 +169,7 @@ class TestGeneralDatasetResponse:
         with pytest.raises(ValidationError) as exc_info:
             GeneralDatasetResponse(
                 id="dataset-123",
-                name="test"
+                name="test",
                 # Missing title
             )
 
@@ -187,7 +183,7 @@ class TestGeneralDatasetResponse:
                 id=f"resource-{i}",
                 url=f"http://example.com/file{i}.csv",
                 name=f"resource_{i}",
-                format="CSV"
+                format="CSV",
             )
             for i in range(5)
         ]
@@ -196,7 +192,7 @@ class TestGeneralDatasetResponse:
             id="dataset-multi",
             name="multi_resource_dataset",
             title="Multi Resource Dataset",
-            resources=resources
+            resources=resources,
         )
 
         assert len(dataset.resources) == 5
@@ -209,7 +205,7 @@ class TestGeneralDatasetResponse:
             id="dataset-tagged",
             name="tagged_dataset",
             title="Tagged Dataset",
-            tags=["climate", "weather", "temperature", "precipitation"]
+            tags=["climate", "weather", "temperature", "precipitation"],
         )
 
         assert len(dataset.tags) == 4
@@ -226,8 +222,8 @@ class TestGeneralDatasetResponse:
                 "spatial_coverage": "global",
                 "temporal_coverage": "2020-2023",
                 "update_frequency": "daily",
-                "quality_score": 95
-            }
+                "quality_score": 95,
+            },
         )
 
         assert dataset.extras["spatial_coverage"] == "global"
@@ -243,7 +239,7 @@ class TestGeneralDatasetResponse:
                 id=f"dataset-{state}",
                 name=f"dataset_{state}",
                 title=f"Dataset {state.title()}",
-                state=state
+                state=state,
             )
             assert dataset.state == state
 
@@ -254,7 +250,7 @@ class TestGeneralDatasetResponse:
             name="timestamped_dataset",
             title="Timestamped Dataset",
             created="2023-01-15T10:30:00Z",
-            last_modified="2023-07-20T15:45:30Z"
+            last_modified="2023-07-20T15:45:30Z",
         )
 
         assert dataset.created == "2023-01-15T10:30:00Z"
@@ -266,7 +262,7 @@ class TestGeneralDatasetResponse:
             id="dataset-url",
             name="dataset_with_url",
             title="Dataset With URL",
-            url="https://catalog.example.com/dataset/my-dataset"
+            url="https://catalog.example.com/dataset/my-dataset",
         )
 
         assert dataset.url == "https://catalog.example.com/dataset/my-dataset"
@@ -283,7 +279,7 @@ class TestModelDictConversion:
             name="test_resource",
             format="CSV",
             description="Test",
-            size=1024
+            size=1024,
         )
 
         data = resource.model_dump()
@@ -296,9 +292,7 @@ class TestModelDictConversion:
     def test_resource_response_model_dump_exclude_none(self):
         """Test ResourceResponse model_dump with exclude_none."""
         resource = ResourceResponse(
-            id="resource-123",
-            url="http://example.com/data.csv",
-            name="test_resource"
+            id="resource-123", url="http://example.com/data.csv", name="test_resource"
         )
 
         data = resource.model_dump(exclude_none=True)
@@ -319,7 +313,7 @@ class TestModelDictConversion:
             name="test",
             title="Test Dataset",
             owner_org="org-456",
-            tags=["tag1", "tag2"]
+            tags=["tag1", "tag2"],
         )
 
         data = dataset.model_dump()
@@ -332,10 +326,7 @@ class TestModelDictConversion:
     def test_dataset_model_dump_exclude_none(self):
         """Test GeneralDatasetResponse model_dump with exclude_none."""
         dataset = GeneralDatasetResponse(
-            id="dataset-123",
-            name="test",
-            title="Test Dataset",
-            owner_org="org-456"
+            id="dataset-123", name="test", title="Test Dataset", owner_org="org-456"
         )
 
         data = dataset.model_dump(exclude_none=True)
@@ -361,7 +352,7 @@ class TestNestedValidation:
                 title="Test",
                 resources=[
                     {"id": "res-1", "url": "http://example.com"}  # Missing name
-                ]
+                ],
             )
 
     def test_dataset_with_valid_resource_dicts(self):
@@ -372,8 +363,13 @@ class TestNestedValidation:
             title="Test",
             resources=[
                 {"id": "res-1", "url": "http://ex.com/1", "name": "res1"},
-                {"id": "res-2", "url": "http://ex.com/2", "name": "res2", "format": "CSV"}
-            ]
+                {
+                    "id": "res-2",
+                    "url": "http://ex.com/2",
+                    "name": "res2",
+                    "format": "CSV",
+                },
+            ],
         )
 
         assert len(dataset.resources) == 2
@@ -390,7 +386,7 @@ class TestNestedValidation:
                 description="First resource",
                 format="CSV",
                 size=1024,
-                created="2023-01-01T00:00:00Z"
+                created="2023-01-01T00:00:00Z",
             ),
             ResourceResponse(
                 id="res-2",
@@ -399,15 +395,12 @@ class TestNestedValidation:
                 description="Second resource",
                 format="JSON",
                 size=2048,
-                last_modified="2023-06-01T00:00:00Z"
-            )
+                last_modified="2023-06-01T00:00:00Z",
+            ),
         ]
 
         dataset = GeneralDatasetResponse(
-            id="dataset-123",
-            name="test",
-            title="Test",
-            resources=resources
+            id="dataset-123", name="test", title="Test", resources=resources
         )
 
         assert dataset.resources[0].id == "res-1"

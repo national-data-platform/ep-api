@@ -301,7 +301,9 @@ class TestPatchS3:
 
         # Verify only specified fields were updated
         patch_call_args = mock_repo.package_patch.call_args[1]
-        assert patch_call_args.get("name") is None  # Not provided, should not be in patch
+        assert (
+            patch_call_args.get("name") is None
+        )  # Not provided, should not be in patch
         assert patch_call_args["title"] == "Updated S3 Resource"  # Changed
         assert patch_call_args.get("notes") is None  # Not provided
 
@@ -354,7 +356,7 @@ class TestPatchS3:
             await patch_s3(
                 resource_id="nonexistent-resource",
                 resource_title="New Title",
-                extras={"test": "value"}
+                extras={"test": "value"},
             )
 
     @patch("api.services.s3_services.update_s3.catalog_settings")
@@ -491,6 +493,8 @@ class TestPatchS3:
         # Verify individual field updates
         patch_call_args = mock_repo.package_patch.call_args[1]
         assert patch_call_args["name"] == "patched_s3"  # Updated
-        assert patch_call_args.get("title") is None  # Not provided, should not be in patch
+        assert (
+            patch_call_args.get("title") is None
+        )  # Not provided, should not be in patch
         assert patch_call_args["owner_org"] == "new_org"  # Updated
         assert patch_call_args["notes"] == "patched description"  # Updated

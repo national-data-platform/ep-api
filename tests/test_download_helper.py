@@ -18,7 +18,7 @@ from api.services.download_helper import (
     download_from_pelican,
     download_from_http,
     stream_resource,
-    stream_from_pelican
+    stream_from_pelican,
 )
 
 
@@ -58,8 +58,7 @@ class TestGetPelicanRepoForUrl:
             get_pelican_repo_for_url(url)
 
             mock_repo.assert_called_once_with(
-                federation_url="pelican://osg-htc.org",
-                direct_reads=False
+                federation_url="pelican://osg-htc.org", direct_reads=False
             )
 
     @patch.dict(os.environ, {"PELICAN_DIRECT_READS": "true"})
@@ -71,8 +70,7 @@ class TestGetPelicanRepoForUrl:
             get_pelican_repo_for_url(url)
 
             mock_repo.assert_called_once_with(
-                federation_url="pelican://path-cc.io",
-                direct_reads=True
+                federation_url="pelican://path-cc.io", direct_reads=True
             )
 
     def test_raises_error_for_non_pelican_url(self):
@@ -95,7 +93,9 @@ class TestDownloadFromHttp:
         mock_response.raise_for_status = Mock()
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
 
             content, error = await download_from_http(url)
 
@@ -112,13 +112,13 @@ class TestDownloadFromHttp:
         mock_response.reason_phrase = "Not Found"
 
         http_error = httpx.HTTPStatusError(
-            "404 Not Found",
-            request=Mock(),
-            response=mock_response
+            "404 Not Found", request=Mock(), response=mock_response
         )
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(side_effect=http_error)
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                side_effect=http_error
+            )
 
             content, error = await download_from_http(url)
 
@@ -154,7 +154,10 @@ class TestDownloadFromPelican:
         mock_repo = Mock()
         mock_repo.read_file = Mock(return_value=expected_content)
 
-        with patch("api.services.download_helper.get_pelican_repo_for_url", return_value=mock_repo):
+        with patch(
+            "api.services.download_helper.get_pelican_repo_for_url",
+            return_value=mock_repo,
+        ):
             content, error = await download_from_pelican(url)
 
             assert content == expected_content
@@ -169,7 +172,10 @@ class TestDownloadFromPelican:
         mock_repo = Mock()
         mock_repo.read_file = Mock(side_effect=Exception("File not found"))
 
-        with patch("api.services.download_helper.get_pelican_repo_for_url", return_value=mock_repo):
+        with patch(
+            "api.services.download_helper.get_pelican_repo_for_url",
+            return_value=mock_repo,
+        ):
             content, error = await download_from_pelican(url)
 
             assert content is None
@@ -185,7 +191,9 @@ class TestDownloadResource:
         """Test that pelican:// URLs are routed correctly."""
         url = "pelican://osg-htc.org/data/file"
 
-        with patch("api.services.download_helper.download_from_pelican", new_callable=AsyncMock) as mock_download:
+        with patch(
+            "api.services.download_helper.download_from_pelican", new_callable=AsyncMock
+        ) as mock_download:
             mock_download.return_value = (b"data", None)
 
             await download_resource(url)
@@ -197,7 +205,9 @@ class TestDownloadResource:
         """Test that http:// URLs are routed correctly."""
         url = "http://example.com/file"
 
-        with patch("api.services.download_helper.download_from_http", new_callable=AsyncMock) as mock_download:
+        with patch(
+            "api.services.download_helper.download_from_http", new_callable=AsyncMock
+        ) as mock_download:
             mock_download.return_value = (b"data", None)
 
             await download_resource(url)
@@ -209,7 +219,9 @@ class TestDownloadResource:
         """Test that https:// URLs are routed correctly."""
         url = "https://example.com/file"
 
-        with patch("api.services.download_helper.download_from_http", new_callable=AsyncMock) as mock_download:
+        with patch(
+            "api.services.download_helper.download_from_http", new_callable=AsyncMock
+        ) as mock_download:
             mock_download.return_value = (b"data", None)
 
             await download_resource(url)
@@ -241,7 +253,9 @@ class TestDownloadResource:
         """Test that exceptions are caught and returned as errors."""
         url = "pelican://test/file"
 
-        with patch("api.services.download_helper.download_from_pelican", new_callable=AsyncMock) as mock_download:
+        with patch(
+            "api.services.download_helper.download_from_pelican", new_callable=AsyncMock
+        ) as mock_download:
             mock_download.side_effect = RuntimeError("Unexpected error")
 
             content, error = await download_resource(url)
@@ -258,7 +272,9 @@ class TestStreamResource:
         url = "pelican://osg-htc.org/data/file"
         mock_stream = Mock()
 
-        with patch("api.services.download_helper.stream_from_pelican", return_value=mock_stream):
+        with patch(
+            "api.services.download_helper.stream_from_pelican", return_value=mock_stream
+        ):
             result = stream_resource(url)
 
             assert result == mock_stream
@@ -289,11 +305,16 @@ class TestStreamFromPelican:
         mock_repo = Mock()
         mock_repo.open_file = Mock(return_value=mock_stream)
 
-        with patch("api.services.download_helper.get_pelican_repo_for_url", return_value=mock_repo):
+        with patch(
+            "api.services.download_helper.get_pelican_repo_for_url",
+            return_value=mock_repo,
+        ):
             result = stream_from_pelican(url)
 
             assert result == mock_stream
-            mock_repo.open_file.assert_called_once_with("/ospool/data/large.nc", mode="rb")
+            mock_repo.open_file.assert_called_once_with(
+                "/ospool/data/large.nc", mode="rb"
+            )
 
     def test_extracts_correct_path(self):
         """Test that file path is correctly extracted from URL."""
@@ -302,7 +323,12 @@ class TestStreamFromPelican:
         mock_repo = Mock()
         mock_repo.open_file = Mock(return_value=Mock())
 
-        with patch("api.services.download_helper.get_pelican_repo_for_url", return_value=mock_repo):
+        with patch(
+            "api.services.download_helper.get_pelican_repo_for_url",
+            return_value=mock_repo,
+        ):
             stream_from_pelican(url)
 
-            mock_repo.open_file.assert_called_once_with("/deep/nested/path/file.dat", mode="rb")
+            mock_repo.open_file.assert_called_once_with(
+                "/deep/nested/path/file.dat", mode="rb"
+            )

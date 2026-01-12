@@ -176,9 +176,7 @@ async def create_service(
             repository = catalog_settings.local_catalog
             # For backward compatibility, extract ckan_instance if it's a CKAN repository
             ckan_instance = (
-                repository.ckan
-                if isinstance(repository, CKANRepository)
-                else None
+                repository.ckan if isinstance(repository, CKANRepository) else None
             )
 
         service_id = add_service(

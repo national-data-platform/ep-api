@@ -19,7 +19,7 @@ class TestServiceRequestCreation:
             service_name="test_service",
             service_title="Test Service",
             owner_org="services",
-            service_url="https://api.example.com/test"
+            service_url="https://api.example.com/test",
         )
 
         assert service.service_name == "test_service"
@@ -43,7 +43,7 @@ class TestServiceRequestCreation:
             notes="User authentication service",
             extras={"version": "1.0.0", "env": "prod"},
             health_check_url="https://api.example.com/auth/health",
-            documentation_url="https://docs.example.com/auth"
+            documentation_url="https://docs.example.com/auth",
         )
 
         assert service.service_name == "auth_api"
@@ -59,7 +59,7 @@ class TestServiceRequestCreation:
             service_name="test",
             service_title="Test",
             owner_org="services",
-            service_url="http://localhost:8000/api"
+            service_url="http://localhost:8000/api",
         )
 
         assert service.service_url == "http://localhost:8000/api"
@@ -72,7 +72,7 @@ class TestServiceRequestCreation:
             owner_org="services",
             service_url="https://api.example.com",
             health_check_url="https://api.example.com/health",
-            documentation_url="http://docs.example.com"
+            documentation_url="http://docs.example.com",
         )
 
         assert service.health_check_url == "https://api.example.com/health"
@@ -87,7 +87,7 @@ class TestServiceRequestValidation:
         with pytest.raises(ValidationError) as exc_info:
             ServiceRequest(
                 service_name="test",
-                service_title="Test"
+                service_title="Test",
                 # Missing owner_org and service_url
             )
 
@@ -103,7 +103,7 @@ class TestServiceRequestValidation:
                 service_name="",
                 service_title="Test",
                 owner_org="services",
-                service_url="https://api.example.com"
+                service_url="https://api.example.com",
             )
 
         errors = exc_info.value.errors()
@@ -116,7 +116,7 @@ class TestServiceRequestValidation:
                 service_name="test",
                 service_title="",
                 owner_org="services",
-                service_url="https://api.example.com"
+                service_url="https://api.example.com",
             )
 
         errors = exc_info.value.errors()
@@ -131,7 +131,7 @@ class TestServiceRequestValidation:
                 service_name=long_name,
                 service_title="Test",
                 owner_org="services",
-                service_url="https://api.example.com"
+                service_url="https://api.example.com",
             )
 
         errors = exc_info.value.errors()
@@ -146,7 +146,7 @@ class TestServiceRequestValidation:
                 service_name="test",
                 service_title=long_title,
                 owner_org="services",
-                service_url="https://api.example.com"
+                service_url="https://api.example.com",
             )
 
         errors = exc_info.value.errors()
@@ -162,7 +162,7 @@ class TestServiceRequestValidation:
                 service_title="Test",
                 owner_org="services",
                 service_url="https://api.example.com",
-                service_type=long_type
+                service_type=long_type,
             )
 
         errors = exc_info.value.errors()
@@ -178,7 +178,7 @@ class TestOwnerOrgValidation:
             service_name="test",
             service_title="Test",
             owner_org="services",
-            service_url="https://api.example.com"
+            service_url="https://api.example.com",
         )
 
         assert service.owner_org == "services"
@@ -190,7 +190,7 @@ class TestOwnerOrgValidation:
                 service_name="test",
                 service_title="Test",
                 owner_org="other_org",
-                service_url="https://api.example.com"
+                service_url="https://api.example.com",
             )
 
         errors = exc_info.value.errors()
@@ -204,7 +204,7 @@ class TestOwnerOrgValidation:
                 service_name="test",
                 service_title="Test",
                 owner_org="",
-                service_url="https://api.example.com"
+                service_url="https://api.example.com",
             )
 
         errors = exc_info.value.errors()
@@ -221,7 +221,7 @@ class TestURLValidation:
                 service_name="test",
                 service_title="Test",
                 owner_org="services",
-                service_url="ftp://example.com"
+                service_url="ftp://example.com",
             )
 
         errors = exc_info.value.errors()
@@ -235,7 +235,7 @@ class TestURLValidation:
                 service_name="test",
                 service_title="Test",
                 owner_org="services",
-                service_url="api.example.com"
+                service_url="api.example.com",
             )
 
         errors = exc_info.value.errors()
@@ -249,7 +249,7 @@ class TestURLValidation:
                 service_title="Test",
                 owner_org="services",
                 service_url="https://api.example.com",
-                health_check_url="ftp://example.com/health"
+                health_check_url="ftp://example.com/health",
             )
 
         errors = exc_info.value.errors()
@@ -263,7 +263,7 @@ class TestURLValidation:
                 service_title="Test",
                 owner_org="services",
                 service_url="https://api.example.com",
-                documentation_url="file:///docs"
+                documentation_url="file:///docs",
             )
 
         errors = exc_info.value.errors()
@@ -277,7 +277,7 @@ class TestURLValidation:
             owner_org="services",
             service_url="https://api.example.com",
             health_check_url=None,
-            documentation_url=None
+            documentation_url=None,
         )
 
         assert service.health_check_url is None
@@ -299,8 +299,8 @@ class TestServiceRequestExtras:
                 "port": 8080,
                 "enabled": True,
                 "tags": ["api", "auth"],
-                "config": {"timeout": 30}
-            }
+                "config": {"timeout": 30},
+            },
         )
 
         assert service.extras["version"] == "1.0.0"
@@ -316,7 +316,7 @@ class TestServiceRequestExtras:
             service_title="Test",
             owner_org="services",
             service_url="https://api.example.com",
-            extras={}
+            extras={},
         )
 
         assert service.extras == {}
@@ -332,7 +332,7 @@ class TestServiceRequestModelDict:
             service_title="Test Service",
             owner_org="services",
             service_url="https://api.example.com",
-            service_type="API"
+            service_type="API",
         )
 
         data = service.model_dump()
@@ -348,7 +348,7 @@ class TestServiceRequestModelDict:
             service_name="test",
             service_title="Test",
             owner_org="services",
-            service_url="https://api.example.com"
+            service_url="https://api.example.com",
         )
 
         data = service.model_dump(exclude_none=True)

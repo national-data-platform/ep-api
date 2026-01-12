@@ -22,7 +22,9 @@ def get_allowed_groups() -> List[str]:
     """
     if not swagger_settings.group_names:
         return []
-    return [g.strip().lower() for g in swagger_settings.group_names.split(",") if g.strip()]
+    return [
+        g.strip().lower() for g in swagger_settings.group_names.split(",") if g.strip()
+    ]
 
 
 def check_group_membership(user_info: Dict[str, Any]) -> bool:
@@ -56,11 +58,7 @@ def check_group_membership(user_info: Dict[str, Any]) -> bool:
         if isinstance(group, str):
             group_value = group.lower()
         elif isinstance(group, dict):
-            group_value = str(
-                group.get("path")
-                or group.get("name")
-                or ""
-            ).lower()
+            group_value = str(group.get("path") or group.get("name") or "").lower()
         else:
             continue
 

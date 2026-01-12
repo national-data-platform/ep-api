@@ -40,6 +40,7 @@ class TestBuildErrorResponse:
         assert response.status_code == 400
         # Parse response body
         import json
+
         body = json.loads(response.body)
 
         assert body["error"] == "TestError"
@@ -61,6 +62,7 @@ class TestBuildErrorResponse:
         )
 
         import json
+
         body = json.loads(response.body)
 
         assert body["detail"] == {"field": "name", "issue": "required"}
@@ -87,6 +89,7 @@ class TestHttpExceptionHandler:
 
         assert response.status_code == 404
         import json
+
         body = json.loads(response.body)
         assert body["error"] == "NotFound"
         assert body["detail"] == "Resource not found"
@@ -102,6 +105,7 @@ class TestHttpExceptionHandler:
 
         assert response.status_code == 401
         import json
+
         body = json.loads(response.body)
         assert body["error"] == "Unauthorized"
 
@@ -116,6 +120,7 @@ class TestHttpExceptionHandler:
 
         assert response.status_code == 500
         import json
+
         body = json.loads(response.body)
         assert body["error"] == "InternalServerError"
 
@@ -130,6 +135,7 @@ class TestHttpExceptionHandler:
 
         assert response.status_code == 418
         import json
+
         body = json.loads(response.body)
         assert body["error"] == "HTTPError"
 
@@ -153,14 +159,23 @@ class TestValidationExceptionHandler:
         # Create a mock RequestValidationError
         mock_exc = MagicMock(spec=RequestValidationError)
         mock_exc.errors.return_value = [
-            {"loc": ["body", "name"], "msg": "field required", "type": "value_error.missing"},
-            {"loc": ["body", "email"], "msg": "invalid email", "type": "value_error.email"},
+            {
+                "loc": ["body", "name"],
+                "msg": "field required",
+                "type": "value_error.missing",
+            },
+            {
+                "loc": ["body", "email"],
+                "msg": "invalid email",
+                "type": "value_error.email",
+            },
         ]
 
         response = await validation_exception_handler(mock_request, mock_exc)
 
         assert response.status_code == 422
         import json
+
         body = json.loads(response.body)
         assert body["error"] == "ValidationError"
         assert len(body["detail"]) == 2
@@ -189,6 +204,7 @@ class TestGenericExceptionHandler:
 
         assert response.status_code == 500
         import json
+
         body = json.loads(response.body)
         assert body["error"] == "InternalServerError"
         # Should not expose internal error details
@@ -205,5 +221,6 @@ class TestGenericExceptionHandler:
         response = await generic_exception_handler(mock_request, exc)
 
         import json
+
         body = json.loads(response.body)
         assert body["correlation_id"] == "gen-456"

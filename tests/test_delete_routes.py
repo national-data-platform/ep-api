@@ -26,7 +26,9 @@ class TestDeleteResourceRoute:
     @pytest.mark.asyncio
     @patch("api.routes.delete_routes.delete_dataset.dataset_services")
     @patch("api.routes.delete_routes.delete_dataset.ckan_settings")
-    async def test_delete_resource_pre_ckan_disabled(self, mock_ckan_settings, mock_services):
+    async def test_delete_resource_pre_ckan_disabled(
+        self, mock_ckan_settings, mock_services
+    ):
         """Test delete with pre_ckan server when disabled."""
         from api.routes.delete_routes.delete_dataset import delete_resource
 
@@ -88,7 +90,9 @@ class TestDeleteResourceRoute:
     @pytest.mark.asyncio
     @patch("api.routes.delete_routes.delete_dataset.dataset_services")
     @patch("api.routes.delete_routes.delete_dataset.ckan_settings")
-    async def test_delete_resource_generic_error(self, mock_ckan_settings, mock_services):
+    async def test_delete_resource_generic_error(
+        self, mock_ckan_settings, mock_services
+    ):
         """Test delete with generic error."""
         from api.routes.delete_routes.delete_dataset import delete_resource
 
@@ -113,7 +117,9 @@ class TestDeleteResourceByNameRoute:
 
         mock_services.delete_dataset.return_value = None
 
-        result = await delete_resource_by_name(resource_name="my-resource", server="local")
+        result = await delete_resource_by_name(
+            resource_name="my-resource", server="local"
+        )
 
         assert result["message"] == "my-resource deleted successfully"
         mock_services.delete_dataset.assert_called_once()
@@ -121,14 +127,18 @@ class TestDeleteResourceByNameRoute:
     @pytest.mark.asyncio
     @patch("api.routes.delete_routes.delete_dataset.dataset_services")
     @patch("api.routes.delete_routes.delete_dataset.ckan_settings")
-    async def test_delete_by_name_pre_ckan_disabled(self, mock_ckan_settings, mock_services):
+    async def test_delete_by_name_pre_ckan_disabled(
+        self, mock_ckan_settings, mock_services
+    ):
         """Test delete by name with pre_ckan disabled."""
         from api.routes.delete_routes.delete_dataset import delete_resource_by_name
 
         mock_ckan_settings.pre_ckan_enabled = False
 
         with pytest.raises(HTTPException) as exc_info:
-            await delete_resource_by_name(resource_name="my-resource", server="pre_ckan")
+            await delete_resource_by_name(
+                resource_name="my-resource", server="pre_ckan"
+            )
 
         assert exc_info.value.status_code == 400
 
@@ -146,7 +156,9 @@ class TestDeleteResourceByNameRoute:
         mock_ckan_settings.pre_ckan = MagicMock()
         mock_services.delete_dataset.return_value = None
 
-        result = await delete_resource_by_name(resource_name="my-resource", server="pre_ckan")
+        result = await delete_resource_by_name(
+            resource_name="my-resource", server="pre_ckan"
+        )
 
         assert result["message"] == "my-resource deleted successfully"
 

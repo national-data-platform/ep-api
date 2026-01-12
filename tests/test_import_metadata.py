@@ -21,14 +21,14 @@ class TestImportFileAsResource:
         mock_repository.resource_create.return_value = {
             "id": "res-123",
             "name": "test.txt",
-            "url": "pelican://fed/path/test.txt"
+            "url": "pelican://fed/path/test.txt",
         }
         mock_catalog_settings.local_catalog = mock_repository
 
         result = import_file_as_resource(
             pelican_repo=mock_pelican_repo,
             pelican_url="pelican://federation/path/test.txt",
-            package_id="pkg-123"
+            package_id="pkg-123",
         )
 
         assert result["success"] is True
@@ -44,7 +44,7 @@ class TestImportFileAsResource:
         mock_repository = MagicMock()
         mock_repository.resource_create.return_value = {
             "id": "res-456",
-            "name": "custom_name.txt"
+            "name": "custom_name.txt",
         }
         mock_catalog_settings.local_catalog = mock_repository
 
@@ -52,7 +52,7 @@ class TestImportFileAsResource:
             pelican_repo=mock_pelican_repo,
             pelican_url="pelican://fed/data/file.txt",
             package_id="pkg-456",
-            resource_name="custom_name.txt"
+            resource_name="custom_name.txt",
         )
 
         assert result["success"] is True
@@ -73,7 +73,7 @@ class TestImportFileAsResource:
             pelican_repo=mock_pelican_repo,
             pelican_url="pelican://fed/docs/readme.md",
             package_id="pkg-789",
-            resource_description="Custom description"
+            resource_description="Custom description",
         )
 
         assert result["success"] is True
@@ -93,7 +93,7 @@ class TestImportFileAsResource:
         result = import_file_as_resource(
             pelican_repo=mock_pelican_repo,
             pelican_url="pelican://fed/path/to/myfile.csv",
-            package_id="pkg-111"
+            package_id="pkg-111",
         )
 
         assert result["success"] is True
@@ -107,7 +107,7 @@ class TestImportFileAsResource:
         result = import_file_as_resource(
             pelican_repo=mock_pelican_repo,
             pelican_url="http://example.com/file.txt",
-            package_id="pkg-999"
+            package_id="pkg-999",
         )
 
         assert result["success"] is False
@@ -122,7 +122,7 @@ class TestImportFileAsResource:
         result = import_file_as_resource(
             pelican_repo=mock_pelican_repo,
             pelican_url="pelican://fed/missing.txt",
-            package_id="pkg-404"
+            package_id="pkg-404",
         )
 
         assert result["success"] is False
@@ -141,14 +141,16 @@ class TestImportFileAsResource:
         result = import_file_as_resource(
             pelican_repo=mock_pelican_repo,
             pelican_url="pelican://fed/test.txt",
-            package_id="pkg-error"
+            package_id="pkg-error",
         )
 
         assert result["success"] is False
         assert "Creation failed" in result["error"]
 
     @patch("api.services.pelican_services.import_metadata.catalog_settings")
-    def test_import_file_creates_resource_with_correct_format(self, mock_catalog_settings):
+    def test_import_file_creates_resource_with_correct_format(
+        self, mock_catalog_settings
+    ):
         """Test that imported resource has format set to 'pelican'."""
         mock_pelican_repo = MagicMock()
         mock_pelican_repo.file_info.return_value = {"size": 4096}
@@ -160,7 +162,7 @@ class TestImportFileAsResource:
         result = import_file_as_resource(
             pelican_repo=mock_pelican_repo,
             pelican_url="pelican://fed/data.json",
-            package_id="pkg-format"
+            package_id="pkg-format",
         )
 
         assert result["success"] is True

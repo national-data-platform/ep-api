@@ -209,7 +209,12 @@ class TestAddKafka:
         mock_repo.package_create.return_value = {"id": "dataset-123"}
         mock_repo.resource_create.return_value = {"id": "resource-456"}
         mock_catalog_settings.local_catalog = mock_repo
-        mock_inject.return_value = {"host": "kafka.example.com", "port": 9092, "topic": "my-topic", "user": "test"}
+        mock_inject.return_value = {
+            "host": "kafka.example.com",
+            "port": 9092,
+            "topic": "my-topic",
+            "user": "test",
+        }
 
         result = add_kafka(
             dataset_name="test-kafka",

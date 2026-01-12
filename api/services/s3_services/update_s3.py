@@ -119,7 +119,8 @@ async def patch_s3(
         if extras:
             if RESERVED_KEYS.intersection(extras):
                 raise KeyError(
-                    "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
+                    "Extras contain reserved keys: "
+                    f"{RESERVED_KEYS.intersection(extras)}"
                 )
             # Get current extras and merge
             resource = repository.package_show(id=resource_id)
@@ -127,7 +128,9 @@ async def patch_s3(
                 extra["key"]: extra["value"] for extra in resource.get("extras", [])
             }
             current_extras.update(extras)
-            patch_dict["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
+            patch_dict["extras"] = [
+                {"key": k, "value": v} for k, v in current_extras.items()
+            ]
 
         # Patch the resource package
         updated_resource = repository.package_patch(**patch_dict)

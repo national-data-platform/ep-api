@@ -92,9 +92,7 @@ class TestCorrelationIdMiddleware:
             assert get_correlation_id() is not None
             return mock_response
 
-        response = await middleware.dispatch(
-            mock_request_without_header, call_next
-        )
+        response = await middleware.dispatch(mock_request_without_header, call_next)
 
         # Response should have correlation ID header
         assert CORRELATION_ID_HEADER in response.headers
@@ -114,9 +112,7 @@ class TestCorrelationIdMiddleware:
             assert get_correlation_id() == "existing-correlation-id"
             return mock_response
 
-        response = await middleware.dispatch(
-            mock_request_with_header, call_next
-        )
+        response = await middleware.dispatch(mock_request_with_header, call_next)
 
         # Response should have same correlation ID
         assert response.headers[CORRELATION_ID_HEADER] == "existing-correlation-id"
@@ -148,6 +144,7 @@ class TestCorrelationIdMiddleware:
         self, middleware, mock_request_without_header
     ):
         """Test that context is reset even when exception occurs."""
+
         async def call_next(request):
             raise ValueError("Test exception")
 

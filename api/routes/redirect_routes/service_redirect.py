@@ -126,7 +126,6 @@ async def proxy_request(
         )
 
 
-
 # Functional endpoints (hidden from Swagger but actually work)
 @router.api_route(
     "/services/redirect/{service_identifier}",
@@ -352,4 +351,3 @@ async def redirect_with_path_docs_only(service_identifier: str, path: str):
             f"/services/redirect/{service_identifier}/{path}"
         ),
     )
-

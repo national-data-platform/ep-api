@@ -19,42 +19,54 @@ class TestGetAllowedGroups:
 
     def test_empty_group_names_returns_empty_list(self):
         """Test that empty group_names returns empty list."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.group_names = ""
             result = get_allowed_groups()
             assert result == []
 
     def test_single_group(self):
         """Test parsing single group."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.group_names = "admins"
             result = get_allowed_groups()
             assert result == ["admins"]
 
     def test_multiple_groups(self):
         """Test parsing multiple groups."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.group_names = "admins,developers,testers"
             result = get_allowed_groups()
             assert result == ["admins", "developers", "testers"]
 
     def test_groups_with_spaces_are_trimmed(self):
         """Test that groups with spaces are trimmed."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.group_names = " admins , developers , testers "
             result = get_allowed_groups()
             assert result == ["admins", "developers", "testers"]
 
     def test_groups_are_lowercase(self):
         """Test that groups are converted to lowercase."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.group_names = "ADMINS,Developers,TESTERS"
             result = get_allowed_groups()
             assert result == ["admins", "developers", "testers"]
 
     def test_empty_entries_are_filtered(self):
         """Test that empty entries are filtered out."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.group_names = "admins,,developers,,"
             result = get_allowed_groups()
             assert result == ["admins", "developers"]
@@ -65,7 +77,9 @@ class TestCheckGroupMembership:
 
     def test_feature_disabled_always_allows(self):
         """Test that when feature is disabled, always returns True."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = False
 
             user_info = {"groups": []}
@@ -75,7 +89,9 @@ class TestCheckGroupMembership:
 
     def test_no_groups_configured_denies_access(self):
         """Test that when no groups are configured, access is denied."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = True
             mock_settings.group_names = ""
 
@@ -86,7 +102,9 @@ class TestCheckGroupMembership:
 
     def test_user_belongs_to_allowed_group_case_insensitive(self):
         """Test user with matching group (case insensitive)."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = True
             mock_settings.group_names = "ADMINS,developers"
 
@@ -97,7 +115,9 @@ class TestCheckGroupMembership:
 
     def test_user_not_in_any_allowed_group(self):
         """Test user without matching group."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = True
             mock_settings.group_names = "admins,developers"
 
@@ -108,7 +128,9 @@ class TestCheckGroupMembership:
 
     def test_user_no_groups(self):
         """Test user with no groups."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = True
             mock_settings.group_names = "admins"
 
@@ -119,7 +141,9 @@ class TestCheckGroupMembership:
 
     def test_user_groups_missing(self):
         """Test user_info without groups field."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = True
             mock_settings.group_names = "admins"
 
@@ -130,7 +154,9 @@ class TestCheckGroupMembership:
 
     def test_user_groups_with_non_string_values(self):
         """Test user groups containing non-string values."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = True
             mock_settings.group_names = "admins,developers"
 
@@ -141,7 +167,9 @@ class TestCheckGroupMembership:
 
     def test_user_in_one_of_multiple_allowed_groups(self):
         """Test user that belongs to one of several allowed groups."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = True
             mock_settings.group_names = "admins,developers,testers"
 
@@ -156,7 +184,9 @@ class TestRequireGroupMember:
 
     def test_authorized_user_returns_user_info(self):
         """Test that authorized user gets their info returned."""
-        with patch("api.services.auth_services.authorization_service.check_group_membership") as mock_check:
+        with patch(
+            "api.services.auth_services.authorization_service.check_group_membership"
+        ) as mock_check:
             mock_check.return_value = True
 
             user_info = {"user_id": "123", "groups": ["admins"]}
@@ -167,8 +197,12 @@ class TestRequireGroupMember:
 
     def test_unauthorized_user_raises_403(self):
         """Test that unauthorized user gets 403 Forbidden."""
-        with patch("api.services.auth_services.authorization_service.check_group_membership") as mock_check:
-            with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.check_group_membership"
+        ) as mock_check:
+            with patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings:
                 mock_check.return_value = False
                 mock_settings.group_names = "admins,developers"
 
@@ -186,8 +220,12 @@ class TestGetUserForWriteOperation:
 
     def test_feature_enabled_calls_require_group_member(self):
         """Test that when feature is enabled, it calls require_group_member."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
-            with patch("api.services.auth_services.authorization_service.require_group_member") as mock_require:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            with patch(
+                "api.services.auth_services.authorization_service.require_group_member"
+            ) as mock_require:
                 mock_settings.enable_group_based_access = True
                 mock_require.return_value = {"user_id": "123"}
 
@@ -199,7 +237,9 @@ class TestGetUserForWriteOperation:
 
     def test_feature_disabled_returns_user_directly(self):
         """Test that when feature is disabled, returns user info directly."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
             mock_settings.enable_group_based_access = False
 
             user_info = {"user_id": "123", "groups": []}
@@ -209,8 +249,12 @@ class TestGetUserForWriteOperation:
 
     def test_feature_enabled_unauthorized_user_raises_403(self):
         """Test that unauthorized user raises 403 when feature is enabled."""
-        with patch("api.services.auth_services.authorization_service.swagger_settings") as mock_settings:
-            with patch("api.services.auth_services.authorization_service.check_group_membership") as mock_check:
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            with patch(
+                "api.services.auth_services.authorization_service.check_group_membership"
+            ) as mock_check:
                 mock_settings.enable_group_based_access = True
                 mock_settings.group_names = "admins"
                 mock_check.return_value = False

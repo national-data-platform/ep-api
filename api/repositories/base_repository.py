@@ -331,9 +331,11 @@ class DataCatalogRepository(ABC):
                 if format and format.lower() != resource.get("format", "").lower():
                     continue
 
-                if description and description.lower() not in resource.get(
-                    "description", ""
-                ).lower():
+                if (
+                    description
+                    and description.lower()
+                    not in resource.get("description", "").lower()
+                ):
                     continue
 
                 # Add package info to resource for context

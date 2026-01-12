@@ -16,9 +16,7 @@ class TestResourceModel:
     def test_create_resource_with_required_fields(self):
         """Test creating Resource with required fields."""
         resource = Resource(
-            id="res-123",
-            url="http://example.com/data.csv",
-            name="Test Resource"
+            id="res-123", url="http://example.com/data.csv", name="Test Resource"
         )
 
         assert resource.id == "res-123"
@@ -34,7 +32,7 @@ class TestResourceModel:
             url="https://api.example.com/data",
             name="Complete Resource",
             description="A complete test resource",
-            format="JSON"
+            format="JSON",
         )
 
         assert resource.id == "res-456"
@@ -45,11 +43,7 @@ class TestResourceModel:
 
     def test_create_resource_with_none_url(self):
         """Test creating Resource with None URL."""
-        resource = Resource(
-            id="res-789",
-            url=None,
-            name="Resource Without URL"
-        )
+        resource = Resource(id="res-789", url=None, name="Resource Without URL")
 
         assert resource.url is None
 
@@ -58,7 +52,7 @@ class TestResourceModel:
         with pytest.raises(ValidationError) as exc_info:
             Resource(
                 id="res-123",
-                url="http://example.com"
+                url="http://example.com",
                 # Missing name
             )
 
@@ -71,10 +65,7 @@ class TestResourceModel:
 
         for fmt in formats:
             resource = Resource(
-                id=f"res-{fmt}",
-                url="http://example.com/data",
-                name="Test",
-                format=fmt
+                id=f"res-{fmt}", url="http://example.com/data", name="Test", format=fmt
             )
             assert resource.format == fmt
 
@@ -85,16 +76,11 @@ class TestDataSourceResponseModel:
     def test_create_with_required_fields(self):
         """Test creating DataSourceResponse with required fields."""
         resource = Resource(
-            id="res-1",
-            url="http://example.com/data.csv",
-            name="Resource 1"
+            id="res-1", url="http://example.com/data.csv", name="Resource 1"
         )
 
         response = DataSourceResponse(
-            id="ds-123",
-            name="test_dataset",
-            title="Test Dataset",
-            resources=[resource]
+            id="ds-123", name="test_dataset", title="Test Dataset", resources=[resource]
         )
 
         assert response.id == "ds-123"
@@ -109,7 +95,7 @@ class TestDataSourceResponseModel:
         """Test creating DataSourceResponse with all fields."""
         resources = [
             Resource(id="res-1", url="http://ex.com/1", name="Res 1"),
-            Resource(id="res-2", url="http://ex.com/2", name="Res 2")
+            Resource(id="res-2", url="http://ex.com/2", name="Res 2"),
         ]
 
         response = DataSourceResponse(
@@ -119,7 +105,7 @@ class TestDataSourceResponseModel:
             organization_id="org-789",
             description="A complete test dataset",
             resources=resources,
-            extras={"key1": "value1", "version": "1.0"}
+            extras={"key1": "value1", "version": "1.0"},
         )
 
         assert response.id == "ds-456"
@@ -141,7 +127,7 @@ class TestDataSourceResponseModel:
             id="ds-multi",
             name="multi_resource_dataset",
             title="Multi Resource Dataset",
-            resources=resources
+            resources=resources,
         )
 
         assert len(response.resources) == 5
@@ -153,7 +139,7 @@ class TestDataSourceResponseModel:
         with pytest.raises(ValidationError) as exc_info:
             DataSourceResponse(
                 id="ds-123",
-                name="test"
+                name="test",
                 # Missing title and resources
             )
 
@@ -165,10 +151,7 @@ class TestDataSourceResponseModel:
     def test_empty_resources_list(self):
         """Test creating DataSourceResponse with empty resources list."""
         response = DataSourceResponse(
-            id="ds-empty",
-            name="empty_dataset",
-            title="Empty Dataset",
-            resources=[]
+            id="ds-empty", name="empty_dataset", title="Empty Dataset", resources=[]
         )
 
         assert len(response.resources) == 0
@@ -186,7 +169,7 @@ class TestDataSourceResponseAliases:
             name="test",
             title="Test",
             owner_org="org-456",  # Using alias
-            resources=[resource]
+            resources=[resource],
         )
 
         assert response.organization_id == "org-456"
@@ -200,7 +183,7 @@ class TestDataSourceResponseAliases:
             name="test",
             title="Test",
             notes="Test notes",  # Using alias
-            resources=[resource]
+            resources=[resource],
         )
 
         assert response.description == "Test notes"
@@ -216,7 +199,7 @@ class TestDataSourceResponseAliases:
             title="Test 1",
             organization_id="org-1",
             description="Desc 1",
-            resources=[resource]
+            resources=[resource],
         )
 
         # Using alias
@@ -226,7 +209,7 @@ class TestDataSourceResponseAliases:
             title="Test 2",
             owner_org="org-2",
             notes="Desc 2",
-            resources=[resource]
+            resources=[resource],
         )
 
         assert response1.organization_id == "org-1"
@@ -248,15 +231,9 @@ class TestDataSourceResponseExtras:
             title="Test",
             resources=[resource],
             extras={
-                "mapping": {
-                    "field1": "value1",
-                    "field2": "value2"
-                },
-                "processing": {
-                    "data_key": "key1",
-                    "info_key": "key2"
-                }
-            }
+                "mapping": {"field1": "value1", "field2": "value2"},
+                "processing": {"data_key": "key1", "info_key": "key2"},
+            },
         )
 
         assert "mapping" in response.extras
@@ -278,8 +255,8 @@ class TestDataSourceResponseExtras:
                 "float": 3.14,
                 "boolean": True,
                 "list": [1, 2, 3],
-                "nested": {"key": "value"}
-            }
+                "nested": {"key": "value"},
+            },
         )
 
         assert response.extras["string"] == "value"
@@ -294,11 +271,7 @@ class TestDataSourceResponseExtras:
         resource = Resource(id="res-1", url="http://ex.com", name="Res")
 
         response = DataSourceResponse(
-            id="ds-123",
-            name="test",
-            title="Test",
-            resources=[resource],
-            extras={}
+            id="ds-123", name="test", title="Test", resources=[resource], extras={}
         )
 
         assert response.extras == {}
@@ -314,7 +287,7 @@ class TestModelDictConversion:
             url="http://example.com",
             name="Test Resource",
             description="Test",
-            format="CSV"
+            format="CSV",
         )
 
         data = resource.model_dump()
@@ -327,9 +300,7 @@ class TestModelDictConversion:
     def test_resource_model_dump_exclude_none(self):
         """Test Resource model_dump with exclude_none."""
         resource = Resource(
-            id="res-123",
-            url="http://example.com",
-            name="Test Resource"
+            id="res-123", url="http://example.com", name="Test Resource"
         )
 
         data = resource.model_dump(exclude_none=True)
@@ -347,7 +318,7 @@ class TestModelDictConversion:
             name="test",
             title="Test Dataset",
             organization_id="org-456",
-            resources=[resource]
+            resources=[resource],
         )
 
         data = response.model_dump()
@@ -367,7 +338,7 @@ class TestModelDictConversion:
             title="Test",
             organization_id="org-456",
             description="Test desc",
-            resources=[resource]
+            resources=[resource],
         )
 
         data = response.model_dump(by_alias=True)
@@ -387,22 +358,19 @@ class TestResourceNested:
                 url="http://ex.com/1",
                 name="Resource 1",
                 description="First resource",
-                format="CSV"
+                format="CSV",
             ),
             Resource(
                 id="res-2",
                 url="http://ex.com/2",
                 name="Resource 2",
                 description="Second resource",
-                format="JSON"
-            )
+                format="JSON",
+            ),
         ]
 
         response = DataSourceResponse(
-            id="ds-123",
-            name="test",
-            title="Test",
-            resources=resources
+            id="ds-123", name="test", title="Test", resources=resources
         )
 
         assert response.resources[0].id == "res-1"
@@ -417,7 +385,5 @@ class TestResourceNested:
                 id="ds-123",
                 name="test",
                 title="Test",
-                resources=[
-                    {"id": "res-1", "url": "http://ex.com"}  # Missing name
-                ]
+                resources=[{"id": "res-1", "url": "http://ex.com"}],  # Missing name
             )

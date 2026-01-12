@@ -67,7 +67,9 @@ class TestCreateBucket:
         result = await create_bucket("test-bucket", region="us-east-1")
 
         assert result is True
-        mock_client.make_bucket.assert_called_once_with("test-bucket", location="us-east-1")
+        mock_client.make_bucket.assert_called_once_with(
+            "test-bucket", location="us-east-1"
+        )
 
     @pytest.mark.asyncio
     @patch("api.services.minio_services.bucket_service.minio_client")
@@ -89,7 +91,9 @@ class TestCreateBucket:
         """Test bucket creation with S3Error."""
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = False
-        mock_client.make_bucket.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.make_bucket.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:
@@ -155,7 +159,9 @@ class TestListBuckets:
     async def test_list_buckets_s3_error(self, mock_minio_client):
         """Test listing buckets with S3Error."""
         mock_client = MagicMock()
-        mock_client.list_buckets.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.list_buckets.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:
@@ -234,7 +240,9 @@ class TestGetBucketInfo:
     async def test_get_bucket_info_s3_error(self, mock_minio_client):
         """Test getting bucket info with S3Error."""
         mock_client = MagicMock()
-        mock_client.bucket_exists.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.bucket_exists.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:
@@ -316,7 +324,9 @@ class TestDeleteBucket:
         mock_client = MagicMock()
         mock_client.bucket_exists.return_value = True
         mock_client.list_objects.return_value = []
-        mock_client.remove_bucket.side_effect = create_s3_error("Access denied", "AccessDenied")
+        mock_client.remove_bucket.side_effect = create_s3_error(
+            "Access denied", "AccessDenied"
+        )
         mock_minio_client.client = mock_client
 
         with pytest.raises(S3Error) as exc_info:

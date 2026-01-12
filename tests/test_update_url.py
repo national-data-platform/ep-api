@@ -488,9 +488,7 @@ class TestPatchUrl:
             ],
         }
 
-    def test_patch_url_default_ckan_instance(
-        self, mock_ckan_settings, sample_resource
-    ):
+    def test_patch_url_default_ckan_instance(self, mock_ckan_settings, sample_resource):
         """Test patch_url with default CKAN instance."""
         import asyncio
         from api.services.url_services.update_url import patch_url
@@ -650,6 +648,7 @@ class TestPatchUrl:
             assert extras_dict["file_type"] == "JSON"
             # Processing should be updated and validated
             import json
+
             assert json.loads(extras_dict["processing"]) == new_processing
 
         asyncio.run(run_test())
@@ -691,6 +690,7 @@ class TestPatchUrl:
             assert extras_dict["file_type"] == "CSV"
             # Processing should be updated
             import json
+
             assert json.loads(extras_dict["processing"]) == new_processing
 
         asyncio.run(run_test())
@@ -799,6 +799,7 @@ class TestPatchUrl:
 
             # Mapping should be updated
             import json
+
             assert json.loads(extras_dict["mapping"]) == new_mapping
 
         asyncio.run(run_test())

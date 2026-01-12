@@ -1,6 +1,6 @@
 [run]
 source = api
-omit = 
+omit =
     */migrations/*
     */tests/*
     */venv/*
@@ -14,3 +14,10 @@ exclude_lines =
     def __repr__
     raise AssertionError
     raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+show_missing = true
+precision = 2
+
+[xml]
+output = coverage.xml

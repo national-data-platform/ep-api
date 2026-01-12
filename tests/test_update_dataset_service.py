@@ -35,7 +35,10 @@ class TestUpdateDataset:
 
         result = await update_dataset("dataset-123", data)
 
-        assert result["message"] == "Dataset updated successfully with additional resources."
+        assert (
+            result["message"]
+            == "Dataset updated successfully with additional resources."
+        )
         mock_ckan.action.package_patch.assert_called_once()
 
     @pytest.mark.asyncio
@@ -69,7 +72,10 @@ class TestUpdateDataset:
 
         result = await update_dataset("dataset-123", data)
 
-        assert result["message"] == "Dataset updated successfully with additional resources."
+        assert (
+            result["message"]
+            == "Dataset updated successfully with additional resources."
+        )
         mock_ckan.action.resource_create.assert_called_once_with(
             package_id="dataset-123",
             url="http://example.com/data.csv",

@@ -55,8 +55,12 @@ async def lifespan(app: FastAPI):
     # Ensure 'services' organization exists
     if ckan_settings.ckan_local_enabled:
         try:
-            from api.services.organization_services.list_organization import list_organization
-            from api.services.organization_services.create_organization import create_organization
+            from api.services.organization_services.list_organization import (
+                list_organization,
+            )
+            from api.services.organization_services.create_organization import (
+                create_organization,
+            )
 
             logger.info("Checking if 'services' organization exists...")
             organizations = list_organization(server="local")
@@ -67,7 +71,7 @@ async def lifespan(app: FastAPI):
                     name="services",
                     title="Services",
                     description="Organization for managing services",
-                    server="local"
+                    server="local",
                 )
                 logger.info("✅ 'services' organization created successfully")
             else:
@@ -76,16 +80,21 @@ async def lifespan(app: FastAPI):
             logger.error(f"❌ Error ensuring 'services' organization exists: {str(e)}")
 
     # Check MINIO connection on startup if enabled
-    logger.info(f"S3 configuration - enabled: {s3_settings.enabled}, is_configured: {s3_settings.is_configured}")
+    logger.info(
+        f"S3 configuration - enabled: {s3_settings.enabled}, is_configured: {s3_settings.is_configured}"
+    )
     if s3_settings.enabled:
         try:
             from api.services.minio_services.minio_client import minio_client
+
             logger.info("Checking S3 connection...")
 
             if minio_client.test_connection():
                 logger.info("✅ S3 connection successful")
             else:
-                logger.warning("❌ S3 connection failed - check configuration and service availability")
+                logger.warning(
+                    "❌ S3 connection failed - check configuration and service availability"
+                )
         except Exception as e:
             logger.error(f"❌ Error testing S3 connection: {str(e)}")
     else:
@@ -141,6 +150,7 @@ if s3_settings.enabled:
 pelican_enabled = os.getenv("PELICAN_ENABLED", "false").lower() == "true"
 if pelican_enabled:
     from api.routes.pelican_routes import router as pelican_router
+
     app.include_router(pelican_router)
 
 # Initialize and mount FastAPI-MCP for AI agent communication

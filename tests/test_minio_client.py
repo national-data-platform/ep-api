@@ -32,7 +32,9 @@ class TestMinioClientInitialization:
 
     @patch("api.services.minio_services.minio_client.Minio")
     @patch("api.services.minio_services.minio_client.s3_settings")
-    def test_client_property_creates_client_on_first_access(self, mock_settings, mock_minio):
+    def test_client_property_creates_client_on_first_access(
+        self, mock_settings, mock_minio
+    ):
         """Test that client property creates Minio client on first access."""
         mock_settings.is_configured = True
         mock_settings.endpoint = "localhost:9000"
@@ -53,7 +55,7 @@ class TestMinioClientInitialization:
             access_key="minioadmin",
             secret_key="minioadmin",
             secure=False,
-            region="us-east-1"
+            region="us-east-1",
         )
 
     @patch("api.services.minio_services.minio_client.Minio")
@@ -119,11 +121,19 @@ class TestMinioClientTestConnection:
         mock_settings.is_configured = True
 
         from unittest.mock import Mock
+
         mock_response = Mock()
         mock_response.status = 403
         mock_response.data = b""
         mock_response.headers = {}
-        s3_error = S3Error("AccessDenied", "Access denied", "resource", "req_id", "host_id", mock_response)
+        s3_error = S3Error(
+            "AccessDenied",
+            "Access denied",
+            "resource",
+            "req_id",
+            "host_id",
+            mock_response,
+        )
 
         mock_minio_client = MagicMock()
         mock_minio_client.list_buckets.side_effect = s3_error

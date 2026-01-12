@@ -20,7 +20,7 @@ class TestProducerPayload:
         payload = ProducerPayload(
             keywords="temperature,humidity",
             match_all=True,
-            filter_semantics=["temp>10", "humidity<50"]
+            filter_semantics=["temp>10", "humidity<50"],
         )
 
         assert payload.keywords == "temperature,humidity"
@@ -65,7 +65,7 @@ class TestKafkaResource:
             id="resource-123",
             kafka_host="localhost",
             kafka_port="9092",
-            kafka_topic="test-topic"
+            kafka_topic="test-topic",
         )
 
         assert resource.id == "resource-123"
@@ -81,7 +81,7 @@ class TestKafkaResource:
             kafka_host="kafka.example.com",
             kafka_port="9093",
             kafka_topic="events",
-            description="Event stream"
+            description="Event stream",
         )
 
         assert resource.description == "Event stream"
@@ -91,7 +91,7 @@ class TestKafkaResource:
         with pytest.raises(ValidationError):
             KafkaResource(
                 kafka_host="localhost",
-                kafka_port="9092"
+                kafka_port="9092",
                 # Missing id and kafka_topic
             )
 
@@ -102,17 +102,14 @@ class TestKafkaDataSourceResponse:
     def test_create_with_required_fields(self):
         """Test creating KafkaDataSourceResponse with required fields."""
         resource = KafkaResource(
-            id="res-1",
-            kafka_host="localhost",
-            kafka_port="9092",
-            kafka_topic="topic1"
+            id="res-1", kafka_host="localhost", kafka_port="9092", kafka_topic="topic1"
         )
 
         response = KafkaDataSourceResponse(
             id="dataset-123",
             name="my-kafka-dataset",
             title="My Kafka Dataset",
-            resources=[resource]
+            resources=[resource],
         )
 
         assert response.id == "dataset-123"
@@ -130,7 +127,7 @@ class TestKafkaDataSourceResponse:
             kafka_host="localhost",
             kafka_port="9092",
             kafka_topic="topic1",
-            description="Test resource"
+            description="Test resource",
         )
 
         response = KafkaDataSourceResponse(
@@ -140,7 +137,7 @@ class TestKafkaDataSourceResponse:
             organization_id="org-789",
             description="Full description",
             resources=[resource],
-            extras={"key1": "value1", "key2": "value2"}
+            extras={"key1": "value1", "key2": "value2"},
         )
 
         assert response.id == "dataset-456"
@@ -155,7 +152,7 @@ class TestKafkaDataSourceResponse:
                 id=f"res-{i}",
                 kafka_host="localhost",
                 kafka_port="9092",
-                kafka_topic=f"topic-{i}"
+                kafka_topic=f"topic-{i}",
             )
             for i in range(3)
         ]
@@ -164,7 +161,7 @@ class TestKafkaDataSourceResponse:
             id="dataset-multi",
             name="multi-resource",
             title="Multi Resource Dataset",
-            resources=resources
+            resources=resources,
         )
 
         assert len(response.resources) == 3
@@ -174,10 +171,7 @@ class TestKafkaDataSourceResponse:
     def test_populate_by_name_with_aliases(self):
         """Test that aliases work correctly (owner_org, notes)."""
         resource = KafkaResource(
-            id="res-1",
-            kafka_host="localhost",
-            kafka_port="9092",
-            kafka_topic="topic1"
+            id="res-1", kafka_host="localhost", kafka_port="9092", kafka_topic="topic1"
         )
 
         # Using aliases
@@ -186,8 +180,8 @@ class TestKafkaDataSourceResponse:
             name="alias-test",
             title="Alias Test",
             owner_org="org-123",  # Using alias
-            notes="Test notes",   # Using alias
-            resources=[resource]
+            notes="Test notes",  # Using alias
+            resources=[resource],
         )
 
         assert response.organization_id == "org-123"
@@ -196,15 +190,12 @@ class TestKafkaDataSourceResponse:
     def test_missing_required_field_raises_error(self):
         """Test that missing required fields raise ValidationError."""
         resource = KafkaResource(
-            id="res-1",
-            kafka_host="localhost",
-            kafka_port="9092",
-            kafka_topic="topic1"
+            id="res-1", kafka_host="localhost", kafka_port="9092", kafka_topic="topic1"
         )
 
         with pytest.raises(ValidationError):
             KafkaDataSourceResponse(
                 id="dataset-incomplete",
-                name="incomplete"
+                name="incomplete",
                 # Missing title and resources
             )

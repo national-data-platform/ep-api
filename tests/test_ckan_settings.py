@@ -38,8 +38,7 @@ class TestCKANSettings:
     def test_pre_ckan_property_with_http_url(self):
         """Test pre_ckan property with HTTP URL."""
         settings = Settings(
-            pre_ckan_url="http://pre-ckan.com",
-            pre_ckan_api_key="pre-key"
+            pre_ckan_url="http://pre-ckan.com", pre_ckan_api_key="pre-key"
         )
         ckan_client = settings.pre_ckan
 
@@ -49,8 +48,7 @@ class TestCKANSettings:
     def test_pre_ckan_property_with_https_url(self):
         """Test pre_ckan property with HTTPS URL."""
         settings = Settings(
-            pre_ckan_url="https://pre-ckan.com",
-            pre_ckan_api_key="pre-key"
+            pre_ckan_url="https://pre-ckan.com", pre_ckan_api_key="pre-key"
         )
         ckan_client = settings.pre_ckan
 
@@ -59,10 +57,7 @@ class TestCKANSettings:
 
     def test_pre_ckan_property_without_scheme(self):
         """Test pre_ckan property prepends http:// if no scheme provided."""
-        settings = Settings(
-            pre_ckan_url="pre-ckan.com",
-            pre_ckan_api_key="pre-key"
-        )
+        settings = Settings(pre_ckan_url="pre-ckan.com", pre_ckan_api_key="pre-key")
         ckan_client = settings.pre_ckan
 
         # Should prepend http://
@@ -95,7 +90,7 @@ class TestCKANSettings:
             ckan_global_url="http://custom-global.com",
             pre_ckan_enabled=True,
             pre_ckan_url="http://custom-pre.com",
-            pre_ckan_api_key="custom-pre-key"
+            pre_ckan_api_key="custom-pre-key",
         )
 
         assert settings.ckan_local_enabled is True
@@ -108,10 +103,7 @@ class TestCKANSettings:
 
     def test_ckan_ssl_verify_default_true(self):
         """Test SSL verification can be enabled explicitly."""
-        settings = Settings(
-            ckan_url="https://test-ckan.com",
-            ckan_verify_ssl=True
-        )
+        settings = Settings(ckan_url="https://test-ckan.com", ckan_verify_ssl=True)
 
         assert settings.ckan_verify_ssl is True
         ckan_client = settings.ckan
@@ -119,10 +111,7 @@ class TestCKANSettings:
 
     def test_ckan_ssl_verify_disabled(self):
         """Test SSL verification can be disabled."""
-        settings = Settings(
-            ckan_url="https://test-ckan.com",
-            ckan_verify_ssl=False
-        )
+        settings = Settings(ckan_url="https://test-ckan.com", ckan_verify_ssl=False)
 
         assert settings.ckan_verify_ssl is False
         ckan_client = settings.ckan
@@ -130,10 +119,7 @@ class TestCKANSettings:
 
     def test_ckan_no_api_key_ssl_verify(self):
         """Test SSL verification applies to ckan_no_api_key."""
-        settings = Settings(
-            ckan_url="https://test-ckan.com",
-            ckan_verify_ssl=False
-        )
+        settings = Settings(ckan_url="https://test-ckan.com", ckan_verify_ssl=False)
 
         ckan_client = settings.ckan_no_api_key
         assert ckan_client.session.verify is False
@@ -149,8 +135,7 @@ class TestCKANSettings:
     def test_pre_ckan_ssl_verify_disabled(self):
         """Test Pre-CKAN SSL verification can be disabled."""
         settings = Settings(
-            pre_ckan_url="https://pre-ckan.com",
-            pre_ckan_verify_ssl=False
+            pre_ckan_url="https://pre-ckan.com", pre_ckan_verify_ssl=False
         )
 
         assert settings.pre_ckan_verify_ssl is False
@@ -160,8 +145,7 @@ class TestCKANSettings:
     def test_pre_ckan_no_api_key_ssl_verify(self):
         """Test SSL verification applies to pre_ckan_no_api_key."""
         settings = Settings(
-            pre_ckan_url="https://pre-ckan.com",
-            pre_ckan_verify_ssl=False
+            pre_ckan_url="https://pre-ckan.com", pre_ckan_verify_ssl=False
         )
 
         ckan_client = settings.pre_ckan_no_api_key

@@ -2,9 +2,7 @@
 from api.config.catalog_settings import catalog_settings
 
 
-def delete_dataset(
-    dataset_name: str = None, resource_id: str = None, repository=None
-):
+def delete_dataset(dataset_name: str = None, resource_id: str = None, repository=None):
     """
     Delete a dataset from catalog by its name or resource_id.
 

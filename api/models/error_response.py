@@ -64,12 +64,8 @@ class ValidationErrorDetail(BaseModel):
         description="Location of the error (field path)",
         examples=[["body", "name"]],
     )
-    msg: str = Field(
-        ..., description="Error message", examples=["field required"]
-    )
-    type: str = Field(
-        ..., description="Error type", examples=["value_error.missing"]
-    )
+    msg: str = Field(..., description="Error message", examples=["field required"])
+    type: str = Field(..., description="Error type", examples=["value_error.missing"])
 
 
 class ValidationErrorResponse(ErrorResponse):

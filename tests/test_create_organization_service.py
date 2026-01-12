@@ -19,40 +19,36 @@ class TestCreateOrganization:
         mock_repository.organization_create.return_value = {
             "id": "org-123",
             "name": "test-org",
-            "title": "Test Organization"
+            "title": "Test Organization",
         }
         mock_catalog_settings.local_catalog = mock_repository
 
         result = create_organization(
-            name="test-org",
-            title="Test Organization",
-            server="local"
+            name="test-org", title="Test Organization", server="local"
         )
 
         assert result == "org-123"
         mock_repository.organization_create.assert_called_once_with(
-            name="test-org",
-            title="Test Organization",
-            description=None
+            name="test-org", title="Test Organization", description=None
         )
 
     @patch("api.services.organization_services.create_organization.ckan_settings")
     @patch("api.services.organization_services.create_organization.catalog_settings")
-    def test_create_organization_pre_ckan_server(self, mock_catalog_settings, mock_ckan_settings):
+    def test_create_organization_pre_ckan_server(
+        self, mock_catalog_settings, mock_ckan_settings
+    ):
         """Test creating organization on pre_ckan server."""
         mock_ckan_settings.pre_ckan_enabled = True
 
         mock_repository = MagicMock()
         mock_repository.organization_create.return_value = {
             "id": "pre-org-456",
-            "name": "pre-org"
+            "name": "pre-org",
         }
         mock_catalog_settings.pre_catalog = mock_repository
 
         result = create_organization(
-            name="pre-org",
-            title="Pre Organization",
-            server="pre_ckan"
+            name="pre-org", title="Pre Organization", server="pre_ckan"
         )
 
         assert result == "pre-org-456"
@@ -64,11 +60,7 @@ class TestCreateOrganization:
         mock_ckan_settings.pre_ckan_enabled = False
 
         with pytest.raises(Exception) as exc_info:
-            create_organization(
-                name="test-org",
-                title="Test Org",
-                server="pre_ckan"
-            )
+            create_organization(name="test-org", title="Test Org", server="pre_ckan")
 
         assert "Pre-CKAN is disabled" in str(exc_info.value)
 
@@ -78,7 +70,7 @@ class TestCreateOrganization:
         mock_repository = MagicMock()
         mock_repository.organization_create.return_value = {
             "id": "org-789",
-            "name": "described-org"
+            "name": "described-org",
         }
         mock_catalog_settings.local_catalog = mock_repository
 
@@ -86,7 +78,7 @@ class TestCreateOrganization:
             name="described-org",
             title="Described Organization",
             description="This is a test organization",
-            server="local"
+            server="local",
         )
 
         assert result == "org-789"
@@ -102,11 +94,7 @@ class TestCreateOrganization:
         mock_catalog_settings.local_catalog = mock_repository
 
         with pytest.raises(Exception) as exc_info:
-            create_organization(
-                name="invalid-org",
-                title="Invalid Org",
-                server="local"
-            )
+            create_organization(name="invalid-org", title="Invalid Org", server="local")
 
         assert "Validation error" in str(exc_info.value)
 
@@ -118,11 +106,7 @@ class TestCreateOrganization:
         mock_catalog_settings.local_catalog = mock_repository
 
         with pytest.raises(Exception) as exc_info:
-            create_organization(
-                name="test-org",
-                title="Test Org",
-                server="local"
-            )
+            create_organization(name="test-org", title="Test Org", server="local")
 
         assert "not found" in str(exc_info.value).lower()
 
@@ -137,9 +121,7 @@ class TestCreateOrganization:
 
         with pytest.raises(Exception) as exc_info:
             create_organization(
-                name="duplicate-org",
-                title="Duplicate Org",
-                server="local"
+                name="duplicate-org", title="Duplicate Org", server="local"
             )
 
         assert "already exists" in str(exc_info.value)
@@ -148,15 +130,13 @@ class TestCreateOrganization:
     def test_create_organization_generic_error(self, mock_catalog_settings):
         """Test handling of generic errors."""
         mock_repository = MagicMock()
-        mock_repository.organization_create.side_effect = Exception("Connection timeout")
+        mock_repository.organization_create.side_effect = Exception(
+            "Connection timeout"
+        )
         mock_catalog_settings.local_catalog = mock_repository
 
         with pytest.raises(Exception) as exc_info:
-            create_organization(
-                name="test-org",
-                title="Test Org",
-                server="local"
-            )
+            create_organization(name="test-org", title="Test Org", server="local")
 
         assert "Error creating organization" in str(exc_info.value)
         assert "Connection timeout" in str(exc_info.value)
@@ -167,7 +147,7 @@ class TestCreateOrganization:
         mock_repository = MagicMock()
         mock_repository.organization_create.return_value = {
             "id": "default-org",
-            "name": "default"
+            "name": "default",
         }
         mock_catalog_settings.local_catalog = mock_repository
 
@@ -184,7 +164,7 @@ class TestCreateOrganization:
             "id": "return-id-test",
             "name": "test",
             "title": "Test",
-            "other_field": "value"
+            "other_field": "value",
         }
         mock_catalog_settings.local_catalog = mock_repository
 
