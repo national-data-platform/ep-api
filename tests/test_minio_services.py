@@ -74,33 +74,53 @@ class TestMinioClient:
 
     def test_minio_test_connection_success(self):
         """Test successful connection test."""
-        with patch.object(minio_client, "_client") as mock_client:
-            mock_client.list_buckets.return_value = []
+        mock_minio = MagicMock()
+        mock_minio.list_buckets.return_value = []
+        # Set the internal _client and patch settings to simulate configured state
+        minio_client._client = mock_minio
+        with patch(
+            "api.services.minio_services.minio_client.s3_settings"
+        ) as mock_settings:
+            mock_settings.is_configured = True
 
             result = minio_client.test_connection()
 
             assert result is True
-            mock_client.list_buckets.assert_called_once()
+            mock_minio.list_buckets.assert_called_once()
+        # Clean up
+        minio_client._client = None
 
     def test_minio_test_connection_s3_error(self):
         """Test connection test with S3 error."""
-        with patch.object(minio_client, "_client") as mock_client:
-            mock_client.list_buckets.side_effect = create_s3_error_mock(
-                "Access denied", "AccessDenied"
-            )
+        mock_minio = MagicMock()
+        mock_minio.list_buckets.side_effect = create_s3_error_mock(
+            "Access denied", "AccessDenied"
+        )
+        minio_client._client = mock_minio
+        with patch(
+            "api.services.minio_services.minio_client.s3_settings"
+        ) as mock_settings:
+            mock_settings.is_configured = True
 
             result = minio_client.test_connection()
 
             assert result is False
+        minio_client._client = None
 
     def test_minio_test_connection_general_error(self):
         """Test connection test with general error."""
-        with patch.object(minio_client, "_client") as mock_client:
-            mock_client.list_buckets.side_effect = Exception("Network error")
+        mock_minio = MagicMock()
+        mock_minio.list_buckets.side_effect = Exception("Network error")
+        minio_client._client = mock_minio
+        with patch(
+            "api.services.minio_services.minio_client.s3_settings"
+        ) as mock_settings:
+            mock_settings.is_configured = True
 
             result = minio_client.test_connection()
 
             assert result is False
+        minio_client._client = None
 
 
 class TestBucketService:
