@@ -23,6 +23,7 @@ HEADERS = {"Authorization": f"Bearer {TEST_TOKEN}"}
 # Generate unique suffix for resource names using timestamp
 UNIQUE_SUFFIX = str(int(time.time()))
 
+
 # Color output for terminal
 class Colors:
     GREEN = "\033[92m"
@@ -564,11 +565,19 @@ def test_resource_by_id_routes():
     if verify_response.status_code == 200:
         updated_desc = verify_response.json().get("description", "")
         if "Updated via PATCH" in updated_desc:
-            results.add_pass("PATCH /resource/{id} - Verify update", "(Update confirmed)")
+            results.add_pass(
+                "PATCH /resource/{id} - Verify update", "(Update confirmed)"
+            )
         else:
-            results.add_fail("PATCH /resource/{id} - Verify update", f"(Description not updated: {updated_desc})")
+            results.add_fail(
+                "PATCH /resource/{id} - Verify update",
+                f"(Description not updated: {updated_desc})",
+            )
     else:
-        results.add_fail("PATCH /resource/{id} - Verify update", f"(Failed to verify: {verify_response.status_code})")
+        results.add_fail(
+            "PATCH /resource/{id} - Verify update",
+            f"(Failed to verify: {verify_response.status_code})",
+        )
 
 
 def test_resource_search_routes():
@@ -591,10 +600,12 @@ def test_resource_search_routes():
         if count >= 0 and results_count <= 5:
             results.add_pass(
                 "GET /resources/search - Response format",
-                f"(count={count}, results={results_count})"
+                f"(count={count}, results={results_count})",
             )
         else:
-            results.add_fail("GET /resources/search - Response format", f"(Invalid format)")
+            results.add_fail(
+                "GET /resources/search - Response format", f"(Invalid format)"
+            )
 
     # Test: GET /resources/search with query filter
     test_request(
@@ -629,12 +640,12 @@ def test_resource_search_routes():
         if results_count <= 2:
             results.add_pass(
                 "GET /resources/search - Pagination limit",
-                f"(returned {results_count} results, limit=2)"
+                f"(returned {results_count} results, limit=2)",
             )
         else:
             results.add_fail(
                 "GET /resources/search - Pagination limit",
-                f"(returned {results_count} results, expected <=2)"
+                f"(returned {results_count} results, expected <=2)",
             )
 
     # Test: Verify results include dataset context
@@ -657,12 +668,12 @@ def test_resource_search_routes():
             if has_context:
                 results.add_pass(
                     "GET /resources/search - Has dataset context",
-                    "(dataset_id, dataset_name, dataset_title present)"
+                    "(dataset_id, dataset_name, dataset_title present)",
                 )
             else:
                 results.add_fail(
                     "GET /resources/search - Has dataset context",
-                    f"(Missing context keys: {list(first_result.keys())})"
+                    f"(Missing context keys: {list(first_result.keys())})",
                 )
 
 
@@ -939,7 +950,11 @@ def main():
     )
     print(f"{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.RESET}\n")
     print(f"Base URL: {BASE_URL}")
-    print(f"Auth Token: {TEST_TOKEN[:20]}..." if len(TEST_TOKEN) > 20 else f"Auth Token: {TEST_TOKEN}")
+    print(
+        f"Auth Token: {TEST_TOKEN[:20]}..."
+        if len(TEST_TOKEN) > 20
+        else f"Auth Token: {TEST_TOKEN}"
+    )
     print(f"\nStarting tests...\n")
 
     # Run all test suites

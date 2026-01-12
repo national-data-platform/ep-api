@@ -19,6 +19,7 @@ BASE_URL = "http://localhost:8002"
 TEST_TOKEN = "testing_token"  # From .env
 HEADERS = {"Authorization": f"Bearer {TEST_TOKEN}"}
 
+
 # Color output for terminal
 class Colors:
     GREEN = "\033[92m"
@@ -58,7 +59,9 @@ def log_section(title: str):
     print(f"{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.RESET}\n")
 
 
-def make_request(method: str, endpoint: str, description: str, silent: bool = False, **kwargs) -> Any:
+def make_request(
+    method: str, endpoint: str, description: str, silent: bool = False, **kwargs
+) -> Any:
     """
     Make an API request and handle response.
 
@@ -106,6 +109,7 @@ def make_request(method: str, endpoint: str, description: str, silent: bool = Fa
 # ============================================================================
 # CLEANUP FUNCTIONS
 # ============================================================================
+
 
 def cleanup_previous_data():
     """Clean up any previously created data to avoid duplicates."""
@@ -390,71 +394,74 @@ S3_OBJECTS = [
     {
         "bucket": "climate-datasets",
         "filename": "co2-atmospheric-readings.json",
-        "content": json.dumps({
-            "metadata": {
-                "station_id": "ES-CLM-001",
-                "station_name": "Madrid Climate Station",
-                "location": {
-                    "latitude": 40.4168,
-                    "longitude": -3.7038,
-                    "elevation_m": 667,
-                    "country": "Spain",
-                    "region": "Madrid"
+        "content": json.dumps(
+            {
+                "metadata": {
+                    "station_id": "ES-CLM-001",
+                    "station_name": "Madrid Climate Station",
+                    "location": {
+                        "latitude": 40.4168,
+                        "longitude": -3.7038,
+                        "elevation_m": 667,
+                        "country": "Spain",
+                        "region": "Madrid",
+                    },
+                    "instrument": "NDIR CO2 Analyzer",
+                    "calibration_date": "2023-01-01",
+                    "data_quality": "Level 2 - Quality Controlled",
                 },
-                "instrument": "NDIR CO2 Analyzer",
-                "calibration_date": "2023-01-01",
-                "data_quality": "Level 2 - Quality Controlled"
+                "measurements": [
+                    {
+                        "timestamp": "2023-12-01T00:00:00Z",
+                        "co2_ppm": 415.2,
+                        "temperature_c": 12.5,
+                        "pressure_hpa": 1013.2,
+                        "humidity_percent": 65,
+                        "quality_flag": "GOOD",
+                    },
+                    {
+                        "timestamp": "2023-12-01T01:00:00Z",
+                        "co2_ppm": 415.5,
+                        "temperature_c": 12.3,
+                        "pressure_hpa": 1013.1,
+                        "humidity_percent": 66,
+                        "quality_flag": "GOOD",
+                    },
+                    {
+                        "timestamp": "2023-12-01T02:00:00Z",
+                        "co2_ppm": 415.3,
+                        "temperature_c": 12.1,
+                        "pressure_hpa": 1013.0,
+                        "humidity_percent": 67,
+                        "quality_flag": "GOOD",
+                    },
+                    {
+                        "timestamp": "2023-12-01T03:00:00Z",
+                        "co2_ppm": 415.8,
+                        "temperature_c": 11.9,
+                        "pressure_hpa": 1012.9,
+                        "humidity_percent": 68,
+                        "quality_flag": "GOOD",
+                    },
+                    {
+                        "timestamp": "2023-12-01T04:00:00Z",
+                        "co2_ppm": 416.1,
+                        "temperature_c": 11.7,
+                        "pressure_hpa": 1012.8,
+                        "humidity_percent": 69,
+                        "quality_flag": "GOOD",
+                    },
+                ],
+                "statistics": {
+                    "mean_co2_ppm": 415.58,
+                    "min_co2_ppm": 415.2,
+                    "max_co2_ppm": 416.1,
+                    "std_dev_co2_ppm": 0.35,
+                    "num_measurements": 5,
+                },
             },
-            "measurements": [
-                {
-                    "timestamp": "2023-12-01T00:00:00Z",
-                    "co2_ppm": 415.2,
-                    "temperature_c": 12.5,
-                    "pressure_hpa": 1013.2,
-                    "humidity_percent": 65,
-                    "quality_flag": "GOOD"
-                },
-                {
-                    "timestamp": "2023-12-01T01:00:00Z",
-                    "co2_ppm": 415.5,
-                    "temperature_c": 12.3,
-                    "pressure_hpa": 1013.1,
-                    "humidity_percent": 66,
-                    "quality_flag": "GOOD"
-                },
-                {
-                    "timestamp": "2023-12-01T02:00:00Z",
-                    "co2_ppm": 415.3,
-                    "temperature_c": 12.1,
-                    "pressure_hpa": 1013.0,
-                    "humidity_percent": 67,
-                    "quality_flag": "GOOD"
-                },
-                {
-                    "timestamp": "2023-12-01T03:00:00Z",
-                    "co2_ppm": 415.8,
-                    "temperature_c": 11.9,
-                    "pressure_hpa": 1012.9,
-                    "humidity_percent": 68,
-                    "quality_flag": "GOOD"
-                },
-                {
-                    "timestamp": "2023-12-01T04:00:00Z",
-                    "co2_ppm": 416.1,
-                    "temperature_c": 11.7,
-                    "pressure_hpa": 1012.8,
-                    "humidity_percent": 69,
-                    "quality_flag": "GOOD"
-                }
-            ],
-            "statistics": {
-                "mean_co2_ppm": 415.58,
-                "min_co2_ppm": 415.2,
-                "max_co2_ppm": 416.1,
-                "std_dev_co2_ppm": 0.35,
-                "num_measurements": 5
-            }
-        }, indent=2),
+            indent=2,
+        ),
         "content_type": "application/json",
     },
     {
@@ -517,6 +524,7 @@ Please cite as: Biodiversity Laboratory (2024). European Biodiversity Monitoring
 # ============================================================================
 # SEEDING FUNCTIONS
 # ============================================================================
+
 
 def seed_organizations():
     """Create sample organizations."""
@@ -727,10 +735,12 @@ def seed_s3_objects(buckets):
         )
 
         if result:
-            uploaded_objects.append({
-                "bucket": bucket_name,
-                "key": obj["filename"],
-            })
+            uploaded_objects.append(
+                {
+                    "bucket": bucket_name,
+                    "key": obj["filename"],
+                }
+            )
 
     return uploaded_objects
 
@@ -739,10 +749,13 @@ def seed_s3_objects(buckets):
 # MAIN
 # ============================================================================
 
+
 def main():
     """Run the seeding process."""
     print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.BLUE}NDP-EP API - Sample Data Seeding Script{Colors.RESET}")
+    print(
+        f"{Colors.BOLD}{Colors.BLUE}NDP-EP API - Sample Data Seeding Script{Colors.RESET}"
+    )
     print(f"{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.RESET}\n")
     print(f"Base URL: {BASE_URL}")
     print(f"This will populate the database with sample data for demo purposes.\n")
@@ -770,7 +783,9 @@ def main():
         log_success(f"S3 buckets created: {len(buckets)}")
         log_success(f"S3 objects uploaded: {len(objects)}")
 
-        print(f"\n{Colors.GREEN}{Colors.BOLD}✓ Sample data seeding completed successfully!{Colors.RESET}\n")
+        print(
+            f"\n{Colors.GREEN}{Colors.BOLD}✓ Sample data seeding completed successfully!{Colors.RESET}\n"
+        )
         print(f"You can now explore the data through:")
         print(f"  • API: {BASE_URL}")
         print(f"  • Frontend: http://localhost:3000")
