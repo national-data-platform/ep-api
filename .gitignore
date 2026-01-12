@@ -6,4 +6,7 @@ CLAUDE.md
 uvicorn.log
 docs/.ipynb_checkpoints/
 .coverage
+coverage.xml
 htmlcov/
+setup_info.txt
+tests_backup/
