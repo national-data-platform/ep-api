@@ -16,7 +16,7 @@ fastapi-utils
 pytest-cov
 requests
 jupyter>=1.0.0
-minio>=7.2.0,<8.0.0
+minio==7.2.16
 pymongo>=4.0.0
 mongomock>=4.1.0
 fastapi-mcp
