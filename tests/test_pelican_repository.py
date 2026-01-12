@@ -212,7 +212,7 @@ class TestOpenFile:
         mock_fs_class.return_value = mock_fs
 
         repo = PelicanRepository(federation_url="pelican://osg-htc.org")
-        file_handle = repo.open_file("/ospool/data/test.nc")
+        repo.open_file("/ospool/data/test.nc")
 
         mock_fs.open.assert_called_once_with("/ospool/data/test.nc", mode="rb")
 

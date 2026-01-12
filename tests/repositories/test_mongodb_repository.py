@@ -6,12 +6,12 @@ These tests use mongomock to test the MongoDB repository
 without requiring an actual MongoDB server.
 """
 import pytest
+from mongomock import MongoClient
+
+from api.repositories.mongodb_repository import MongoDBRepository
 
 # Skip all tests if mongomock is not installed
 pytest.importorskip("mongomock")
-
-from mongomock import MongoClient
-from api.repositories.mongodb_repository import MongoDBRepository
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def mongodb_repo(monkeypatch):
     # Create a test organization for package tests
     try:
         repo.organization_create(name="test-org", title="Test Organization")
-    except:
+    except Exception:
         pass  # Organization might already exist
 
     yield repo

@@ -630,7 +630,7 @@ class TestPatchUrl:
                 "info_key": "metadata",
                 "data_key": "data",
             }
-            result = await patch_url(
+            await patch_url(
                 resource_id="resource-123",
                 file_type="JSON",
                 processing=new_processing,
@@ -673,7 +673,7 @@ class TestPatchUrl:
                 "start_line": "2",
                 "comment_char": "#",
             }
-            result = await patch_url(
+            await patch_url(
                 resource_id="resource-123",
                 processing=new_processing,
             )
@@ -784,7 +784,7 @@ class TestPatchUrl:
 
         async def run_test():
             new_mapping = {"field2": "col2", "field3": "col3"}
-            result = await patch_url(
+            await patch_url(
                 resource_id="resource-123",
                 mapping=new_mapping,
             )

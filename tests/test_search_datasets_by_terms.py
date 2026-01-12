@@ -158,7 +158,7 @@ class TestSearchDatasetsByTerms:
         }
         mock_catalog.local_catalog = mock_repo
 
-        results = await search_datasets_by_terms(
+        await search_datasets_by_terms(
             ["test", "value"], keys_list=["title", None], server="local"
         )
 

@@ -189,7 +189,8 @@ class TestKafkaDataSourceResponse:
 
     def test_missing_required_field_raises_error(self):
         """Test that missing required fields raise ValidationError."""
-        resource = KafkaResource(
+        # Create a resource to verify model works before testing missing fields
+        KafkaResource(
             id="res-1", kafka_host="localhost", kafka_port="9092", kafka_topic="topic1"
         )
 
