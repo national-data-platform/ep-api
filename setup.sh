@@ -212,12 +212,12 @@ normalize_bool() {
     esac
 }
 
-PRE_CKAN_ENABLED=$(normalize_bool "$enable_staging")
 KAFKA_CONNECTION=$(normalize_bool "$streaming")
 USE_JUPYTERLAB=$(normalize_bool "$jhub")
 
-# Set dependent values
-if [[ "$PRE_CKAN_ENABLED" == "True" && -n "$pre_ckan_url" ]]; then
+# Set PRE_CKAN based on availability of url and key
+if [[ -n "$pre_ckan_url" && "$pre_ckan_url" != "null" && -n "$pre_ckan_key" && "$pre_ckan_key" != "null" ]]; then
+    PRE_CKAN_ENABLED="True"
     PRE_CKAN_URL="$pre_ckan_url"
     PRE_CKAN_API_KEY="$pre_ckan_key"
 else
