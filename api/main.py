@@ -129,6 +129,7 @@ app.add_middleware(
 register_exception_handlers(app)
 
 app.include_router(routes.default_router, include_in_schema=False)
+app.include_router(routes.health_router, tags=["Health"])
 if ckan_settings.ckan_local_enabled:
     app.include_router(routes.register_router, tags=["Registration"])
 app.include_router(routes.search_router, tags=["Search"])

@@ -1,5 +1,6 @@
 from .default_routes import router as default_router  # noqa: F401
 from .delete_routes import router as delete_router  # noqa: F401
+from .health_routes import router as health_router  # noqa: F401
 from .redirect_routes import router as redirect_router  # noqa: F401
 from .register_routes import router as register_router  # noqa: F401
 from .resource_routes.resource_by_id import router as resource_router  # noqa: F401
