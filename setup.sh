@@ -34,6 +34,8 @@ NC='\033[0m' # No Color
 DEFAULT_FEDERATION_URL="http://localhost:8000"
 EP_API_IMAGE="rbardaji/ndp-ep-api:latest"
 INSTALL_DIR="ndp-ep"
+DEFAULT_CATALOG_BACKEND="ckan"
+CKAN_DOCKER_REPO="https://github.com/sci-ndp/pop-ckan-docker.git"
 
 # Print banner
 print_banner() {
@@ -80,18 +82,21 @@ show_usage() {
     echo "Options:"
     echo "  --federation_url <url>  Federation API URL (default: $DEFAULT_FEDERATION_URL)"
     echo "  --install_dir <dir>     Installation directory (default: $INSTALL_DIR)"
+    echo "  --catalog_backend <type> Local catalog backend: ckan or mongodb (default: $DEFAULT_CATALOG_BACKEND)"
     echo "  --no-start              Don't start services after configuration"
     echo "  --help                  Show this help message"
     echo ""
     echo "Example:"
     echo "  $0 --config_id 695383e17c1d8951b04621c6"
     echo "  $0 --config_id abc123 --federation_url https://federation.ndp.utah.edu"
+    echo "  $0 --config_id abc123 --catalog_backend mongodb"
 }
 
 # ----------- PARSE ARGS ----------- #
 config_id=""
 federation_url="$DEFAULT_FEDERATION_URL"
 install_dir="$INSTALL_DIR"
+catalog_backend="$DEFAULT_CATALOG_BACKEND"
 no_start=false
 
 while [[ "$#" -gt 0 ]]; do
@@ -99,6 +104,7 @@ while [[ "$#" -gt 0 ]]; do
         --config_id) config_id="$2"; shift ;;
         --federation_url) federation_url="$2"; shift ;;
         --install_dir) install_dir="$2"; shift ;;
+        --catalog_backend) catalog_backend="$2"; shift ;;
         --no-start) no_start=true ;;
         --help) show_usage; exit 0 ;;
         *) echo -e "${RED}Unknown parameter: $1${NC}"; show_usage; exit 1 ;;
@@ -109,6 +115,14 @@ done
 # Validate required parameters
 if [[ -z "$config_id" ]]; then
     print_error "--config_id is required"
+    echo ""
+    show_usage
+    exit 1
+fi
+
+# Validate catalog_backend
+if [[ "$catalog_backend" != "ckan" && "$catalog_backend" != "mongodb" ]]; then
+    print_error "--catalog_backend must be 'ckan' or 'mongodb'"
     echo ""
     show_usage
     exit 1
@@ -130,6 +144,14 @@ fi
 if ! command -v jq &> /dev/null; then
     print_info "Installing jq..."
     sudo apt-get update && sudo apt-get install -y jq
+fi
+
+# Check for git (needed for CKAN backend)
+if [[ "$catalog_backend" == "ckan" ]]; then
+    if ! command -v git &> /dev/null; then
+        print_info "Installing git..."
+        sudo apt-get update && sudo apt-get install -y git
+    fi
 fi
 
 # Check for Docker
@@ -255,16 +277,55 @@ else
     GROUP_NAMES=""
 fi
 
+# ----------- GET MACHINE IP ----------- #
+machine_ip=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "localhost")
+
 # ----------- CREATE INSTALLATION DIRECTORY ----------- #
 print_step "Creating installation directory: $install_dir"
 
 mkdir -p "$install_dir"
 cd "$install_dir"
 
+print_info "Catalog backend: $catalog_backend"
+print_info "Machine IP: $machine_ip"
+
+# ----------- SETUP CKAN BACKEND ----------- #
+if [[ "$catalog_backend" == "ckan" ]]; then
+    print_step "Setting up CKAN backend..."
+
+    # Clone CKAN Docker repository
+    print_info "Cloning CKAN Docker repository..."
+    git clone "$CKAN_DOCKER_REPO" ckan-docker
+
+    # Configure CKAN
+    cd ckan-docker
+    cp .env.example .env
+
+    # Get CKAN credentials from Federation API config
+    ckan_name=$(echo "$config_json" | jq -r '.ckan_name // "ckan_admin"')
+    ckan_password=$(echo "$config_json" | jq -r '.ckan_password // "test1234"')
+
+    # Configure CKAN environment
+    sed -i "s/^CKAN_SYSADMIN_NAME=.*/CKAN_SYSADMIN_NAME=${ckan_name}/" .env
+    sed -i "s/^CKAN_SYSADMIN_PASSWORD=.*/CKAN_SYSADMIN_PASSWORD=${ckan_password}/" .env
+    sed -i "s|^CKAN_SITE_URL=.*|CKAN_SITE_URL=https://${machine_ip}:8443|" .env
+
+    print_success "CKAN configured"
+
+    # Go back to install_dir for API setup
+    cd ..
+
+    # Set CKAN URL and API key variables for .env
+    CKAN_URL="https://ckan:8443"
+    CKAN_API_KEY=""  # Will be generated after CKAN starts
+fi
+
 # ----------- GENERATE DOCKER-COMPOSE.YML ----------- #
 print_step "Generating docker-compose.yml..."
 
-cat > docker-compose.yml << 'COMPOSE_EOF'
+if [[ "$catalog_backend" == "mongodb" ]]; then
+    # MongoDB backend docker-compose
+    cat > docker-compose.yml << 'COMPOSE_EOF'
 services:
   # ==============================================
   # API Service (always starts)
@@ -488,7 +549,194 @@ networks:
     driver: bridge
 COMPOSE_EOF
 
+else
+    # CKAN backend docker-compose (API only, CKAN is in separate directory)
+    cat > docker-compose.yml << 'COMPOSE_EOF'
+services:
+  # ==============================================
+  # API Service (always starts)
+  # ==============================================
+  api:
+    image: rbardaji/ndp-ep-api:latest
+    container_name: ndp-ep-api
+    ports:
+      - "8002:8000"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ndp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==============================================
+  # MinIO - S3-Compatible Object Storage
+  # ==============================================
+  minio:
+    image: minio/minio:latest
+    container_name: ndp-minio
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - ndp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==============================================
+  # Zookeeper - Required for Kafka
+  # ==============================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: ndp-zookeeper
+    profiles: ["kafka"]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: WARN
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+    networks:
+      - ndp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==============================================
+  # Kafka - Streaming Platform
+  # ==============================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: ndp-kafka
+    profiles: ["kafka"]
+    ports:
+      - "9094:9092"
+      - "9095:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9093,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+      KAFKA_TOOLS_LOG4J_LOGLEVEL: ERROR
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - ndp-network
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9093"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ==============================================
+  # Kafka UI - Web Interface for Kafka Management
+  # ==============================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: ndp-kafka-ui
+    profiles: ["kafka"]
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: ndp-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    networks:
+      - ndp-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==============================================
+  # JupyterLab - Interactive Development Environment
+  # ==============================================
+  jupyterlab:
+    image: jupyter/scipy-notebook:latest
+    container_name: ndp-jupyterlab
+    profiles: ["jupyter"]
+    ports:
+      - "8888:8888"
+    environment:
+      JUPYTER_ENABLE_LAB: 'yes'
+      JUPYTER_TOKEN: testing_token
+    volumes:
+      - jupyterlab_data:/home/jovyan/work
+    networks:
+      - ndp-network
+    restart: unless-stopped
+    command: start-notebook.sh --NotebookApp.token='testing_token' --NotebookApp.password=''
+
+# ==============================================
+# Volumes - Persistent Data Storage
+# ==============================================
+volumes:
+  minio_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_log:
+    driver: local
+  kafka_data:
+    driver: local
+  jupyterlab_data:
+    driver: local
+
+# ==============================================
+# Network Configuration
+# ==============================================
+networks:
+  ndp-network:
+    driver: bridge
+COMPOSE_EOF
+fi
+
 print_success "docker-compose.yml generated"
+
+# ----------- SET BACKEND-SPECIFIC VARIABLES ----------- #
+if [[ "$catalog_backend" == "mongodb" ]]; then
+    MONGODB_CONNECTION_STRING="mongodb://admin:admin123@mongodb:27017"
+    MONGODB_DATABASE="ndp_local_catalog"
+    CKAN_URL=""
+    CKAN_API_KEY=""
+else
+    # CKAN backend
+    MONGODB_CONNECTION_STRING=""
+    MONGODB_DATABASE=""
+    CKAN_URL="https://localhost:8443"
+    CKAN_API_KEY=""  # Will be set after CKAN starts
+fi
 
 # ----------- GENERATE .ENV FILE ----------- #
 print_step "Generating .env file..."
@@ -530,23 +778,23 @@ GROUP_NAMES=$GROUP_NAMES
 # LOCAL CATALOG CONFIGURATION
 # ==============================================
 
-LOCAL_CATALOG_BACKEND=mongodb
+LOCAL_CATALOG_BACKEND=$catalog_backend
 CKAN_LOCAL_ENABLED=True
 
 # ==============================================
-# CKAN Configuration (not used with MongoDB backend)
+# CKAN Configuration
 # ==============================================
 
-CKAN_URL=
-CKAN_API_KEY=
-CKAN_VERIFY_SSL=True
+CKAN_URL=${CKAN_URL:-}
+CKAN_API_KEY=${CKAN_API_KEY:-}
+CKAN_VERIFY_SSL=False
 
 # ==============================================
 # MongoDB Configuration
 # ==============================================
 
-MONGODB_CONNECTION_STRING=mongodb://admin:admin123@mongodb:27017
-MONGODB_DATABASE=ndp_local_catalog
+MONGODB_CONNECTION_STRING=${MONGODB_CONNECTION_STRING:-}
+MONGODB_DATABASE=${MONGODB_DATABASE:-}
 
 # ==============================================
 # Pre-CKAN Configuration
@@ -603,7 +851,6 @@ print_success ".env file generated"
 
 # ----------- GENERATE INFO FILE ----------- #
 info_file="setup_info.txt"
-machine_ip=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "localhost")
 
 cat > "$info_file" << EOF
 # ==============================================
@@ -614,6 +861,7 @@ cat > "$info_file" << EOF
 Configuration ID: $config_id
 Federation API: $federation_url
 Installation Directory: $(pwd)
+Catalog Backend: $catalog_backend
 
 Organization: $organization
 EP Name: $ep_name
@@ -621,7 +869,7 @@ Machine IP: $machine_ip
 
 Services Enabled:
   - API: Yes (rbardaji/ndp-ep-api:latest)
-  - MongoDB: Yes
+  - Local Catalog: $catalog_backend
   - MinIO (S3): Yes
   - Pre-CKAN: $PRE_CKAN_ENABLED
   - Kafka Streaming: $KAFKA_CONNECTION
@@ -630,9 +878,14 @@ Services Enabled:
 Access URLs:
   - API: http://${machine_ip}:8002
   - API Docs: http://${machine_ip}:8002/docs
-  - MongoDB Express: http://${machine_ip}:8082
   - MinIO Console: http://${machine_ip}:9003
 EOF
+
+if [[ "$catalog_backend" == "mongodb" ]]; then
+    echo "  - MongoDB Express: http://${machine_ip}:8082" >> "$info_file"
+else
+    echo "  - CKAN: https://${machine_ip}:8443" >> "$info_file"
+fi
 
 if [[ "$KAFKA_CONNECTION" == "True" ]]; then
     echo "  - Kafka UI: http://${machine_ip}:8081" >> "$info_file"
@@ -655,6 +908,50 @@ if [[ "$no_start" == false ]]; then
     fi
     if [[ "$USE_JUPYTERLAB" == "True" ]]; then
         compose_profiles="$compose_profiles --profile jupyter"
+    fi
+
+    # Start CKAN first if using CKAN backend
+    if [[ "$catalog_backend" == "ckan" ]]; then
+        print_info "Starting CKAN services..."
+        cd ckan-docker
+        $DOCKER_COMPOSE_CMD up -d --build
+
+        print_info "Waiting for CKAN to become healthy (this may take 2-3 minutes)..."
+        max_attempts=60
+        attempt=0
+        while [[ $attempt -lt $max_attempts ]]; do
+            status=$(docker inspect --format='{{.State.Health.Status}}' ckan 2>/dev/null || echo "starting")
+            if [[ "$status" == "healthy" ]]; then
+                print_success "CKAN is healthy!"
+                break
+            fi
+            attempt=$((attempt + 1))
+            echo -ne "\rWaiting for CKAN... ($attempt/$max_attempts) - status: $status"
+            sleep 10
+        done
+        echo ""
+
+        if [[ $attempt -eq $max_attempts ]]; then
+            print_error "CKAN did not become healthy in time. Check logs with: $DOCKER_COMPOSE_CMD logs ckan"
+        else
+            # Generate CKAN API key
+            print_info "Generating CKAN API key..."
+            ckan_container=$(docker ps --filter "name=ckan" --format "{{.Names}}" | grep -v solr | grep -v redis | grep -v db | grep -v nginx | grep -v datapusher | head -1)
+            if [[ -n "$ckan_container" ]]; then
+                api_key=$(docker exec "$ckan_container" ckan -c /srv/app/ckan.ini user token add "$ckan_name" api_token 2>/dev/null | grep -oE 'eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*' | head -1)
+                if [[ -n "$api_key" ]]; then
+                    # Update .env with CKAN API key
+                    cd ..
+                    sed -i "s|^CKAN_API_KEY=.*|CKAN_API_KEY=$api_key|" .env
+                    print_success "CKAN API key generated"
+                else
+                    print_info "Could not generate API key automatically. Generate it from the CKAN web UI."
+                    cd ..
+                fi
+            else
+                cd ..
+            fi
+        fi
     fi
 
     print_info "Pulling latest images..."
@@ -694,15 +991,21 @@ echo ""
 echo -e "${BLUE}Installation Directory:${NC} $(pwd)"
 echo ""
 echo -e "${BLUE}Configuration:${NC}"
-echo "  Organization: $organization"
-echo "  EP Name:      $ep_name"
-echo "  Config ID:    $config_id"
+echo "  Organization:     $organization"
+echo "  EP Name:          $ep_name"
+echo "  Config ID:        $config_id"
+echo "  Catalog Backend:  $catalog_backend"
 echo ""
 echo -e "${BLUE}Services:${NC}"
 echo "  - API:            http://${machine_ip}:8002"
 echo "  - API Docs:       http://${machine_ip}:8002/docs"
-echo "  - MongoDB Express: http://${machine_ip}:8082"
 echo "  - MinIO Console:  http://${machine_ip}:9003"
+
+if [[ "$catalog_backend" == "mongodb" ]]; then
+    echo "  - MongoDB Express: http://${machine_ip}:8082"
+else
+    echo "  - CKAN:           https://${machine_ip}:8443"
+fi
 
 if [[ "$KAFKA_CONNECTION" == "True" ]]; then
     echo "  - Kafka UI:       http://${machine_ip}:8081"
@@ -719,5 +1022,14 @@ echo "  $DOCKER_COMPOSE_CMD ps          # Check running services"
 echo "  $DOCKER_COMPOSE_CMD logs -f     # View logs"
 echo "  $DOCKER_COMPOSE_CMD down        # Stop services"
 echo "  $DOCKER_COMPOSE_CMD restart     # Restart services"
+
+if [[ "$catalog_backend" == "ckan" ]]; then
+    echo ""
+    echo -e "${BLUE}CKAN commands:${NC}"
+    echo "  cd $(pwd)/ckan-docker"
+    echo "  $DOCKER_COMPOSE_CMD ps          # Check CKAN services"
+    echo "  $DOCKER_COMPOSE_CMD logs ckan   # View CKAN logs"
+fi
+
 echo ""
 echo -e "${YELLOW}Note: Some services may take a few minutes to fully initialize.${NC}"
