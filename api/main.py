@@ -19,6 +19,7 @@ from api.config import ckan_settings, swagger_settings
 from api.config.minio_settings import s3_settings
 from api.routes.update_routes.put_dataset import router as dataset_update_router
 from api.tasks.metrics_task import record_system_metrics
+from api.telemetry import setup_telemetry
 
 # Define the format for all logs (timestamp, level, message)
 log_formatter = logging.Formatter(
@@ -113,6 +114,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Set up OpenTelemetry tracing (must be done before adding middleware)
+setup_telemetry(app)
 
 # Add Correlation ID middleware (must be added before CORS)
 app.add_middleware(CorrelationIdMiddleware)
