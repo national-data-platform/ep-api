@@ -1,7 +1,8 @@
+import re
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # Define an enumeration for file types
@@ -98,7 +99,7 @@ class NetCDFProcessingInfo(BaseModel):
 class URLUpdateRequest(BaseModel):
     resource_name: Optional[str] = Field(
         None,
-        description="The unique name of the resource to be created.",
+        description="The unique name of the resource (lowercase, alphanumeric, underscores and hyphens only).",
         json_schema_extra={"example": "example_resource_name"},
     )
     resource_title: Optional[str] = Field(
@@ -114,8 +115,27 @@ class URLUpdateRequest(BaseModel):
     resource_url: Optional[str] = Field(
         None,
         description="The URL of the resource to be added.",
-        json_schema_extra={"example": "http://example.com/resource"},
+        json_schema_extra={"example": "https://example.com/resource"},
     )
+
+    @field_validator("resource_name")
+    @classmethod
+    def validate_resource_name(cls, v: Optional[str]) -> Optional[str]:
+        """Validate resource name format (lowercase, alphanumeric, underscores, hyphens)."""
+        if v is not None and not re.match(r"^[a-z0-9_-]+$", v):
+            raise ValueError(
+                "resource_name must contain only lowercase letters, numbers, underscores, and hyphens"
+            )
+        return v
+
+    @field_validator("resource_url")
+    @classmethod
+    def validate_resource_url(cls, v: Optional[str]) -> Optional[str]:
+        """Validate URL format."""
+        if v is not None and not v.startswith(("http://", "https://")):
+            raise ValueError("resource_url must start with http:// or https://")
+        return v
+
     file_type: Optional[FileTypeEnum] = Field(
         None,
         description=("The type of the file (e.g., stream, CSV, TXT, JSON, NetCDF)."),

@@ -1,8 +1,9 @@
 # api/models/general_dataset_request_model.py
 
+import re
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ResourceRequest(BaseModel):
@@ -14,6 +15,20 @@ class ResourceRequest(BaseModel):
 
     url: str = Field(..., description="URL or path to the resource")
     name: str = Field(..., description="Name identifier for the resource")
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Validate that URL is not empty and has a valid format."""
+        if not v or not v.strip():
+            raise ValueError("url cannot be empty")
+        # Basic URL validation - must start with http://, https://, s3://, or be a path
+        if not re.match(r"^(https?://|s3://|/|\.)", v):
+            raise ValueError(
+                "url must be a valid URL (http://, https://, s3://) or a path"
+            )
+        return v
+
     format: Optional[str] = Field(
         None, description="Format of the resource (CSV, JSON, etc.)"
     )
@@ -31,10 +46,22 @@ class GeneralDatasetRequest(BaseModel):
     """
 
     name: str = Field(
-        ..., description="Unique name for the dataset (lowercase, no spaces)"
+        ...,
+        description="Unique name for the dataset (lowercase, alphanumeric, underscores and hyphens only)",
     )
     title: str = Field(..., description="Human-readable title of the dataset")
     owner_org: str = Field(..., description="Organization ID that owns this dataset")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate dataset name format (lowercase, alphanumeric, underscores, hyphens)."""
+        if not re.match(r"^[a-z0-9_-]+$", v):
+            raise ValueError(
+                "name must contain only lowercase letters, numbers, underscores, and hyphens"
+            )
+        return v
+
     notes: Optional[str] = Field(
         None, description="Description or notes about the dataset"
     )
@@ -67,7 +94,8 @@ class GeneralDatasetUpdateRequest(BaseModel):
     """
 
     name: Optional[str] = Field(
-        None, description="Unique name for the dataset (lowercase, no spaces)"
+        None,
+        description="Unique name for the dataset (lowercase, alphanumeric, underscores and hyphens only)",
     )
     title: Optional[str] = Field(
         None, description="Human-readable title of the dataset"
@@ -75,6 +103,17 @@ class GeneralDatasetUpdateRequest(BaseModel):
     owner_org: Optional[str] = Field(
         None, description="Organization ID that owns this dataset"
     )
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        """Validate dataset name format (lowercase, alphanumeric, underscores, hyphens)."""
+        if v is not None and not re.match(r"^[a-z0-9_-]+$", v):
+            raise ValueError(
+                "name must contain only lowercase letters, numbers, underscores, and hyphens"
+            )
+        return v
+
     notes: Optional[str] = Field(
         None, description="Description or notes about the dataset"
     )

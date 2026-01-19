@@ -1,13 +1,14 @@
 # api\models\request_kafka_model.py
+import re
 from typing import Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class KafkaDataSourceRequest(BaseModel):
     dataset_name: str = Field(
         ...,
-        description="The unique name of the dataset to be created.",
+        description="The unique name of the dataset to be created (lowercase, alphanumeric, underscores and hyphens only).",
         json_schema_extra={"example": "kafka_topic_example"},
     )
     dataset_title: str = Field(
@@ -28,13 +29,26 @@ class KafkaDataSourceRequest(BaseModel):
     kafka_host: str = Field(
         ...,
         description="The Kafka host.",
-        json_schema_extra={"example": "kafka_host"},
+        json_schema_extra={"example": "localhost"},
     )
-    kafka_port: str = Field(
+    kafka_port: int = Field(
         ...,
-        description="The Kafka port.",
-        json_schema_extra={"example": "kafka_port"},
+        description="The Kafka port (1-65535).",
+        gt=0,
+        le=65535,
+        json_schema_extra={"example": 9092},
     )
+
+    @field_validator("dataset_name")
+    @classmethod
+    def validate_dataset_name(cls, v: str) -> str:
+        """Validate dataset name format (lowercase, alphanumeric, underscores, hyphens)."""
+        if not re.match(r"^[a-z0-9_-]+$", v):
+            raise ValueError(
+                "dataset_name must contain only lowercase letters, numbers, underscores, and hyphens"
+            )
+        return v
+
     dataset_description: str = Field(
         "",
         description="A description of the dataset.",
