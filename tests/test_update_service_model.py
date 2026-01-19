@@ -2,6 +2,7 @@
 """
 Tests for ServiceUpdateRequest model validation.
 """
+
 import pytest
 from pydantic import ValidationError
 

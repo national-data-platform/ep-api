@@ -96,7 +96,7 @@ async def search_datasource(
     count_max = None
     sort = None
     if timestamp:
-        (fq_tstamp, count_max, sort) = tstamp_to_query(timestamp)
+        fq_tstamp, count_max, sort = tstamp_to_query(timestamp)
         fq_list.append(fq_tstamp)
 
     rows = 1000

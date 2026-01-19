@@ -2,6 +2,7 @@
 """
 Tests for create_organization service.
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 from ckanapi import NotFound, ValidationError

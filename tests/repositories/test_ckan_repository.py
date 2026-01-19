@@ -2,6 +2,7 @@
 """
 Tests for CKAN repository implementation.
 """
+
 import pytest
 from unittest.mock import MagicMock
 

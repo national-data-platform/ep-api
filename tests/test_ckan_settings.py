@@ -2,6 +2,7 @@
 """
 Tests for CKAN settings configuration.
 """
+
 import pytest
 from unittest.mock import patch
 from api.config.ckan_settings import Settings

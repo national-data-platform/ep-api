@@ -2,6 +2,7 @@
 """
 Tests for MinioClient wrapper.
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 from minio.error import S3Error

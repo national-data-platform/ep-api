@@ -2,6 +2,7 @@
 """
 Tests for authorization service functions.
 """
+
 import pytest
 from unittest.mock import patch, MagicMock
 from fastapi import HTTPException

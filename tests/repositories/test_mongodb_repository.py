@@ -5,6 +5,7 @@ Tests for MongoDB repository implementation.
 These tests use mongomock to test the MongoDB repository
 without requiring an actual MongoDB server.
 """
+
 import pytest
 from mongomock import MongoClient
 

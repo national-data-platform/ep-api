@@ -2,6 +2,7 @@
 """
 Tests for base repository interface.
 """
+
 import pytest
 from typing import Any, Dict, List
 

@@ -2,6 +2,7 @@
 """
 Tests for Pelican import metadata service.
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 

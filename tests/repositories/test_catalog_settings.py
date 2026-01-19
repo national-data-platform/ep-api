@@ -2,6 +2,7 @@
 """
 Tests for catalog settings and repository factory pattern.
 """
+
 import pytest
 from unittest.mock import patch, MagicMock
 from api.config.catalog_settings import CatalogSettings

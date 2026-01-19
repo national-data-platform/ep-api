@@ -2,6 +2,7 @@
 """
 Tests for metadata injection service.
 """
+
 import pytest
 from unittest.mock import patch
 

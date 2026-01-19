@@ -2,6 +2,7 @@
 """
 Tests for delete_organization service.
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 
