@@ -10,9 +10,38 @@ from fastapi import HTTPException
 from api.services.auth_services.authorization_service import (
     check_group_membership,
     get_allowed_groups,
+    normalize_group_path,
     require_group_member,
     get_user_for_write_operation,
 )
+
+
+class TestNormalizeGroupPath:
+    """Test cases for normalize_group_path function."""
+
+    def test_strips_leading_slash(self):
+        """Test that leading slash is stripped."""
+        assert normalize_group_path("/ndp_ep/group") == "ndp_ep/group"
+
+    def test_strips_trailing_slash(self):
+        """Test that trailing slash is stripped."""
+        assert normalize_group_path("ndp_ep/group/") == "ndp_ep/group"
+
+    def test_strips_both_slashes(self):
+        """Test that both leading and trailing slashes are stripped."""
+        assert normalize_group_path("/ndp_ep/group/") == "ndp_ep/group"
+
+    def test_converts_to_lowercase(self):
+        """Test that path is converted to lowercase."""
+        assert normalize_group_path("/NDP_EP/Group") == "ndp_ep/group"
+
+    def test_strips_whitespace(self):
+        """Test that whitespace is stripped."""
+        assert normalize_group_path("  /ndp_ep/group  ") == "ndp_ep/group"
+
+    def test_preserves_internal_slashes(self):
+        """Test that internal slashes are preserved."""
+        assert normalize_group_path("/a/b/c/d") == "a/b/c/d"
 
 
 class TestGetAllowedGroups:
@@ -71,6 +100,15 @@ class TestGetAllowedGroups:
             mock_settings.group_names = "admins,,developers,,"
             result = get_allowed_groups()
             assert result == ["admins", "developers"]
+
+    def test_leading_slashes_are_stripped(self):
+        """Test that leading slashes are stripped from group names."""
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.group_names = "/ndp_ep/ep-123,/ndp_ep/ep-456"
+            result = get_allowed_groups()
+            assert result == ["ndp_ep/ep-123", "ndp_ep/ep-456"]
 
 
 class TestCheckGroupMembership:
@@ -175,6 +213,37 @@ class TestCheckGroupMembership:
             mock_settings.group_names = "admins,developers,testers"
 
             user_info = {"groups": ["testers"]}
+            result = check_group_membership(user_info)
+
+            assert result is True
+
+    def test_user_group_path_with_leading_slash_matches(self):
+        """Test user group with leading slash matches config without slash."""
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "ndp_ep/ep-123"
+
+            # User group as dict with path having leading slash
+            user_info = {
+                "groups": [{"id": "abc", "name": "ep-123", "path": "/ndp_ep/ep-123"}]
+            }
+            result = check_group_membership(user_info)
+
+            assert result is True
+
+    def test_config_group_with_leading_slash_matches_user_without(self):
+        """Test config group with leading slash matches user group without."""
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "/ndp_ep/ep-123"
+
+            user_info = {
+                "groups": [{"id": "abc", "name": "ep-123", "path": "ndp_ep/ep-123"}]
+            }
             result = check_group_membership(user_info)
 
             assert result is True

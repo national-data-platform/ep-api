@@ -11,6 +11,25 @@ from api.services.auth_services.get_current_user import get_current_user
 logger = logging.getLogger(__name__)
 
 
+def normalize_group_path(path: str) -> str:
+    """
+    Normalize a group path for comparison.
+
+    Removes leading/trailing slashes and converts to lowercase.
+
+    Parameters
+    ----------
+    path : str
+        The group path to normalize
+
+    Returns
+    -------
+    str
+        Normalized path
+    """
+    return path.strip().strip("/").lower()
+
+
 def get_allowed_groups() -> List[str]:
     """
     Get the list of allowed groups from configuration.
@@ -18,12 +37,14 @@ def get_allowed_groups() -> List[str]:
     Returns
     -------
     List[str]
-        List of allowed group names (lowercase)
+        List of allowed group names (normalized - lowercase, no leading slashes)
     """
     if not swagger_settings.group_names:
         return []
     return [
-        g.strip().lower() for g in swagger_settings.group_names.split(",") if g.strip()
+        normalize_group_path(g)
+        for g in swagger_settings.group_names.split(",")
+        if g.strip()
     ]
 
 
@@ -56,9 +77,11 @@ def check_group_membership(user_info: Dict[str, Any]) -> bool:
     # Check if any of the user's groups matches an allowed group
     for group in user_groups:
         if isinstance(group, str):
-            group_value = group.lower()
+            group_value = normalize_group_path(group)
         elif isinstance(group, dict):
-            group_value = str(group.get("path") or group.get("name") or "").lower()
+            group_value = normalize_group_path(
+                str(group.get("path") or group.get("name") or "")
+            )
         else:
             continue
 
