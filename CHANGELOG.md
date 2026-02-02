@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-02
+
+### Added
+- MongoDB full-text search with text indexes
+  - Text index on `title`, `tags`, and `notes` fields with weighted relevance (title: 10, tags: 5, notes: 1)
+  - Uses MongoDB `$text` operator for efficient full-text search
+  - Relevance-based sorting using `$meta: "textScore"`
+  - 10-100x performance improvement over regex-based search for large datasets
+  - Built-in stemming, stop words, and case-insensitive matching
+  - Backward compatible with Solr-style field queries (`field:value`)
+- Comprehensive test suite for MongoDB full-text search functionality
+
+### Changed
+- MongoDB `package_search` now uses `$text` operator for simple text queries instead of regex
+- Search results are sorted by relevance score when using full-text search
+
 ## [0.5.3] - 2025-12-27
 
 ### Changed
