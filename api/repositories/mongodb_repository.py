@@ -65,7 +65,14 @@ class MongoDBRepository(DataCatalogRepository):
         # Package indexes
         self.packages.create_index("name", unique=True)
         self.packages.create_index("owner_org")
-        self.packages.create_index([("title", "text"), ("notes", "text")])
+
+        # Full-text search index with weighted fields
+        # Title has highest weight (10), tags medium (5), notes lowest (1)
+        self.packages.create_index(
+            [("title", "text"), ("tags", "text"), ("notes", "text")],
+            weights={"title": 10, "tags": 5, "notes": 1},
+            name="fulltext_search_index",
+        )
 
         # Resource indexes
         self.resources.create_index("package_id")
@@ -327,6 +334,7 @@ class MongoDBRepository(DataCatalogRepository):
             Search results with 'count' and 'results' keys
         """
         query = {}
+        use_text_search = False
 
         # Handle text search
         if q and q != "*:*":
@@ -359,19 +367,13 @@ class MongoDBRepository(DataCatalogRepository):
 
                             query[field] = value
                 else:
-                    # Simple text search on title and notes (contains colon but not a field query)
-                    query["$or"] = [
-                        {"title": {"$regex": re.escape(q), "$options": "i"}},
-                        {"notes": {"$regex": re.escape(q), "$options": "i"}},
-                        {"name": {"$regex": re.escape(q), "$options": "i"}},
-                    ]
+                    # Use MongoDB full-text search for better performance
+                    query["$text"] = {"$search": q}
+                    use_text_search = True
             else:
-                # Simple text search on title and notes
-                query["$or"] = [
-                    {"title": {"$regex": re.escape(q), "$options": "i"}},
-                    {"notes": {"$regex": re.escape(q), "$options": "i"}},
-                    {"name": {"$regex": re.escape(q), "$options": "i"}},
-                ]
+                # Use MongoDB full-text search for better performance
+                query["$text"] = {"$search": q}
+                use_text_search = True
 
         # Handle filter query list (preferred method)
         if fq_list:
@@ -417,16 +419,27 @@ class MongoDBRepository(DataCatalogRepository):
 
         # Parse sort (simplified - supports "field asc/desc")
         sort_list = []
+
+        # If using text search, prioritize by relevance score
+        if use_text_search:
+            sort_list.append(("score", {"$meta": "textScore"}))
+
+        # Add additional sort criteria
         if sort:
             for sort_item in sort.split(","):
                 parts = sort_item.strip().split()
                 if len(parts) >= 2:
                     field = parts[0]
-                    direction = ASCENDING if "asc" in parts[1].lower() else DESCENDING
-                    sort_list.append((field, direction))
+                    # Skip 'score' if already added for text search
+                    if field != "score":
+                        direction = (
+                            ASCENDING if "asc" in parts[1].lower() else DESCENDING
+                        )
+                        sort_list.append((field, direction))
 
-        # Execute query
-        cursor = self.packages.find(query)
+        # Execute query with score projection if using text search
+        projection = {"score": {"$meta": "textScore"}} if use_text_search else None
+        cursor = self.packages.find(query, projection)
 
         if sort_list:
             cursor = cursor.sort(sort_list)

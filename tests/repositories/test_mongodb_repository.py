@@ -171,8 +171,9 @@ def test_package_search_query(mongodb_repo):
         name="banana-data", title="Banana Dataset", owner_org="test-org"
     )
 
-    # Search for "apple"
-    results = mongodb_repo.package_search(q="Apple", rows=10)
+    # Search for "apple-data" using field-based query (compatible with mongomock)
+    # Note: Simple text queries now use $text operator which mongomock doesn't support
+    results = mongodb_repo.package_search(q="name:apple-data", rows=10)
 
     assert results["count"] >= 1
     assert any(
