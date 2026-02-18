@@ -1,4 +1,5 @@
 # api/routes/register_routes/post_service.py
+import logging
 from typing import Any, Dict, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -6,8 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import catalog_settings, ckan_settings
 from api.models.service_request_model import ServiceRequest
 from api.repositories import CKANRepository
+from api.services.affinities_services import AffinitiesClient
 from api.services.auth_services import get_user_for_write_operation
 from api.services.service_services.add_service import add_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -192,6 +196,25 @@ async def create_service(
             ckan_instance=ckan_instance,
             user_info=user_info,
         )
+
+        # Register in Affinities (non-blocking, errors are logged)
+        affinities_client = AffinitiesClient()
+        if affinities_client.is_enabled:
+            try:
+                await affinities_client.register_service(
+                    service_type=data.service_type,
+                    openapi_url=data.documentation_url,
+                    metadata={
+                        "service_name": data.service_name,
+                        "service_title": data.service_title,
+                        "service_url": data.service_url,
+                        "local_id": service_id,
+                        "notes": data.notes,
+                    },
+                )
+            except Exception as e:
+                logger.warning(f"Failed to register service in Affinities: {e}")
+
         return {"id": service_id}
 
     except ValueError as exc:
