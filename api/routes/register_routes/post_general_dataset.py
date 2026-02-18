@@ -1,5 +1,6 @@
 # api/routes/register_routes/post_general_dataset.py
 
+import logging
 from typing import Any, Dict, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -7,8 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import catalog_settings, ckan_settings
 from api.models.general_dataset_request_model import GeneralDatasetRequest
 from api.repositories import CKANRepository
+from api.services.affinities_services import AffinitiesClient
 from api.services.auth_services import get_user_for_write_operation
 from api.services.dataset_services.general_dataset import create_general_dataset
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -195,6 +199,24 @@ async def create_general_dataset_endpoint(
             repository=repository,
             user_info=user_info,
         )
+
+        # Register in Affinities (non-blocking, errors are logged)
+        affinities_client = AffinitiesClient()
+        if affinities_client.is_enabled:
+            try:
+                await affinities_client.register_dataset(
+                    title=data.title,
+                    metadata={
+                        "name": data.name,
+                        "owner_org": data.owner_org,
+                        "local_id": dataset_id,
+                        "notes": data.notes,
+                        "tags": data.tags,
+                    },
+                )
+            except Exception as e:
+                logger.warning(f"Failed to register dataset in Affinities: {e}")
+
         return {"id": dataset_id}
 
     except ValueError as exc:

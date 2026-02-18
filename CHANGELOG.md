@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-18
+
+### Added
+- NDP Affinities integration for automatic registration of datasets and services
+  - New configuration: `AFFINITIES_ENABLED`, `AFFINITIES_URL`, `AFFINITIES_EP_UUID`, `AFFINITIES_TIMEOUT`
+  - AffinitiesClient module for async HTTP communication with Affinities API
+  - Automatic dataset registration in Affinities on `POST /dataset`
+  - Automatic service registration in Affinities on `POST /services`
+  - Automatic endpoint relationships created for datasets and services
+  - Non-blocking integration: Affinities errors don't affect main operations
+  - Documentation: `docs/affinities-integration.md`
+
+## [0.6.1] - 2026-02-12
+
+### Changed
+- Version bump for Docker image release
+
 ## [0.6.0] - 2026-02-02
 
 ### Added
