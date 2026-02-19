@@ -10,7 +10,10 @@ from api.models.general_dataset_request_model import GeneralDatasetRequest
 from api.repositories import CKANRepository
 from api.services.affinities_services import AffinitiesClient
 from api.services.auth_services import get_user_for_write_operation
-from api.services.dataset_services.general_dataset import create_general_dataset
+from api.services.dataset_services.general_dataset import (
+    create_general_dataset,
+    patch_general_dataset,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +207,7 @@ async def create_general_dataset_endpoint(
         affinities_client = AffinitiesClient()
         if affinities_client.is_enabled:
             try:
-                await affinities_client.register_dataset(
+                affinity_uuid = await affinities_client.register_dataset(
                     title=data.title,
                     metadata={
                         "name": data.name,
@@ -214,6 +217,22 @@ async def create_general_dataset_endpoint(
                         "tags": data.tags,
                     },
                 )
+
+                # Store the Affinities UUID in the dataset extras
+                if affinity_uuid:
+                    try:
+                        patch_general_dataset(
+                            dataset_id=dataset_id,
+                            extras={"ndp_affinity_uuid": str(affinity_uuid)},
+                            repository=repository,
+                        )
+                        logger.info(
+                            f"Stored Affinities UUID {affinity_uuid} in dataset {dataset_id}"
+                        )
+                    except Exception as patch_error:
+                        logger.warning(
+                            f"Failed to store Affinities UUID in dataset extras: {patch_error}"
+                        )
             except Exception as e:
                 logger.warning(f"Failed to register dataset in Affinities: {e}")
 

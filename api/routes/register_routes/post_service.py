@@ -10,6 +10,7 @@ from api.repositories import CKANRepository
 from api.services.affinities_services import AffinitiesClient
 from api.services.auth_services import get_user_for_write_operation
 from api.services.service_services.add_service import add_service
+from api.services.service_services.update_service import patch_service
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +202,7 @@ async def create_service(
         affinities_client = AffinitiesClient()
         if affinities_client.is_enabled:
             try:
-                await affinities_client.register_service(
+                affinity_uuid = await affinities_client.register_service(
                     service_type=data.service_type,
                     openapi_url=data.documentation_url,
                     metadata={
@@ -212,6 +213,22 @@ async def create_service(
                         "notes": data.notes,
                     },
                 )
+
+                # Store the Affinities UUID in the service extras
+                if affinity_uuid:
+                    try:
+                        patch_service(
+                            service_id=service_id,
+                            extras={"ndp_affinity_uuid": str(affinity_uuid)},
+                            ckan_instance=ckan_instance,
+                        )
+                        logger.info(
+                            f"Stored Affinities UUID {affinity_uuid} in service {service_id}"
+                        )
+                    except Exception as patch_error:
+                        logger.warning(
+                            f"Failed to store Affinities UUID in service extras: {patch_error}"
+                        )
             except Exception as e:
                 logger.warning(f"Failed to register service in Affinities: {e}")
 
