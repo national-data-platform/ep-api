@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-02-19
+
+### Added
+- Store Affinities UUID in dataset extras (`ndp_affinity_uuid`) after registration
+- Store Affinities UUID in service extras (`ndp_affinity_uuid`) after registration
+- UUIDs enable cross-referencing between local catalog and Affinities API
+
 ## [0.7.0] - 2026-02-18
 
 ### Added
