@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-02-23
+
+### Added
+- Create affinity triples when registering datasets and services
+  - New `create_affinity_triple()` method in AffinitiesClient
+  - Automatic POST to `/affinities` endpoint after dataset registration
+  - Automatic POST to `/affinities` endpoint after service registration
+  - Creates triples linking datasets/services with their hosting endpoint
+
 ## [0.7.1] - 2026-02-19
 
 ### Added
