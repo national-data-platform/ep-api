@@ -127,6 +127,9 @@ class AffinitiesClient:
             # Create relationship with this endpoint
             await self.create_dataset_endpoint_relationship(dataset_uid)
 
+            # Create affinity triple
+            await self.create_affinity_triple(dataset_uid=dataset_uid)
+
             return dataset_uid
 
         return None
@@ -173,6 +176,9 @@ class AffinitiesClient:
 
             # Create relationship with this endpoint
             await self.create_service_endpoint_relationship(service_uid)
+
+            # Create affinity triple
+            await self.create_affinity_triple(service_uid=service_uid)
 
             return service_uid
 
@@ -243,6 +249,53 @@ class AffinitiesClient:
 
         result = await self._request("POST", "/service-endpoints", data)
         return result is not None
+
+    async def create_affinity_triple(
+        self,
+        dataset_uid: UUID | None = None,
+        service_uid: UUID | None = None,
+        attrs: dict[str, Any] | None = None,
+        version: int | None = None,
+    ) -> UUID | None:
+        """
+        Create an affinity triple linking dataset/service with this endpoint.
+
+        Parameters
+        ----------
+        dataset_uid : UUID, optional
+            UUID of the dataset in Affinities
+        service_uid : UUID, optional
+            UUID of the service in Affinities
+        attrs : dict, optional
+            Additional attributes for the affinity
+        version : int, optional
+            Version number for the affinity
+
+        Returns
+        -------
+        UUID or None
+            The UUID of the created affinity triple, or None on error
+        """
+        data = {
+            "endpoint_uids": [self.ep_uuid],
+            "attrs": attrs or {},
+        }
+
+        if dataset_uid:
+            data["dataset_uid"] = str(dataset_uid)
+        if service_uid:
+            data["service_uids"] = [str(service_uid)]
+        if version is not None:
+            data["version"] = version
+
+        result = await self._request("POST", "/affinities", data)
+
+        if result and "triple_uid" in result:
+            triple_uid = UUID(result["triple_uid"])
+            logger.info(f"Created affinity triple in Affinities: {triple_uid}")
+            return triple_uid
+
+        return None
 
 
 # Global client instance
