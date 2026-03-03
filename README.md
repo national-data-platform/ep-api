@@ -182,6 +182,13 @@ PRE_CKAN_URL=http://XX.XX.XX.XXX:5000/
 # Obtain this from the NDP team or your Pre-CKAN user profile
 PRE_CKAN_API_KEY=
 
+# Organization for Pre-CKAN publishing (Optional)
+# When set, all datasets published to PRE-CKAN will use this organization,
+# regardless of their original owner_org in the local catalog.
+# Required when your PRE-CKAN API key is tied to a specific organization.
+# Format: ep-XXXXXXXXXXXXXXXXXXXXXXXX (assigned by NDP)
+PRE_CKAN_ORGANIZATION=
+
 # ==============================================
 # STREAMING CONFIGURATION
 # ==============================================
@@ -329,6 +336,7 @@ CKAN_API_KEY=your-local-ckan-api-key
 PRE_CKAN_ENABLED=True
 PRE_CKAN_URL=https://preckan.nationaldataplatform.org
 PRE_CKAN_API_KEY=your-ndp-preckan-api-key
+PRE_CKAN_ORGANIZATION=ep-your-assigned-org-id
 ```
 
 ## 🔒 Group-Based Access Control
