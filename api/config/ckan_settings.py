@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     pre_ckan_url: str = "https://ndp-test.sdsc.edu/catalog2"
     pre_ckan_api_key: str = ""
     pre_ckan_verify_ssl: bool = True
+    pre_ckan_organization: str = ""
 
     def _get_session(self, verify_ssl: bool) -> requests.Session:
         """Create a requests session with SSL verification setting."""

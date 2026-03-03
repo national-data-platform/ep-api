@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-03-03
+
+### Added
+- New endpoint `POST /dataset/{dataset_id}/publish` to copy datasets from local catalog to PRE-CKAN
+  - Copies dataset metadata and all associated resources
+  - Proper error handling for disabled PRE-CKAN and duplicate names
+  - Unit tests for all scenarios
+- New `PRE_CKAN_ORGANIZATION` environment variable
+  - When set, overrides the owner_org when publishing to PRE-CKAN
+  - Required when PRE-CKAN API credentials are tied to a specific organization
+  - Local catalog can use any organization; PRE-CKAN uses the configured one
+
 ## [0.7.2] - 2026-02-23
 
 ### Added
