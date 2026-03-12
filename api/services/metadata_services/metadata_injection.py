@@ -24,6 +24,26 @@ def hash_user_id(user_info: Dict[str, Any]) -> str:
     return hashlib.sha256(user_sub.encode()).hexdigest()[:16]
 
 
+def calculate_md5(input_string: str) -> str:
+    """
+    Generate MD5 hash for catalog alignment.
+
+    This function replicates the hashing algorithm used by the official
+    NDP catalog (ckanext-ndpcatalogadditions) to ensure metadata alignment.
+
+    Parameters
+    ----------
+    input_string : str
+        The string to hash (typically the user's 'sub' field from Keycloak).
+
+    Returns
+    -------
+    str
+        A 32-character hexadecimal MD5 hash.
+    """
+    return hashlib.md5(input_string.encode('utf-8')).hexdigest()
+
+
 def inject_ndp_metadata(
     user_info: Dict[str, Any], extras: Dict[str, Any] = None
 ) -> Dict[str, Any]:
@@ -50,7 +70,8 @@ def inject_ndp_metadata(
     -----
     The following fields are automatically injected:
     - ndp_group_id: Organization name from configuration
-    - ndp_user_id: Hashed user identifier (16-character hex)
+    - ndp_user_id: Hashed user identifier (16-character hex, SHA-256)
+    - ndp_creator_md5: MD5 hash for catalog alignment (32-character hex)
     """
     if extras is None:
         extras = {}
@@ -58,11 +79,15 @@ def inject_ndp_metadata(
     # Create a copy to avoid modifying the original dictionary
     updated_extras = extras.copy()
 
+    # Get user sub for hashing
+    user_sub = user_info.get("sub", "unknown")
+
     # Add NDP metadata fields
     updated_extras.update(
         {
             "ndp_group_id": swagger_settings.organization,
             "ndp_user_id": hash_user_id(user_info),
+            "ndp_creator_md5": calculate_md5(user_sub),
         }
     )
 
