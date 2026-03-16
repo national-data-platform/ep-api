@@ -37,7 +37,7 @@ services:
     ports:
       - "3000:80"
     environment:
-      - NDP_EP_API=http://api:8000
+      - NDP_EP_API=http://localhost:8002
     depends_on:
       - api
     networks:
