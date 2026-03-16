@@ -199,24 +199,6 @@ services:
     restart: unless-stopped
 
   # ==============================================
-  # NDP-EP Frontend - Web Interface
-  # ==============================================
-  frontend:
-    image: rbardaji/ndp-ep-frontend:latest
-    container_name: ndp-frontend
-    profiles: ["frontend", "full"]
-    ports:
-      - "3000:80"
-    environment:
-      NDP_EP_API: https://ndp-ep-api.katxu.com
-    networks:
-      - ndp-network
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # ==============================================
   # JupyterLab - Interactive Development Environment
   # ==============================================
   jupyterlab:
