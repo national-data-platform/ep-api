@@ -119,7 +119,6 @@ const AuthGuard = ({ children, onAuthenticated }) => {
           <h1 style={{ fontSize: '1.6rem', fontWeight: '700', color: '#1e293b', marginBottom: '0.25rem' }}>
             NDP EndPoint
           </h1>
-          <p style={{ color: '#64748b', fontSize: '1rem' }}>Admin console</p>
           <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '0.5rem' }}>
             v{VERSION}
           </p>
