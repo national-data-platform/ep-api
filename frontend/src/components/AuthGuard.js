@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { authAPI } from '../services/api';
 
-const FRONTEND_VERSION = '1.3.0';
+const VERSION = '0.9.0';
 
 /**
  * Simplified AuthGuard - just handles token authentication
@@ -121,7 +121,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
           </h1>
           <p style={{ color: '#64748b', fontSize: '1rem' }}>Admin console</p>
           <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-            v{FRONTEND_VERSION}
+            v{VERSION}
           </p>
         </div>
 
