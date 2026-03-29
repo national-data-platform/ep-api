@@ -459,238 +459,75 @@ When enabled, datasets and services created in this endpoint are automatically r
 
 ## `.env` Example
 
-Below is a complete `.env` file with all available configuration options. Adjust the values to match your deployment:
+Below is a complete `.env` file with all available configuration options. See the Environment Variables section above for detailed descriptions of each variable.
 
 ```env
-# ==============================================
-# API CONFIGURATION
-# ==============================================
-
-# API root path prefix (e.g., "/test" or "" for root)
-# If empty or not set, the API will be available at the root path
-# This is useful when deploying the API behind a reverse proxy at a subpath
+# API Configuration
 ROOT_PATH=
+ORGANIZATION=my-organization
+EP_NAME=my-endpoint
 
-# ==============================================
-# ORGANIZATION
-# ==============================================
-
-ORGANIZATION="ORGANIZATION-DEMO"
-EP_NAME="EP-DEMO"
-
-# ==============================================
-# METRICS CONFIGURATION
-# ==============================================
-
-# Interval in seconds for sending metrics (default: 3300 seconds = 55 minutes)
+# Metrics
 METRICS_INTERVAL_SECONDS=3300
 METRICS_ENDPOINT=https://federation.ndp.utah.edu/metrics/
 
-# ==============================================
-# ACCESS CONTROL (Optional)
-# ==============================================
-# Group-based access control restricts write operations (POST, PUT, DELETE)
-# to users belonging to specific groups. GET endpoints remain public.
-#
-# How it works:
-# 1. User authenticates with Bearer token
-# 2. API validates token against AUTH_API_URL and retrieves user's groups
-# 3. If ENABLE_GROUP_BASED_ACCESS=True, checks if user belongs to any group in GROUP_NAMES
-# 4. Access granted only if user's groups overlap with GROUP_NAMES
-#
-# Group matching is case-insensitive (e.g., "Admins" matches "admins")
-
-# Enable group-based access control (True/False)
+# Access Control
 ENABLE_GROUP_BASED_ACCESS=False
-
-# Comma-separated list of allowed groups for write operations
-# Example: GROUP_NAMES=admins,developers,data-managers
-# If empty and ENABLE_GROUP_BASED_ACCESS=True, all write operations will be denied
 GROUP_NAMES=
 
-# ==============================================
-# LOCAL CATALOG CONFIGURATION
-# ==============================================
+# Authentication
+AUTH_API_URL=https://idp.nationaldataplatform.org/temp/information
+TEST_TOKEN=
 
-# Backend for local catalog: "ckan" or "mongodb"
-# Global and Pre-CKAN always use CKAN regardless of this setting
+# Local Catalog Backend ("ckan" or "mongodb")
 LOCAL_CATALOG_BACKEND=mongodb
-
-# Enable or disable local catalog operations (True/False)
-# IMPORTANT: This setting controls access to registration routes (POST/PUT/DELETE)
-# for ANY local catalog backend (CKAN or MongoDB).
-#
-# Set to True to enable:
-# - Creating organizations, datasets, resources
-# - Updating and deleting catalog entries
-# - All write operations to the local catalog
-#
-# Set to False for read-only access to the local catalog.
-#
-# Note: The variable name contains "CKAN" for historical reasons, but it applies
-# to all local catalog backends (CKAN, MongoDB, etc.)
 CKAN_LOCAL_ENABLED=True
 
-# ==============================================
-# CKAN-SPECIFIC CONFIGURATION (only if LOCAL_CATALOG_BACKEND=ckan)
-# ==============================================
-
-# Base URL of your local CKAN instance (Required only for CKAN backend)
+# CKAN (only if LOCAL_CATALOG_BACKEND=ckan)
 CKAN_URL=
-
-# API Key for CKAN authentication (Required only for CKAN backend)
 CKAN_API_KEY=
 
-# ==============================================
-# MongoDB Configuration (if LOCAL_CATALOG_BACKEND=mongodb)
-# ==============================================
-
-# MongoDB connection string
-# For Docker Compose: use service name 'mongodb'
-# For local development: use 'localhost'
+# MongoDB (only if LOCAL_CATALOG_BACKEND=mongodb)
 MONGODB_CONNECTION_STRING=mongodb://admin:admin123@mongodb:27017
-
-# MongoDB database name for local catalog
 MONGODB_DATABASE=ndp_local_catalog
 
-# ==============================================
-# Pre-CKAN Configuration
-# ==============================================
-
-# Enable or disable the Pre-CKAN instance (True/False)
+# Pre-CKAN Staging
 PRE_CKAN_ENABLED=False
-
-# URL of the Pre-CKAN instance (Optional)
 PRE_CKAN_URL=
-
-# API key for Pre-CKAN authentication (Optional)
 PRE_CKAN_API_KEY=
-
-# Organization name for Pre-CKAN (Optional)
-# When set, this organization will be used for all datasets published to PRE-CKAN,
-# overriding the original owner_org from the local catalog.
-# This is required when your PRE-CKAN credentials are tied to a specific organization.
 PRE_CKAN_ORGANIZATION=
 
-# ==============================================
-# Streaming Configuration
-# ==============================================
-
-# Enable or disable Kafka connectivity (True/False)
+# Kafka Streaming
 KAFKA_CONNECTION=True
-
-# Kafka broker hostname or IP address
-# For Docker Compose: use service name 'kafka'
-# For local development: use 'localhost'
 KAFKA_HOST=kafka
-
-# Kafka broker port number
-# For internal Docker network: use 9093
-# For external access: use 9092
 KAFKA_PORT=9093
 
-# ==============================================
-# Test Token Credentials
-# ==============================================
-
-# Leave blank in production (Optional)
-TEST_TOKEN=testing_token
-
-# ==============================================
-# Authentication Configuration
-# ==============================================
-
-# URL for the authentication API to retrieve user information
-# This endpoint is used to validate tokens and fetch user details
-AUTH_API_URL=https://idp.nationaldataplatform.org/temp/information
-
-# ==============================================
-# External Service Integrations
-# ==============================================
-
-# Enable or disable JupyterLab integration (True/False)
-USE_JUPYTERLAB=True
-
-# URL to your JupyterLab instance
-# For Docker Compose: use service name 'jupyterlab'
-# For local development: use 'localhost'
-JUPYTER_URL=http://jupyterlab:8888
-
-# ==============================================
-# S3 Storage Configuration
-# ==============================================
-
-# Enable or disable S3 storage (True/False)
+# S3/MinIO Storage
 S3_ENABLED=True
-
-# S3 endpoint (host:port) - use your S3-compatible service endpoint
-# For Docker Compose: use service name 'minio'
-# For local development: use 'localhost'
 S3_ENDPOINT=minio:9000
-
-# S3 access credentials
 S3_ACCESS_KEY=minioadmin
 S3_SECRET_KEY=minioadmin123
-
-# Use secure connection (True for HTTPS, False for HTTP)
 S3_SECURE=False
-
-# Default region
 S3_REGION=us-east-1
 
-# ==============================================
-# Pelican Federation Configuration
-# ==============================================
-
-# Enable or disable Pelican federation access (True/False)
-# Set to True to enable:
-# - Browsing external Pelican federations (OSDF, etc.)
-# - Downloading files from federated data repositories
-# - Importing external datasets into local catalog
-# - Support for pelican:// URLs in resources
-PELICAN_ENABLED=True
-
-# Default Pelican federation URL
-# Leave empty to use OSDF (Open Science Data Federation) by default
-# Format: pelican://federation-host (e.g., pelican://osg-htc.org)
+# Pelican Federation
+PELICAN_ENABLED=False
 PELICAN_FEDERATION_URL=
-
-# Enable direct reads from Origins (bypassing caches)
-# Set to True to read directly from origin servers
-# Set to False to use caching infrastructure (recommended for better performance)
 PELICAN_DIRECT_READS=False
 
-# ==============================================
-# Rexec Deployment API Configuration
-# ==============================================
+# JupyterLab
+USE_JUPYTERLAB=True
+JUPYTER_URL=http://jupyterlab:8888
 
-# Enable or disable Remote Execution Deployment API connectivity (True/False)
-REXEC_CONNECTION=False
-
-# Remote Execution Deployment API URL
-REXEC_DEPLOYMENT_API_URL=
-
-# ==============================================
-# Affinities Integration Configuration
-# ==============================================
-
-# Enable or disable NDP Affinities integration (True/False)
-# When enabled, datasets and services created in this endpoint will be
-# automatically registered in the Affinities system.
+# Affinities
 AFFINITIES_ENABLED=False
-
-# Base URL of the Affinities API
-# Example: http://affinities-api:8000 or https://affinities.example.com
 AFFINITIES_URL=
-
-# UUID of this endpoint in Affinities
-# This UUID is obtained when you manually register this endpoint
-# in the Affinities system via POST /endpoints
-# Example: 550e8400-e29b-41d4-a716-446655440000
 AFFINITIES_EP_UUID=
-
-# Request timeout in seconds (default: 30)
 AFFINITIES_TIMEOUT=30
+
+# Remote Execution
+REXEC_CONNECTION=False
+REXEC_DEPLOYMENT_API_URL=
 ```
 
 ## Source Code
