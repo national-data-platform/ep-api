@@ -96,10 +96,14 @@ def publish_dataset_to_preckan(
                 org = local_repository.organization_show(id=owner_org)
                 # Use org name instead of UUID for PRE-CKAN compatibility
                 dataset_dict["owner_org"] = org.get("name", owner_org)
-                logger.info(f"Resolved owner_org '{owner_org}' to '{dataset_dict['owner_org']}'")
+                logger.info(
+                    f"Resolved owner_org '{owner_org}' to '{dataset_dict['owner_org']}'"
+                )
             except Exception:
                 # If we can't resolve, keep original value
-                logger.warning(f"Could not resolve owner_org '{owner_org}', using as-is")
+                logger.warning(
+                    f"Could not resolve owner_org '{owner_org}', using as-is"
+                )
 
     # Extract resources to create separately
     resources = dataset_dict.pop("resources", [])

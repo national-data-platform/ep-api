@@ -172,9 +172,7 @@ class TestAffinitiesSettings:
 
     def test_is_configured_false_when_disabled(self):
         """Test is_configured returns False when disabled."""
-        with patch(
-            "api.config.affinities_settings.AffinitiesSettings"
-        ) as mock_class:
+        with patch("api.config.affinities_settings.AffinitiesSettings") as mock_class:
             instance = MagicMock()
             instance.enabled = False
             instance.url = "http://affinities:8000"
@@ -190,9 +188,7 @@ class TestAffinitiesSettings:
 
     def test_is_configured_false_when_url_missing(self):
         """Test is_configured returns False when URL is missing."""
-        with patch(
-            "api.config.affinities_settings.AffinitiesSettings"
-        ) as mock_class:
+        with patch("api.config.affinities_settings.AffinitiesSettings") as mock_class:
             instance = MagicMock()
             instance.enabled = True
             instance.url = ""
