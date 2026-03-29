@@ -131,7 +131,8 @@ class TestInjectNdpMetadata:
         assert "ndp_group_id" in result
         assert result["ndp_group_id"] == "empty-org"
         assert "ndp_creator_md5" in result
-        assert len(result) == 3  # NDP fields: ndp_group_id, ndp_user_id, ndp_creator_md5
+        # NDP fields: ndp_group_id, ndp_user_id, ndp_creator_md5
+        assert len(result) == 3
 
     @patch("api.services.metadata_services.metadata_injection.swagger_settings")
     def test_inject_metadata_user_without_sub(self, mock_settings):

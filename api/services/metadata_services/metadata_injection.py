@@ -41,7 +41,7 @@ def calculate_md5(input_string: str) -> str:
     str
         A 32-character hexadecimal MD5 hash.
     """
-    return hashlib.md5(input_string.encode('utf-8')).hexdigest()
+    return hashlib.md5(input_string.encode("utf-8")).hexdigest()
 
 
 def inject_ndp_metadata(
