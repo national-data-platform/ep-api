@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-03-30
+
+### Added
+- Integrated React frontend (NDP-EP Admin Console) into the monorepo under `ui/`
+  - Dashboard, Organizations, Datasets, Services, Search pages
+  - S3 bucket/object management
+  - Kafka topics and URL resources management
+  - AuthGuard with JWT token validation and API version check
+- Multi-stage `Dockerfile.allinone` for all-in-one deployment
+  - Stage 1: Node 18 builds the React frontend
+  - Stage 2: Python 3.13 + nginx + supervisord serves both API and UI
+- `nginx.conf` reverse proxy configuration
+  - UI served at `/ui/` as static files with SPA routing
+  - API accessible at `/` and `/api/` via proxy to uvicorn
+
+### Changed
+- `docker-compose.yml` now uses `Dockerfile.allinone` by default
+- Removed dependency on external `rbardaji/ndp-ep-frontend` Docker image
+
 ## [0.9.0] - 2026-03-12
 
 ### Added

@@ -1,25 +1,23 @@
 services:
   # ==============================================
-  # API Service (always starts)
+  # All-in-one Service: API + UI (always starts)
   # ==============================================
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.allinone
     container_name: ndp-ep-api
     ports:
-      - "8002:8000"
+      - "8002:80"
     env_file:
       - .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # volumes:
-    #   - ./logs:/code/logs
     networks:
       - ndp-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -176,24 +174,6 @@ services:
       - ndp-network
     depends_on:
       mongodb:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # ==============================================
-  # NDP-EP Frontend - Web Interface
-  # ==============================================
-  frontend:
-    image: rbardaji/ndp-ep-frontend:latest
-    container_name: ndp-frontend
-    profiles: ["frontend", "full"]
-    ports:
-      - "3000:80"
-    environment:
-      NDP_EP_API: https://ndp-ep-api.katxu.com
-    networks:
-      - ndp-network
-    depends_on:
-      api:
         condition: service_healthy
     restart: unless-stopped
 
