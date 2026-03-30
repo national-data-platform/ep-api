@@ -1,0 +1,87 @@
+# Multi-stage build for NDP-EP all-in-one (API + UI)
+
+# Stage 1: Build React UI
+FROM node:18-alpine AS ui-builder
+
+WORKDIR /build
+COPY ui/package*.json ./
+RUN npm ci --only=production
+COPY ui/ ./
+
+# Build with empty API URL so it uses relative paths (same origin)
+ENV REACT_APP_API_BASE_URL=""
+RUN npm run build
+
+# Stage 2: Final image with Python + nginx
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+# Install nginx, supervisor, and system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nginx \
+    supervisor \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY api/ ./api/
+COPY pytest.ini .
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Copy UI build from builder stage
+COPY --from=ui-builder /build/build /app/ui/build
+
+# Copy nginx config
+COPY nginx.conf /etc/nginx/sites-available/default
+
+# Remove default nginx site if it exists in sites-enabled
+RUN rm -f /etc/nginx/sites-enabled/default \
+    && ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+
+# Create supervisor config
+RUN echo '[supervisord]\n\
+nodaemon=true\n\
+logfile=/var/log/supervisor/supervisord.log\n\
+pidfile=/var/run/supervisord.pid\n\
+\n\
+[program:nginx]\n\
+command=nginx -g "daemon off;"\n\
+autostart=true\n\
+autorestart=true\n\
+stderr_logfile=/var/log/nginx/error.log\n\
+stdout_logfile=/var/log/nginx/access.log\n\
+\n\
+[program:uvicorn]\n\
+command=uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 4\n\
+directory=/app\n\
+autostart=true\n\
+autorestart=true\n\
+stderr_logfile=/var/log/uvicorn.err.log\n\
+stdout_logfile=/var/log/uvicorn.out.log\n\
+' > /etc/supervisor/conf.d/supervisord.conf
+
+# Create log directories
+RUN mkdir -p /var/log/supervisor /var/log/nginx
+
+# Expose port 80
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
+    CMD curl -f http://localhost/health || exit 1
+
+# Start supervisor (manages both nginx and uvicorn)
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
