@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL of your API - configurable via environment variable
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || '__NDP_EP_API_URL__' || '';
+const BASE_URL = process.env.REACT_APP_API_BASE_URL ?? '';
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
