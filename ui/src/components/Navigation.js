@@ -80,7 +80,7 @@ const Navigation = () => {
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       localStorage.removeItem('authToken');
-      window.location.href = '/';
+      window.location.href = '/ui/';
     }
   };
 
