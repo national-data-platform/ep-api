@@ -46,8 +46,8 @@ const AuthStatus = ({ onLoginClick }) => {
       setIsAuthenticated(false);
       setTokenPreview('');
 
-      // Redirect to root path to clear any cached data
-      window.location.href = '/';
+      // Redirect to /ui/ so AuthGuard shows the login screen
+      window.location.href = '/ui/';
     }
   };
 
