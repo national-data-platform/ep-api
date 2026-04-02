@@ -44,9 +44,9 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     if token == swagger_settings.test_token:
         return {
             "roles": ["admin", "user"],
-            "groups": ["test_group", "developers"],
+            "groups": [],
             "sub": "test_user",
-            "username": "test_user",
+            "username": "Test User",
         }
 
     # Validate with external API
