@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-04-02
+
+### Removed
+- Removed API Connection Status panel from the login screen
+  - No longer shows API version, frontend version, or compatibility checks
+  - Login screen now displays only the token input form for a cleaner experience
+  - Removed version comparison logic and related constants from AuthGuard
+
 ## [0.10.1] - 2026-04-02
 
 ### Fixed
