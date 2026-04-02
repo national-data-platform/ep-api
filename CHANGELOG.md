@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-04-02
+
+### Fixed
+- Test token now returns a human-readable username ("Test User") in the Dashboard's Current User section
+- Test token user no longer includes placeholder groups, matching a realistic no-groups scenario
+
 ## [0.10.2] - 2026-04-02
 
 ### Removed
