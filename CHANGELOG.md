@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-04-02
+
+### Fixed
+- Logout now redirects to `/ui/` instead of `/` so the AuthGuard login screen is shown correctly
+  - Fixed redirect in `AuthStatus.js` and `Navigation.js`
+  - Previously, logout sent users to the server root instead of the UI login screen
+
 ## [0.10.0] - 2026-03-30
 
 ### Added
