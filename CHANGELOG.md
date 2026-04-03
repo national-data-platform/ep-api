@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-04-03
+
+### Fixed
+- Streaming Status card on Dashboard always showed "Connected" even when Kafka is disabled
+  - The UI only checked if the API responded, without inspecting the `kafka_connection` field
+  - When `KAFKA_CONNECTION=False`, the card now correctly displays "Disabled"
+  - Fixed field name mismatch (`host`/`port` vs `kafka_host`/`kafka_port`) that caused "undefined:undefined"
+
 ## [0.10.4] - 2026-04-03
 
 ### Fixed
