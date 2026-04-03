@@ -195,13 +195,13 @@ export const servicesAPI = {
 // General Dataset API
 export const generalDatasetAPI = {
   create: (data, server = 'local') =>
-    apiClient.post('/general-dataset', data, { params: { server } }),
+    apiClient.post('/dataset', data, { params: { server } }),
 
   update: (datasetId, data, server = 'local') =>
-    apiClient.put(`/general-dataset/${datasetId}`, data, { params: { server } }),
+    apiClient.put(`/dataset/${datasetId}`, data, { params: { server } }),
 
   partialUpdate: (datasetId, data, server = 'local') =>
-    apiClient.patch(`/general-dataset/${datasetId}`, data, { params: { server } }),
+    apiClient.patch(`/dataset/${datasetId}`, data, { params: { server } }),
 };
 
 // Dataset API (for deletion)
