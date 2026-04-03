@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-04-03
+
+### Fixed
+- UI was calling `/general-dataset` endpoint which does not exist in the API
+  - Changed UI API client to use the correct `/dataset` path for create, update, and partial update operations
+  - Fixes "Failed to create dataset: Not Found" error on the Dataset Management page
+
 ## [0.10.6] - 2026-04-03
 
 ### Fixed
