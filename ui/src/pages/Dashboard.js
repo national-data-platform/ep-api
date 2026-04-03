@@ -551,8 +551,8 @@ const Dashboard = () => {
                   )}
                 </div>
               ) : (
-                <div className="status-indicator status-error">
-                  <AlertCircle size={16} />
+                <div className="status-indicator status-warning">
+                  <MinusCircle size={16} />
                   Disabled
                 </div>
               )}

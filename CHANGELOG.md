@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-04-03
+
+### Fixed
+- JupyterLab Status "Disabled" style now matches Streaming Status style
+  - Changed from red error style (`AlertCircle`) to warning style (`MinusCircle`)
+  - "Disabled" is not an error — it means the feature is intentionally turned off
+
 ## [0.10.5] - 2026-04-03
 
 ### Fixed
