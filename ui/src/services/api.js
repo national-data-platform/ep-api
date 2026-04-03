@@ -13,12 +13,7 @@ const apiClient = axios.create({
 });
 
 // List of endpoints that don't require authentication
-const PUBLIC_ENDPOINTS = [
-  '/status/',
-  '/status/metrics',
-  '/status/kafka-details',
-  '/status/jupyter'
-];
+const PUBLIC_ENDPOINTS = [];
 
 // Request interceptor to add auth token (with exceptions for public endpoints)
 apiClient.interceptors.request.use(
@@ -274,7 +269,7 @@ export const resourcesAPI = {
     }),
 };
 
-// Status API - Now properly configured as public endpoints
+// Status API
 export const statusAPI = {
   getStatus: () => apiClient.get('/status/'),
   getMetrics: () => apiClient.get('/status/metrics'),
