@@ -14,7 +14,8 @@ import {
   ExternalLink,
   Users,
   Shield,
-  BookOpen
+  BookOpen,
+  MinusCircle
 } from 'lucide-react';
 import { statusAPI, userAPI, getApiBaseUrl } from '../services/api';
 
@@ -481,15 +482,22 @@ const Dashboard = () => {
             </div>
             <div style={{ textAlign: 'right' }}>
               {kafkaDetails ? (
-                <div>
-                  <div className="status-indicator status-success" style={{ marginBottom: '0.25rem' }}>
-                    <CheckCircle size={16} />
-                    Connected
+                kafkaDetails.kafka_connection ? (
+                  <div>
+                    <div className="status-indicator status-success" style={{ marginBottom: '0.25rem' }}>
+                      <CheckCircle size={16} />
+                      Connected
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      {kafkaDetails.kafka_host}:{kafkaDetails.kafka_port}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    {kafkaDetails.host}:{kafkaDetails.port}
+                ) : (
+                  <div className="status-indicator status-warning">
+                    <MinusCircle size={16} />
+                    Disabled
                   </div>
-                </div>
+                )
               ) : (
                 <div className="status-indicator status-warning">
                   <Server size={16} />
