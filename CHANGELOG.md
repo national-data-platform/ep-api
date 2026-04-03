@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-04-03
+
+### Fixed
+- Catalog Status card on Dashboard was permanently stuck on "Checking..." instead of showing "Connected"
+  - Status endpoints were incorrectly listed as public, so requests were sent without the auth token
+  - The backend requires authentication, causing silent 401 errors that left the status unresolved
+  - Removed status endpoints from the public endpoints list so the Bearer token is always sent
+
 ## [0.10.3] - 2026-04-02
 
 ### Fixed
