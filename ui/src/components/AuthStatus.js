@@ -47,7 +47,7 @@ const AuthStatus = ({ onLoginClick }) => {
       setTokenPreview('');
 
       // Redirect to /ui/ so AuthGuard shows the login screen
-      window.location.href = '/ui/';
+      window.location.href = `${window.__EP_CONFIG__?.rootPath ?? ''}/ui/`;
     }
   };
 
