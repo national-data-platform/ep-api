@@ -21,7 +21,7 @@ function App() {
   return (
     <div className="App">
       <AuthGuard>
-        <Router basename="/ui">
+        <Router basename={`${window.__EP_CONFIG__?.rootPath ?? ''}/ui`}>
           <Layout>
             <Routes>
               {/* Dashboard route - main overview page */}
