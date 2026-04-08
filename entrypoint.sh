@@ -5,8 +5,8 @@ cat > /app/ui/build/config.js <<EOF
 window.__EP_CONFIG__ = { rootPath: "${ROOT_PATH}" };
 EOF
 
-# Update config.js script path in the built index.html to include ROOT_PATH
-sed -i "s|src=\"/ui/config.js\"|src=\"${ROOT_PATH}/ui/config.js\"|g" /app/ui/build/index.html
+# Rewrite all /ui/ asset references in the built index.html to include ROOT_PATH
+sed -i "s|\"/ui/|\"${ROOT_PATH}/ui/|g" /app/ui/build/index.html
 
 # Generate nginx config with ROOT_PATH-prefixed locations
 cat > /etc/nginx/sites-available/default <<NGINX
