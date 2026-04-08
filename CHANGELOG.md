@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.9] - 2026-04-08
+
+### Fixed
+- Nginx inside the container did not use `ROOT_PATH` for location prefixes
+  - `entrypoint.sh` now generates `nginx.conf` dynamically with `ROOT_PATH`-prefixed locations
+  - Locations `/ui/`, `/api/`, and `/` become `{ROOT_PATH}/ui/`, `{ROOT_PATH}/api/`, `{ROOT_PATH}/`
+  - Also updates the `config.js` script path in the built `index.html` at startup
+  - When `ROOT_PATH` is empty, behavior is identical to the previous static config
+
 ## [0.10.8] - 2026-04-08
 
 ### Fixed
