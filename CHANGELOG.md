@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.8] - 2026-04-08
+
+### Fixed
+- UI did not use `ROOT_PATH` for API calls when deployed behind a reverse proxy
+  - Added `entrypoint.sh` that generates a runtime `config.js` with the `ROOT_PATH` value
+  - UI now reads the API base URL from `window.__EP_CONFIG__` instead of build-time env var
+  - No rebuild required — just change `ROOT_PATH` in `.env` and restart the container
+
 ## [0.10.7] - 2026-04-03
 
 ### Fixed
