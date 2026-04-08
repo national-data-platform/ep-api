@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.10] - 2026-04-08
+
+### Fixed
+- React asset paths in `index.html` were not rewritten with `ROOT_PATH` prefix
+  - Assets like favicon, JS bundles, CSS, and manifest were still referenced as `/ui/...` instead of `{ROOT_PATH}/ui/...`
+  - `entrypoint.sh` now rewrites all `"/ui/` references in the built `index.html` at startup
+  - Ensures the page loads correctly behind a reverse proxy with any path prefix
+
 ## [0.10.9] - 2026-04-08
 
 ### Fixed
