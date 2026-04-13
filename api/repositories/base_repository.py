@@ -315,26 +315,26 @@ class DataCatalogRepository(ABC):
                 if query:
                     query_lower = query.lower()
                     matches = (
-                        query_lower in resource.get("name", "").lower()
-                        or query_lower in resource.get("url", "").lower()
-                        or query_lower in resource.get("description", "").lower()
+                        query_lower in (resource.get("name") or "").lower()
+                        or query_lower in (resource.get("url") or "").lower()
+                        or query_lower in (resource.get("description") or "").lower()
                     )
                     if not matches:
                         continue
 
-                if name and name.lower() not in resource.get("name", "").lower():
+                if name and name.lower() not in (resource.get("name") or "").lower():
                     continue
 
-                if url and url.lower() not in resource.get("url", "").lower():
+                if url and url.lower() not in (resource.get("url") or "").lower():
                     continue
 
-                if format and format.lower() != resource.get("format", "").lower():
+                if format and format.lower() != (resource.get("format") or "").lower():
                     continue
 
                 if (
                     description
                     and description.lower()
-                    not in resource.get("description", "").lower()
+                    not in (resource.get("description") or "").lower()
                 ):
                     continue
 
