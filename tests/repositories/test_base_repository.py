@@ -546,3 +546,47 @@ class TestDefaultResourceSearch:
 
         assert results["count"] == 1
         assert results["results"][0]["name"] == "temperature"
+
+    def test_search_with_none_fields_does_not_crash(self):
+        """Resources with None values in searchable fields must not crash the search.
+
+        Regression test: previously ``resource.get("key", "")`` returned ``None``
+        when the key existed with a ``None`` value, causing ``.lower()`` to raise
+        ``AttributeError`` and breaking the entire endpoint for the query.
+        """
+        packages = [
+            {
+                "id": "pkg-1",
+                "name": "pkg-none",
+                "title": "Package With None Fields",
+                "resources": [
+                    {
+                        "id": "res-none",
+                        "name": None,
+                        "url": None,
+                        "format": None,
+                        "description": None,
+                    },
+                    {
+                        "id": "res-ok",
+                        "name": "climate-series",
+                        "url": "https://example.com/climate.csv",
+                        "format": "csv",
+                        "description": "Climate time series",
+                    },
+                ],
+            }
+        ]
+        repo = ResourceSearchTestRepository(packages)
+
+        results = repo.resource_search(query="climate")
+        assert results["count"] == 1
+        assert results["results"][0]["id"] == "res-ok"
+
+        assert repo.resource_search(name="climate")["count"] == 1
+        assert repo.resource_search(url="example.com")["count"] == 1
+        assert repo.resource_search(format="csv")["count"] == 1
+        assert repo.resource_search(description="time series")["count"] == 1
+
+        all_results = repo.resource_search()
+        assert all_results["count"] == 2

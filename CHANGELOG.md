@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.11] - 2026-04-13
+
+### Fixed
+- `/resources/search` crashed with `AttributeError: 'NoneType' object has no attribute 'lower'` when any resource had `None` values in fields used for filtering (`name`, `url`, `description`, `format`)
+  - `dict.get("key", "")` returns the default only when the key is missing; when the key exists with value `None` it returns `None`, breaking the subsequent `.lower()` call
+  - Replaced `resource.get("key", "")` with `(resource.get("key") or "")` in all filter branches of `DataCatalogRepository.resource_search`
+  - Added regression test covering resources with `None` values across all searchable fields
+
 ## [0.10.10] - 2026-04-08
 
 ### Fixed
