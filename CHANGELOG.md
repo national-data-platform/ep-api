@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-04-22
+
+### Changed
+- `ENABLE_GROUP_BASED_ACCESS` now authorizes a user when **any** of the following is true:
+  1. The user belongs to one of the groups listed in `GROUP_NAMES` (existing behavior)
+  2. The user has the role `ndp_admin`
+  3. The user belongs to the group whose name matches `AFFINITIES_EP_UUID`
+- When group-based access is disabled the behavior is unchanged — any authenticated user is allowed
+- The 403 response body now enumerates all three accepted authorization paths
+
 ## [0.11.0] - 2026-04-22
 
 ### Added
