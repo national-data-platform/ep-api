@@ -111,7 +111,9 @@ class TestAuthenticateWithCredentials:
 
         mock_response = MagicMock()
         mock_response.status_code = 400
-        mock_response.json.return_value = {"error": "username and password are required"}
+        mock_response.json.return_value = {
+            "error": "username and password are required"
+        }
         mock_post.return_value = mock_response
 
         with pytest.raises(HTTPException) as exc_info:
