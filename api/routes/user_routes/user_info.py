@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
 
-from api.services.auth_services import get_current_user
+from api.services.auth_services import get_user_for_endpoint_access
 
 router = APIRouter()
 
@@ -80,19 +80,22 @@ router = APIRouter()
     },
 )
 async def get_user_info(
-    user_info: Dict[str, Any] = Depends(get_current_user),
+    user_info: Dict[str, Any] = Depends(get_user_for_endpoint_access),
 ) -> Dict[str, Any]:
     """
     Get current user information from the authentication service.
 
     This endpoint acts as a passthrough to the authentication service,
     returning the complete user profile information that was retrieved
-    during token validation.
+    during token validation. It also doubles as the UI's entry gate:
+    when ``ENABLE_GROUP_BASED_ACCESS`` is enabled, users that do not
+    satisfy any of the configured authorization paths are rejected
+    with a 403 response.
 
     Parameters
     ----------
     user_info : Dict[str, Any]
-        User information from get_current_user dependency
+        User information provided by the endpoint-access dependency.
 
     Returns
     -------
@@ -103,7 +106,7 @@ async def get_user_info(
     ------
     HTTPException
         401: If token is invalid or expired
-        403: If token does not have sufficient permissions
+        403: If the user is not authorized to access this Endpoint
         502: If authentication service is unavailable
     """
     return user_info

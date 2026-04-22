@@ -3,6 +3,7 @@ from .authorization_service import (  # noqa: F401
     check_group_membership,
     check_organization_membership,  # backward compatibility
     get_allowed_groups,
+    get_user_for_endpoint_access,
     get_user_for_write_operation,
     require_group_member,
     require_organization_member,  # backward compatibility

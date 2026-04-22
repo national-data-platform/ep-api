@@ -39,7 +39,14 @@ const AuthGuard = ({ children, onAuthenticated }) => {
         } catch (validationError) {
           console.error('Token validation failed:', validationError);
           localStorage.removeItem('authToken');
-          setError('Your session has expired. Please enter a valid token.');
+          if (validationError.response?.status === 403) {
+            setError(
+              validationError.response.data?.detail
+              || 'You do not have permission to access this Endpoint.'
+            );
+          } else {
+            setError('Your session has expired. Please enter a valid token.');
+          }
         }
       }
 
@@ -80,8 +87,9 @@ const AuthGuard = ({ children, onAuthenticated }) => {
         setError('Invalid token. Please check your token and try again.');
       } else if (errorMessage.includes('Cannot connect to API')) {
         setError('Cannot connect to API server. Please check your connection.');
-      } else if (errorMessage.includes('Insufficient permissions')) {
-        setError('Token does not have sufficient permissions.');
+      } else if (errorMessage.toLowerCase().includes('access forbidden')
+          || errorMessage.toLowerCase().includes('permission to access')) {
+        setError(errorMessage);
       } else {
         setError('Authentication failed: ' + errorMessage);
       }

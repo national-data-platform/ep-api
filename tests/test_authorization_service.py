@@ -8,8 +8,10 @@ from unittest.mock import patch, MagicMock
 from fastapi import HTTPException
 
 from api.services.auth_services.authorization_service import (
+    ADMIN_ROLE_NAME,
     check_group_membership,
     get_allowed_groups,
+    get_user_for_endpoint_access,
     normalize_group_path,
     require_group_member,
     get_user_for_write_operation,
@@ -282,7 +284,10 @@ class TestRequireGroupMember:
                     require_group_member(user_info)
 
                 assert exc_info.value.status_code == 403
-                assert "Access forbidden" in exc_info.value.detail
+                assert "do not have permission" in exc_info.value.detail
+                # Technical internals must not leak to the end user
+                assert ADMIN_ROLE_NAME not in exc_info.value.detail
+                assert "GROUP_NAMES" not in exc_info.value.detail
 
 
 class TestGetUserForWriteOperation:
@@ -335,3 +340,318 @@ class TestGetUserForWriteOperation:
                     get_user_for_write_operation(user_info)
 
                 assert exc_info.value.status_code == 403
+
+
+class TestCheckGroupMembershipAdminRole:
+    """Admin-role shortcut for check_group_membership."""
+
+    def test_admin_role_grants_access_even_without_matching_group(self):
+        """Having the admin role is enough to authorize the user."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "admins"
+            mock_affinities.ep_uuid = ""
+
+            user_info = {"roles": [ADMIN_ROLE_NAME], "groups": ["other-group"]}
+            assert check_group_membership(user_info) is True
+
+    def test_admin_role_works_when_group_names_is_empty(self):
+        """Admin role bypasses the 'no groups configured' denial path."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = ""
+            mock_affinities.ep_uuid = ""
+
+            user_info = {"roles": [ADMIN_ROLE_NAME], "groups": []}
+            assert check_group_membership(user_info) is True
+
+    def test_admin_role_match_is_case_insensitive(self):
+        """Role matching is case-insensitive."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "admins"
+            mock_affinities.ep_uuid = ""
+
+            user_info = {"roles": ["NDP_Admin"], "groups": []}
+            assert check_group_membership(user_info) is True
+
+    def test_non_admin_role_alone_does_not_grant_access(self):
+        """A non-admin role does not bypass group checks."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "admins"
+            mock_affinities.ep_uuid = ""
+
+            user_info = {"roles": ["default-roles-ndp"], "groups": ["other"]}
+            assert check_group_membership(user_info) is False
+
+    def test_roles_missing_does_not_raise(self):
+        """Missing 'roles' field is handled gracefully."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "admins"
+            mock_affinities.ep_uuid = ""
+
+            user_info = {"groups": ["admins"]}
+            assert check_group_membership(user_info) is True
+
+    def test_non_list_roles_is_ignored(self):
+        """A malformed 'roles' field is ignored without error."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "admins"
+            mock_affinities.ep_uuid = ""
+
+            user_info = {"roles": ADMIN_ROLE_NAME, "groups": []}
+            assert check_group_membership(user_info) is False
+
+
+class TestCheckGroupMembershipEndpointUuidGroup:
+    """Endpoint-UUID group shortcut for check_group_membership."""
+
+    def test_user_in_endpoint_uuid_group_is_authorized(self):
+        """Membership in the AFFINITIES_EP_UUID group grants access."""
+        uuid = "96207a63-ee21-40c8-a492-31d680002330"
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "some-other-group"
+            mock_affinities.ep_uuid = uuid
+
+            user_info = {"roles": [], "groups": [uuid]}
+            assert check_group_membership(user_info) is True
+
+    def test_endpoint_uuid_group_as_dict_path(self):
+        """Endpoint group match works when group is provided as a dict path."""
+        uuid = "96207a63-ee21-40c8-a492-31d680002330"
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = ""
+            mock_affinities.ep_uuid = uuid
+
+            user_info = {
+                "roles": [],
+                "groups": [{"name": uuid, "path": f"/{uuid}"}],
+            }
+            assert check_group_membership(user_info) is True
+
+    def test_endpoint_uuid_group_match_is_case_insensitive(self):
+        """Group name matching is case-insensitive."""
+        uuid_upper = "96207A63-EE21-40C8-A492-31D680002330"
+        uuid_lower = uuid_upper.lower()
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = ""
+            mock_affinities.ep_uuid = uuid_upper
+
+            user_info = {"roles": [], "groups": [uuid_lower]}
+            assert check_group_membership(user_info) is True
+
+    def test_empty_endpoint_uuid_does_not_grant_access(self):
+        """An unset AFFINITIES_EP_UUID does not accidentally authorize users."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = ""
+            mock_affinities.ep_uuid = ""
+
+            user_info = {"roles": [], "groups": [""]}
+            assert check_group_membership(user_info) is False
+
+    def test_user_not_in_endpoint_uuid_group_and_not_in_group_names_denied(self):
+        """User outside all three authorization paths is denied."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = "admins"
+            mock_affinities.ep_uuid = "96207a63-ee21-40c8-a492-31d680002330"
+
+            user_info = {"roles": ["user"], "groups": ["some-other-group"]}
+            assert check_group_membership(user_info) is False
+
+    def test_feature_disabled_ignores_all_extended_checks(self):
+        """When group-based access is disabled all users are allowed."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = False
+            mock_settings.group_names = ""
+            mock_affinities.ep_uuid = ""
+
+            user_info = {"roles": [], "groups": []}
+            assert check_group_membership(user_info) is True
+
+
+class TestGetUserForEndpointAccess:
+    """Test cases for get_user_for_endpoint_access dependency."""
+
+    def test_feature_disabled_returns_user_directly(self):
+        """When group-based access is disabled any authenticated user is allowed."""
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.enable_group_based_access = False
+
+            user_info = {"user_id": "123", "roles": [], "groups": []}
+            result = get_user_for_endpoint_access(user_info)
+
+            assert result == user_info
+
+    def test_authorized_user_returns_user_info(self):
+        """Authorized users are passed through untouched."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.check_group_membership"
+            ) as mock_check,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_check.return_value = True
+
+            user_info = {"user_id": "123", "roles": [ADMIN_ROLE_NAME]}
+            result = get_user_for_endpoint_access(user_info)
+
+            assert result == user_info
+
+    def test_unauthorized_user_raises_403_with_friendly_endpoint_message(self):
+        """Unauthorized users receive a 403 with a user-friendly message."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.check_group_membership"
+            ) as mock_check,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = ""
+            mock_check.return_value = False
+            mock_affinities.ep_uuid = "some-uuid"
+
+            user_info = {"user_id": "123", "roles": [], "groups": []}
+
+            with pytest.raises(HTTPException) as exc_info:
+                get_user_for_endpoint_access(user_info)
+
+            assert exc_info.value.status_code == 403
+            assert "do not have permission to access this Endpoint" in (
+                exc_info.value.detail
+            )
+            # Technical internals must not leak to the end user
+            assert ADMIN_ROLE_NAME not in exc_info.value.detail
+            assert "some-uuid" not in exc_info.value.detail
+            assert "GROUP_NAMES" not in exc_info.value.detail
+
+    def test_write_operation_dependency_uses_friendly_operation_message(self):
+        """The write-op dependency also hides technical internals."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.check_group_membership"
+            ) as mock_check,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = ""
+            mock_check.return_value = False
+            mock_affinities.ep_uuid = "some-uuid"
+
+            user_info = {"user_id": "123", "roles": [], "groups": []}
+
+            with pytest.raises(HTTPException) as exc_info:
+                get_user_for_write_operation(user_info)
+
+            assert exc_info.value.status_code == 403
+            assert "do not have permission to perform this operation" in (
+                exc_info.value.detail
+            )
+            assert ADMIN_ROLE_NAME not in exc_info.value.detail
+            assert "some-uuid" not in exc_info.value.detail

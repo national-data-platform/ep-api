@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-04-22
+
+### Changed
+- `ENABLE_GROUP_BASED_ACCESS` now authorizes a user when **any** of the following is true:
+  1. The user belongs to one of the groups listed in `GROUP_NAMES` (existing behavior)
+  2. The user has the role `ndp_admin`
+  3. The user belongs to the group whose name matches `AFFINITIES_EP_UUID`
+- When group-based access is disabled the behavior is unchanged — any authenticated user is allowed
+- The 403 response body now shows a short user-friendly message ("You do not have permission to access this Endpoint. Please contact the administrator." / "You do not have permission to perform this operation. Please contact the administrator."). The technical details (required role, endpoint group UUID, configured `GROUP_NAMES`) are logged as a backend warning instead of being returned to the user
+- `GET /user/info` is now gated by the same authorization rule. When `ENABLE_GROUP_BASED_ACCESS=True`, users that do not satisfy any of the three paths receive 403 Forbidden instead of their profile data, which prevents the UI's AuthGuard from letting them into the app
+- The UI credentials login flow now validates the returned token against `/user/info` before storing it, so authorization errors are surfaced at login time rather than after entering the app
+- The UI login screen now shows the backend's 403 detail (e.g. "Access forbidden: access to this Endpoint requires …") when the user is not allowed to enter the Endpoint
+
 ## [0.11.0] - 2026-04-22
 
 ### Added
