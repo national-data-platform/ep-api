@@ -161,6 +161,29 @@ def check_group_membership(user_info: Dict[str, Any]) -> bool:
     return False
 
 
+def _raise_forbidden(context: str) -> None:
+    """
+    Raise the 403 error shared by every authorization dependency.
+
+    Parameters
+    ----------
+    context : str
+        Short description of what the user was trying to do (e.g.
+        ``"write operations"`` or ``"access to this Endpoint"``). The
+        phrase is interpolated into the error detail.
+    """
+    allowed_groups = get_allowed_groups()
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=(
+            f"Access forbidden: {context} requires the "
+            f"'{ADMIN_ROLE_NAME}' role, membership in the endpoint group "
+            f"'{affinities_settings.ep_uuid}', or membership in one of "
+            f"these groups: {allowed_groups}"
+        ),
+    )
+
+
 def require_group_member(
     user_info: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
@@ -186,16 +209,7 @@ def require_group_member(
         403 Forbidden if user is not authorized for write operations
     """
     if not check_group_membership(user_info):
-        allowed_groups = get_allowed_groups()
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Access forbidden: write operations require the "
-                f"'{ADMIN_ROLE_NAME}' role, membership in the endpoint group "
-                f"'{affinities_settings.ep_uuid}', or membership in one of "
-                f"these groups: {allowed_groups}"
-            ),
-        )
+        _raise_forbidden("write operations")
 
     return user_info
 
@@ -234,6 +248,44 @@ def get_user_for_write_operation(
     else:
         # Feature disabled, just return authenticated user
         return user_info
+
+
+def get_user_for_endpoint_access(
+    user_info: Dict[str, Any] = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Dependency that gates entry to the Endpoint (UI and user-facing APIs).
+
+    Used by ``/user/info`` so the UI's AuthGuard can detect unauthorized
+    users at login time and refuse to let them enter the application.
+
+    Behavior mirrors :func:`get_user_for_write_operation` but the 403
+    error message refers to "access to this Endpoint" instead of
+    "write operations".
+
+    Parameters
+    ----------
+    user_info : Dict[str, Any]
+        User information from :func:`get_current_user`.
+
+    Returns
+    -------
+    Dict[str, Any]
+        User information if authorized.
+
+    Raises
+    ------
+    HTTPException
+        403 Forbidden if group-based access is enabled and the user is
+        not authorized to access this Endpoint.
+    """
+    if not swagger_settings.enable_group_based_access:
+        return user_info
+
+    if not check_group_membership(user_info):
+        _raise_forbidden("access to this Endpoint")
+
+    return user_info
 
 
 # Backward compatibility aliases
