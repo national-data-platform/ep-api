@@ -11,6 +11,7 @@ from api.services.auth_services.authorization_service import (
     ADMIN_ROLE_NAME,
     check_group_membership,
     get_allowed_groups,
+    get_user_for_endpoint_access,
     normalize_group_path,
     require_group_member,
     get_user_for_write_operation,
@@ -555,3 +556,91 @@ class TestCheckGroupMembershipEndpointUuidGroup:
 
             user_info = {"roles": [], "groups": []}
             assert check_group_membership(user_info) is True
+
+
+class TestGetUserForEndpointAccess:
+    """Test cases for get_user_for_endpoint_access dependency."""
+
+    def test_feature_disabled_returns_user_directly(self):
+        """When group-based access is disabled any authenticated user is allowed."""
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.enable_group_based_access = False
+
+            user_info = {"user_id": "123", "roles": [], "groups": []}
+            result = get_user_for_endpoint_access(user_info)
+
+            assert result == user_info
+
+    def test_authorized_user_returns_user_info(self):
+        """Authorized users are passed through untouched."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.check_group_membership"
+            ) as mock_check,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_check.return_value = True
+
+            user_info = {"user_id": "123", "roles": [ADMIN_ROLE_NAME]}
+            result = get_user_for_endpoint_access(user_info)
+
+            assert result == user_info
+
+    def test_unauthorized_user_raises_403_with_endpoint_context(self):
+        """Unauthorized users receive a 403 whose message names the Endpoint."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.check_group_membership"
+            ) as mock_check,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = ""
+            mock_check.return_value = False
+            mock_affinities.ep_uuid = "some-uuid"
+
+            user_info = {"user_id": "123", "roles": [], "groups": []}
+
+            with pytest.raises(HTTPException) as exc_info:
+                get_user_for_endpoint_access(user_info)
+
+            assert exc_info.value.status_code == 403
+            assert "access to this Endpoint" in exc_info.value.detail
+            assert ADMIN_ROLE_NAME in exc_info.value.detail
+            assert "some-uuid" in exc_info.value.detail
+
+    def test_write_operation_dependency_still_says_write_operations(self):
+        """The write-op dependency keeps its original error context."""
+        with (
+            patch(
+                "api.services.auth_services.authorization_service.swagger_settings"
+            ) as mock_settings,
+            patch(
+                "api.services.auth_services.authorization_service.check_group_membership"
+            ) as mock_check,
+            patch(
+                "api.services.auth_services.authorization_service.affinities_settings"
+            ) as mock_affinities,
+        ):
+            mock_settings.enable_group_based_access = True
+            mock_settings.group_names = ""
+            mock_check.return_value = False
+            mock_affinities.ep_uuid = "some-uuid"
+
+            user_info = {"user_id": "123", "roles": [], "groups": []}
+
+            with pytest.raises(HTTPException) as exc_info:
+                get_user_for_write_operation(user_info)
+
+            assert exc_info.value.status_code == 403
+            assert "write operations" in exc_info.value.detail
