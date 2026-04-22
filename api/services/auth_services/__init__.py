@@ -8,3 +8,4 @@ from .authorization_service import (  # noqa: F401
     require_organization_member,  # backward compatibility
 )
 from .get_current_user import get_current_user  # noqa: F401
+from .user_login import authenticate_with_credentials  # noqa: F401

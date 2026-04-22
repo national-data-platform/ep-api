@@ -375,10 +375,58 @@ export const authAPI = {
         'Authorization': `Bearer ${token}`
       },
     });
-    
+
     // Try to get user info with the provided token
     const response = await tempClient.get('/user/info');
     return response.data;
+  },
+
+  /**
+   * Authenticate with username and password.
+   * On success, the returned access token is stored in localStorage so that
+   * subsequent requests pick it up via the axios request interceptor.
+   *
+   * @param {string} username
+   * @param {string} password
+   * @returns {Promise<Object>} The identity provider response (access_token, etc.)
+   */
+  login: async (username, password) => {
+    // Use a bare axios instance so the request interceptor does not require
+    // an existing token for this public, pre-authentication endpoint.
+    const tempClient = axios.create({
+      baseURL: BASE_URL,
+      timeout: 60000,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    try {
+      const response = await tempClient.post('/user/login', { username, password });
+      const data = response.data;
+
+      if (!data || !data.access_token) {
+        throw new Error('Login response is missing access token');
+      }
+
+      localStorage.setItem('authToken', data.access_token);
+      return data;
+    } catch (error) {
+      localStorage.removeItem('authToken');
+
+      if (error.response?.status === 401) {
+        throw new Error(
+          error.response.data?.detail || 'Invalid username or password'
+        );
+      }
+      if (error.response?.status === 502) {
+        throw new Error('Authentication service is unavailable');
+      }
+      if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+        throw new Error('Cannot connect to API server');
+      }
+      throw new Error(
+        error.response?.data?.detail || error.message || 'Login failed'
+      );
+    }
   },
   
   /**

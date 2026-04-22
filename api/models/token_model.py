@@ -23,3 +23,18 @@ class TokenData(BaseModel):
         description="The username associated with the token.",
         json_schema_extra={"example": "user123"},
     )
+
+
+class UserLoginRequest(BaseModel):
+    username: str = Field(
+        ...,
+        min_length=1,
+        description="The username for authentication.",
+        json_schema_extra={"example": "john.doe"},
+    )
+    password: str = Field(
+        ...,
+        min_length=1,
+        description="The password for authentication.",
+        json_schema_extra={"example": "s3cret"},
+    )

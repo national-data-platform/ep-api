@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, AlertCircle, Eye, EyeOff, User } from 'lucide-react';
 import { authAPI } from '../services/api';
 
 /**
@@ -13,6 +13,12 @@ const AuthGuard = ({ children, onAuthenticated }) => {
   const [showToken, setShowToken] = useState(false);
   const [token, setToken] = useState('');
   const [validatingToken, setValidatingToken] = useState(false);
+
+  // Credentials mode state
+  const [authMode, setAuthMode] = useState('token'); // 'token' | 'credentials'
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
 
   /**
    * Check if user is already authenticated using proper token validation
@@ -89,6 +95,50 @@ const AuthGuard = ({ children, onAuthenticated }) => {
    */
   const handleToggleTokenVisibility = () => {
     setShowToken(!showToken);
+  };
+
+  /**
+   * Handle credentials input changes.
+   */
+  const handleCredentialsChange = (e) => {
+    const { name, value } = e.target;
+    setCredentials((prev) => ({ ...prev, [name]: value }));
+  };
+
+  /**
+   * Handle login with username and password.
+   */
+  const handleCredentialsSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!credentials.username.trim() || !credentials.password) {
+      setError('Please enter both username and password');
+      return;
+    }
+
+    try {
+      setError(null);
+      setLoggingIn(true);
+
+      await authAPI.login(credentials.username.trim(), credentials.password);
+
+      setIsAuthenticated(true);
+      onAuthenticated && onAuthenticated();
+      setCredentials({ username: '', password: '' });
+    } catch (err) {
+      console.error('Credentials login error:', err);
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
+  /**
+   * Switch between token and credentials authentication modes.
+   */
+  const switchAuthMode = (mode) => {
+    setAuthMode(mode);
+    setError(null);
   };
 
   /**
@@ -214,6 +264,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
           )}
 
           {/* Token Form */}
+          {authMode === 'token' && (
           <form onSubmit={handleTokenSubmit}>
             <div style={{ marginBottom: '1rem' }}>
               <label style={{
@@ -369,7 +420,221 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                 </>
               )}
             </button>
+
+            {/* Switch to credentials mode */}
+            <div style={{
+              textAlign: 'center',
+              marginTop: '1rem',
+              fontSize: '0.85rem',
+              color: '#64748b'
+            }}>
+              <button
+                type="button"
+                onClick={() => switchAuthMode('credentials')}
+                disabled={validatingToken}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  cursor: validatingToken ? 'not-allowed' : 'pointer',
+                  padding: 0,
+                  fontSize: '0.85rem',
+                  textDecoration: 'underline',
+                  opacity: validatingToken ? 0.5 : 1
+                }}
+              >
+                or use your login / password
+              </button>
+            </div>
           </form>
+          )}
+
+          {/* Credentials Form */}
+          {authMode === 'credentials' && (
+          <form onSubmit={handleCredentialsSubmit}>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{
+                display: 'block',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem',
+                fontSize: '0.9rem'
+              }}>
+                <User size={14} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />
+                Username
+              </label>
+              <input
+                type="text"
+                name="username"
+                value={credentials.username}
+                onChange={handleCredentialsChange}
+                placeholder="Enter your username"
+                required
+                disabled={loggingIn}
+                autoComplete="username"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  transition: 'border-color 0.3s ease',
+                  backgroundColor: loggingIn ? '#f3f4f6' : 'white',
+                  opacity: loggingIn ? 0.6 : 1,
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => {
+                  if (!loggingIn) {
+                    e.target.style.borderColor = '#2563eb';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                  }
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e2e8f0';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{
+                display: 'block',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem',
+                fontSize: '0.9rem'
+              }}>
+                <Lock size={14} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={credentials.password}
+                  onChange={handleCredentialsChange}
+                  placeholder="Enter your password"
+                  required
+                  disabled={loggingIn}
+                  autoComplete="current-password"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    paddingRight: '2.5rem',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    transition: 'border-color 0.3s ease',
+                    backgroundColor: loggingIn ? '#f3f4f6' : 'white',
+                    opacity: loggingIn ? 0.6 : 1,
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => {
+                    if (!loggingIn) {
+                      e.target.style.borderColor = '#2563eb';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                    }
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e2e8f0';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loggingIn}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    right: '0.75rem',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: loggingIn ? '#9ca3af' : '#64748b',
+                    cursor: loggingIn ? 'not-allowed' : 'pointer',
+                    padding: '0.25rem'
+                  }}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loggingIn}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                backgroundColor: loggingIn ? '#9ca3af' : '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                cursor: loggingIn ? 'not-allowed' : 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                opacity: loggingIn ? 0.6 : 1
+              }}
+              onMouseOver={(e) => {
+                if (!loggingIn) {
+                  e.target.style.backgroundColor = '#1d4ed8';
+                  e.target.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!loggingIn) {
+                  e.target.style.backgroundColor = '#2563eb';
+                  e.target.style.transform = 'translateY(0)';
+                }
+              }}
+            >
+              {loggingIn ? (
+                <>
+                  <div className="loading-spinner" style={{ width: '16px', height: '16px' }} />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <Lock size={18} />
+                  Sign in
+                </>
+              )}
+            </button>
+
+            {/* Switch back to token mode */}
+            <div style={{
+              textAlign: 'center',
+              marginTop: '1rem',
+              fontSize: '0.85rem',
+              color: '#64748b'
+            }}>
+              <button
+                type="button"
+                onClick={() => switchAuthMode('token')}
+                disabled={loggingIn}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  cursor: loggingIn ? 'not-allowed' : 'pointer',
+                  padding: 0,
+                  fontSize: '0.85rem',
+                  textDecoration: 'underline',
+                  opacity: loggingIn ? 0.5 : 1
+                }}
+              >
+                or use an access token
+              </button>
+            </div>
+          </form>
+          )}
 
           {/* Help Text */}
           <div style={{

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-04-22
+
+### Added
+- Username and password login option on the UI authentication screen
+  - New `POST /user/login` endpoint proxies credentials to the configured identity provider and returns the access token plus profile data
+  - `AuthGuard` now includes a link below the "Authenticate" button labeled "or use your login / password" that switches the screen to a credentials form (username, password, show/hide toggle); a reciprocal link returns to the access token form
+  - On successful login the token is stored in `localStorage` so subsequent requests are authenticated automatically
+  - Invalid credentials surface as 401 with the IDP message, IDP outages as 502
+
 ## [0.10.11] - 2026-04-13
 
 ### Fixed
