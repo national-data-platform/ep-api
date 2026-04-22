@@ -161,26 +161,30 @@ def check_group_membership(user_info: Dict[str, Any]) -> bool:
     return False
 
 
-def _raise_forbidden(context: str) -> None:
+def _raise_forbidden(user_message: str) -> None:
     """
     Raise the 403 error shared by every authorization dependency.
 
+    The response body shows ``user_message`` only — the technical details
+    of the access rule (admin role name, endpoint UUID, configured
+    ``GROUP_NAMES``) are written to the application log so administrators
+    can still debug rejections without leaking jargon to end users.
+
     Parameters
     ----------
-    context : str
-        Short description of what the user was trying to do (e.g.
-        ``"write operations"`` or ``"access to this Endpoint"``). The
-        phrase is interpolated into the error detail.
+    user_message : str
+        End-user-friendly message surfaced verbatim in the 403 response.
     """
-    allowed_groups = get_allowed_groups()
+    logger.warning(
+        "Access denied (403). Required: role '%s', endpoint group '%s', "
+        "or one of %s.",
+        ADMIN_ROLE_NAME,
+        affinities_settings.ep_uuid,
+        get_allowed_groups(),
+    )
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail=(
-            f"Access forbidden: {context} requires the "
-            f"'{ADMIN_ROLE_NAME}' role, membership in the endpoint group "
-            f"'{affinities_settings.ep_uuid}', or membership in one of "
-            f"these groups: {allowed_groups}"
-        ),
+        detail=user_message,
     )
 
 
@@ -209,7 +213,10 @@ def require_group_member(
         403 Forbidden if user is not authorized for write operations
     """
     if not check_group_membership(user_info):
-        _raise_forbidden("write operations")
+        _raise_forbidden(
+            "You do not have permission to perform this operation. "
+            "Please contact the administrator if you believe this is a mistake."
+        )
 
     return user_info
 
@@ -283,7 +290,10 @@ def get_user_for_endpoint_access(
         return user_info
 
     if not check_group_membership(user_info):
-        _raise_forbidden("access to this Endpoint")
+        _raise_forbidden(
+            "You do not have permission to access this Endpoint. "
+            "Please contact the administrator if you believe this is a mistake."
+        )
 
     return user_info
 

@@ -284,7 +284,10 @@ class TestRequireGroupMember:
                     require_group_member(user_info)
 
                 assert exc_info.value.status_code == 403
-                assert "Access forbidden" in exc_info.value.detail
+                assert "do not have permission" in exc_info.value.detail
+                # Technical internals must not leak to the end user
+                assert ADMIN_ROLE_NAME not in exc_info.value.detail
+                assert "GROUP_NAMES" not in exc_info.value.detail
 
 
 class TestGetUserForWriteOperation:
@@ -591,8 +594,8 @@ class TestGetUserForEndpointAccess:
 
             assert result == user_info
 
-    def test_unauthorized_user_raises_403_with_endpoint_context(self):
-        """Unauthorized users receive a 403 whose message names the Endpoint."""
+    def test_unauthorized_user_raises_403_with_friendly_endpoint_message(self):
+        """Unauthorized users receive a 403 with a user-friendly message."""
         with (
             patch(
                 "api.services.auth_services.authorization_service.swagger_settings"
@@ -615,12 +618,16 @@ class TestGetUserForEndpointAccess:
                 get_user_for_endpoint_access(user_info)
 
             assert exc_info.value.status_code == 403
-            assert "access to this Endpoint" in exc_info.value.detail
-            assert ADMIN_ROLE_NAME in exc_info.value.detail
-            assert "some-uuid" in exc_info.value.detail
+            assert "do not have permission to access this Endpoint" in (
+                exc_info.value.detail
+            )
+            # Technical internals must not leak to the end user
+            assert ADMIN_ROLE_NAME not in exc_info.value.detail
+            assert "some-uuid" not in exc_info.value.detail
+            assert "GROUP_NAMES" not in exc_info.value.detail
 
-    def test_write_operation_dependency_still_says_write_operations(self):
-        """The write-op dependency keeps its original error context."""
+    def test_write_operation_dependency_uses_friendly_operation_message(self):
+        """The write-op dependency also hides technical internals."""
         with (
             patch(
                 "api.services.auth_services.authorization_service.swagger_settings"
@@ -643,4 +650,8 @@ class TestGetUserForEndpointAccess:
                 get_user_for_write_operation(user_info)
 
             assert exc_info.value.status_code == 403
-            assert "write operations" in exc_info.value.detail
+            assert "do not have permission to perform this operation" in (
+                exc_info.value.detail
+            )
+            assert ADMIN_ROLE_NAME not in exc_info.value.detail
+            assert "some-uuid" not in exc_info.value.detail
