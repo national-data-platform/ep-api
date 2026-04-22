@@ -399,16 +399,14 @@ export const authAPI = {
       headers: { 'Content-Type': 'application/json' },
     });
 
+    let data;
     try {
       const response = await tempClient.post('/user/login', { username, password });
-      const data = response.data;
+      data = response.data;
 
       if (!data || !data.access_token) {
         throw new Error('Login response is missing access token');
       }
-
-      localStorage.setItem('authToken', data.access_token);
-      return data;
     } catch (error) {
       localStorage.removeItem('authToken');
 
@@ -427,6 +425,29 @@ export const authAPI = {
         error.response?.data?.detail || error.message || 'Login failed'
       );
     }
+
+    // Credentials were accepted by the IDP. Validate the resulting token
+    // against /user/info so authorization errors (e.g. the user is not
+    // allowed to access this Endpoint) are surfaced before we store it.
+    try {
+      await authAPI.validateToken(data.access_token);
+    } catch (error) {
+      if (error.response?.status === 403) {
+        throw new Error(
+          error.response.data?.detail ||
+            'You do not have permission to access this Endpoint.'
+        );
+      }
+      if (error.response?.status === 401) {
+        throw new Error('Invalid username or password');
+      }
+      throw new Error(
+        error.response?.data?.detail || error.message || 'Login failed'
+      );
+    }
+
+    localStorage.setItem('authToken', data.access_token);
+    return data;
   },
   
   /**
@@ -455,7 +476,10 @@ export const authAPI = {
       if (error.response?.status === 401) {
         throw new Error('Invalid token: Authentication failed');
       } else if (error.response?.status === 403) {
-        throw new Error('Invalid token: Insufficient permissions');
+        throw new Error(
+          error.response.data?.detail ||
+            'You do not have permission to access this Endpoint.'
+        );
       } else if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
         throw new Error('Cannot connect to API server');
       } else {
