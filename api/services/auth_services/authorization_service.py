@@ -215,7 +215,7 @@ def require_group_member(
     if not check_group_membership(user_info):
         _raise_forbidden(
             "You do not have permission to perform this operation. "
-            "Please contact the administrator if you believe this is a mistake."
+            "Please contact the administrator."
         )
 
     return user_info
@@ -292,7 +292,7 @@ def get_user_for_endpoint_access(
     if not check_group_membership(user_info):
         _raise_forbidden(
             "You do not have permission to access this Endpoint. "
-            "Please contact the administrator if you believe this is a mistake."
+            "Please contact the administrator."
         )
 
     return user_info
