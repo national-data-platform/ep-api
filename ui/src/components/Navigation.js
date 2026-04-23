@@ -1,19 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Building2, 
-  Radio, 
-  Link as LinkIcon, 
-  Database, 
-  Settings, 
+import {
+  Home,
+  Building2,
+  Radio,
+  Link as LinkIcon,
+  Database,
+  Settings,
   Search,
   FileText,
   LogOut,
   FolderOpen,
   ChevronDown,
-  HardDrive
+  HardDrive,
+  ShieldAlert
 } from 'lucide-react';
+import { isAccessRequestAdmin, userAPI } from '../services/api';
 
 /**
  * Enhanced navigation component similar to nationaldataplatform.org
@@ -25,6 +27,24 @@ const Navigation = () => {
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
   const timeoutRef = useRef(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Determine admin status from the current token's /user/info response so
+  // the "Access Requests" entry is only shown to users that can use it.
+  useEffect(() => {
+    let cancelled = false;
+    userAPI
+      .getUserInfo()
+      .then((response) => {
+        if (!cancelled) setIsAdmin(isAccessRequestAdmin(response.data));
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Clear timeout on unmount
   useEffect(() => {
@@ -453,6 +473,39 @@ const Navigation = () => {
                 <Search size={18} />
                 <span>Search</span>
               </Link>
+
+              {/* Access Requests (admin only) */}
+              {isAdmin && (
+                <Link
+                  to="/access-requests"
+                  onMouseEnter={handleOtherNavEnter}
+                  style={{
+                    color: '#6b7280',
+                    textDecoration: 'none',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.95rem',
+                    fontWeight: '500',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    backgroundColor: 'transparent',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.color = '#374151';
+                    e.target.style.fontWeight = '600';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.color = '#6b7280';
+                    e.target.style.fontWeight = '500';
+                  }}
+                >
+                  <ShieldAlert size={18} />
+                  <span>Access Requests</span>
+                </Link>
+              )}
             </div>
           </nav>
 
