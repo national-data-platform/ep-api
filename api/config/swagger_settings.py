@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     enable_group_based_access: bool = False
     group_names: str = ""  # Comma-separated list of allowed groups
 
+    # Access-request workflow (user requests entry → admin approves/rejects).
+    # Requires a MongoDB instance reachable via MONGODB_CONNECTION_STRING
+    # (reused from CatalogSettings) when turned on. Kept off by default
+    # so existing deployments without MongoDB keep booting as before.
+    enable_access_requests: bool = False
+    access_requests_collection: str = "access_requests"
+
     model_config = {
         "env_file": ".env",
         "extra": "allow",
