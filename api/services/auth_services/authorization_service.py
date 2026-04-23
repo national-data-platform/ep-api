@@ -15,6 +15,18 @@ logger = logging.getLogger(__name__)
 ADMIN_ROLE_NAME = "ndp_admin"
 
 
+def endpoint_admin_role_name() -> str:
+    """
+    Return the endpoint-specific admin role name derived from the configured
+    ``AFFINITIES_EP_UUID``, e.g. ``96207a63-...-002330_admin``. Returns an
+    empty string when the UUID is not configured.
+    """
+    ep_uuid = (affinities_settings.ep_uuid or "").strip()
+    if not ep_uuid:
+        return ""
+    return f"{ep_uuid}_admin"
+
+
 def normalize_group_path(path: str) -> str:
     """
     Normalize a group path for comparison.
@@ -296,6 +308,55 @@ def get_user_for_endpoint_access(
         )
 
     return user_info
+
+
+def is_admin(user_info: Dict[str, Any]) -> bool:
+    """
+    Return True if the user has either the ``ndp_admin`` role or the
+    endpoint-specific admin role (``{AFFINITIES_EP_UUID}_admin``).
+    """
+    if _has_admin_role(user_info):
+        return True
+
+    ep_admin_role = endpoint_admin_role_name()
+    if not ep_admin_role:
+        return False
+
+    roles = user_info.get("roles", [])
+    if not isinstance(roles, list):
+        return False
+
+    target = ep_admin_role.strip().lower()
+    return any(
+        isinstance(role, str) and role.strip().lower() == target for role in roles
+    )
+
+
+def require_admin(
+    user_info: Dict[str, Any] = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Dependency that enforces an administrator role on the caller.
+
+    Grants access to users with the realm role ``ndp_admin`` or the
+    endpoint-specific admin role ``{AFFINITIES_EP_UUID}_admin``. Any
+    other authenticated user is rejected with 403.
+    """
+    if is_admin(user_info):
+        return user_info
+
+    logger.warning(
+        "Admin-only action denied for user '%s' (sub=%s). Required roles: "
+        "'%s' or '%s'.",
+        user_info.get("username"),
+        user_info.get("sub"),
+        ADMIN_ROLE_NAME,
+        endpoint_admin_role_name() or "<unset>",
+    )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Administrator role required.",
+    )
 
 
 # Backward compatibility aliases
