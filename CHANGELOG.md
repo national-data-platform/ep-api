@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-04-23
+
+### Added
+- Access-request workflow (backend only — the UI follow-up lands in a later release)
+  - New `ENABLE_ACCESS_REQUESTS` flag (off by default) so deployments without MongoDB boot unchanged
+  - `POST /user/access-requests` lets an authenticated user submit a request with an optional justification; duplicates (existing pending request for the same user) are rejected with 409
+  - `GET /user/access-requests` lists pending requests for administrators, with `?status=pending|approved|rejected|all` filter
+  - `POST /user/access-requests/{id}/approve` performs the IDP grant using the administrator's own bearer token — either adding the requester to the endpoint group (`grant_type=member`) or also assigning the endpoint admin role (`grant_type=admin`) — and records the decision
+  - `POST /user/access-requests/{id}/reject` marks the request as rejected without touching the IDP
+  - A new `require_admin` dependency that admits users with either the `ndp_admin` role or the endpoint-specific `{AFFINITIES_EP_UUID}_admin` role
+  - A thin client for the NDP AAI API (`add_user_to_group`, `assign_role`, `list_group_members`) so the grant step reuses the administrator's session and no service account is introduced
+  - MongoDB-backed persistence in the `access_requests` collection, with the connection string and database name reused from `CatalogSettings` (no new env vars)
+
 ## [0.12.0] - 2026-04-22
 
 ### Changed
