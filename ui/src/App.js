@@ -11,6 +11,7 @@ import S3Management from './pages/S3Management';
 import Services from './pages/Services';
 import Search from './pages/Search';
 import DatasetManagement from './pages/DatasetManagement';
+import AccessRequests from './pages/AccessRequests';
 import './styles/global.css';
 
 /**
@@ -44,6 +45,9 @@ function App() {
               
               {/* Search functionality route */}
               <Route path="/search" element={<Search />} />
+
+              {/* Access request management route (admin-gated on backend) */}
+              <Route path="/access-requests" element={<AccessRequests />} />
             </Routes>
           </Layout>
         </Router>

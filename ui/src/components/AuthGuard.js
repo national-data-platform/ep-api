@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, AlertCircle, Eye, EyeOff, User } from 'lucide-react';
-import { authAPI } from '../services/api';
+import { Lock, AlertCircle, Eye, EyeOff, User, Send, CheckCircle } from 'lucide-react';
+import { accessRequestsAPI, authAPI } from '../services/api';
 
 /**
  * AuthGuard component that requires authentication before accessing the app
@@ -19,6 +19,23 @@ const AuthGuard = ({ children, onAuthenticated }) => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
+
+  // Access-request flow state. The token is held in component state only —
+  // it is never persisted because the user is not allowed into the app.
+  const [deniedToken, setDeniedToken] = useState(null);
+  const [requestFormOpen, setRequestFormOpen] = useState(false);
+  const [requestJustification, setRequestJustification] = useState('');
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
+  const [requestError, setRequestError] = useState(null);
+
+  const clearRequestState = () => {
+    setDeniedToken(null);
+    setRequestFormOpen(false);
+    setRequestJustification('');
+    setRequestSubmitted(false);
+    setRequestError(null);
+  };
 
   /**
    * Check if user is already authenticated using proper token validation
@@ -40,6 +57,9 @@ const AuthGuard = ({ children, onAuthenticated }) => {
           console.error('Token validation failed:', validationError);
           localStorage.removeItem('authToken');
           if (validationError.response?.status === 403) {
+            // Keep the token in memory so the user can submit an access
+            // request without having to paste it again.
+            setDeniedToken(existingToken);
             setError(
               validationError.response.data?.detail
               || 'You do not have permission to access this Endpoint.'
@@ -69,6 +89,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
 
     try {
       setError(null);
+      clearRequestState();
       setValidatingToken(true);
 
       const userInfo = await authAPI.setAndValidateToken(token.trim());
@@ -82,6 +103,12 @@ const AuthGuard = ({ children, onAuthenticated }) => {
       console.error('Token validation error:', err);
 
       let errorMessage = err.message || 'Token validation failed';
+      // If the IDP accepted the token but the Endpoint denied entry,
+      // hold the raw token so the user can request access without
+      // re-entering it.
+      if (err.deniedToken) {
+        setDeniedToken(err.deniedToken);
+      }
 
       if (errorMessage.includes('Invalid token')) {
         setError('Invalid token. Please check your token and try again.');
@@ -126,6 +153,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
 
     try {
       setError(null);
+      clearRequestState();
       setLoggingIn(true);
 
       await authAPI.login(credentials.username.trim(), credentials.password);
@@ -135,9 +163,59 @@ const AuthGuard = ({ children, onAuthenticated }) => {
       setCredentials({ username: '', password: '' });
     } catch (err) {
       console.error('Credentials login error:', err);
+      if (err.deniedToken) {
+        setDeniedToken(err.deniedToken);
+      }
       setError(err.message || 'Login failed');
     } finally {
       setLoggingIn(false);
+    }
+  };
+
+  /**
+   * Submit an access request on behalf of the denied user. The token held
+   * in state is attached to this single call and never persisted.
+   */
+  const handleAccessRequestSubmit = async (e) => {
+    e.preventDefault();
+    if (!deniedToken) return;
+
+    try {
+      setRequestError(null);
+      setRequestSubmitting(true);
+      await accessRequestsAPI.createWithToken(
+        deniedToken,
+        requestJustification.trim() || null
+      );
+      setRequestSubmitted(true);
+      setRequestFormOpen(false);
+      setRequestJustification('');
+    } catch (err) {
+      console.error('Access request submission failed:', err);
+      if (err.response?.status === 409) {
+        setRequestError(
+          'You already have a pending access request. An administrator ' +
+            'will review it.'
+        );
+      } else if (err.response?.status === 503) {
+        setRequestError(
+          'Access requests are disabled on this deployment. ' +
+            'Please contact the administrator directly.'
+        );
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        setRequestError(
+          err.response.data?.detail ||
+            'Your session is no longer valid. Please sign in again.'
+        );
+      } else {
+        setRequestError(
+          err.response?.data?.detail ||
+            err.message ||
+            'Could not submit the access request. Please try again.'
+        );
+      }
+    } finally {
+      setRequestSubmitting(false);
     }
   };
 
@@ -252,8 +330,8 @@ const AuthGuard = ({ children, onAuthenticated }) => {
             </p>
           </div>
 
-          {/* Error Message */}
-          {error && (
+          {/* Error Message (hidden once the request-submitted view takes over) */}
+          {error && !requestSubmitted && (
             <div style={{
               backgroundColor: '#fef2f2',
               border: '1px solid #fecaca',
@@ -271,8 +349,173 @@ const AuthGuard = ({ children, onAuthenticated }) => {
             </div>
           )}
 
+          {/* Access-request CTA — shown when the user is authenticated to
+              the IDP but denied entry to this Endpoint */}
+          {deniedToken && !requestSubmitted && !requestFormOpen && (
+            <div style={{ marginBottom: '1rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setRequestFormOpen(true);
+                  setRequestError(null);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: '#ffffff',
+                  color: '#2563eb',
+                  border: '1px solid #2563eb',
+                  borderRadius: '6px',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                <Send size={16} />
+                Request access to this Endpoint
+              </button>
+            </div>
+          )}
+
+          {/* Access-request form */}
+          {deniedToken && requestFormOpen && !requestSubmitted && (
+            <form
+              onSubmit={handleAccessRequestSubmit}
+              style={{
+                marginBottom: '1rem',
+                padding: '1rem',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                backgroundColor: '#f8fafc'
+              }}
+            >
+              <label style={{
+                display: 'block',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '0.5rem',
+                fontSize: '0.9rem'
+              }}>
+                Justification (optional)
+              </label>
+              <textarea
+                value={requestJustification}
+                onChange={(e) => setRequestJustification(e.target.value)}
+                placeholder="Briefly explain why you need access."
+                maxLength={2000}
+                disabled={requestSubmitting}
+                style={{
+                  width: '100%',
+                  minHeight: '80px',
+                  padding: '0.65rem',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  lineHeight: 1.4,
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                  backgroundColor: requestSubmitting ? '#f3f4f6' : 'white'
+                }}
+              />
+
+              {requestError && (
+                <div style={{
+                  marginTop: '0.5rem',
+                  fontSize: '0.8rem',
+                  color: '#dc2626'
+                }}>
+                  {requestError}
+                </div>
+              )}
+
+              <div style={{
+                display: 'flex',
+                gap: '0.5rem',
+                marginTop: '0.75rem'
+              }}>
+                <button
+                  type="submit"
+                  disabled={requestSubmitting}
+                  style={{
+                    flex: 1,
+                    padding: '0.6rem 0.75rem',
+                    backgroundColor: requestSubmitting ? '#9ca3af' : '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    cursor: requestSubmitting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem'
+                  }}
+                >
+                  {requestSubmitting ? (
+                    <>
+                      <div className="loading-spinner" style={{ width: '14px', height: '14px' }} />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={14} />
+                      Send request
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestFormOpen(false);
+                    setRequestError(null);
+                  }}
+                  disabled={requestSubmitting}
+                  style={{
+                    flex: '0 0 auto',
+                    padding: '0.6rem 0.9rem',
+                    backgroundColor: 'white',
+                    color: '#64748b',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: '500',
+                    cursor: requestSubmitting ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Confirmation after request submission */}
+          {requestSubmitted && (
+            <div style={{
+              marginBottom: '1rem',
+              padding: '1rem',
+              backgroundColor: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.6rem'
+            }}>
+              <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0 }} />
+              <div style={{ fontSize: '0.875rem', color: '#065f46', lineHeight: 1.4 }}>
+                <strong>Request submitted.</strong> An administrator will review
+                your access request. You can close this page — you will be
+                notified through your organization once the decision is made.
+              </div>
+            </div>
+          )}
+
           {/* Token Form */}
-          {authMode === 'token' && (
+          {!requestSubmitted && authMode === 'token' && (
           <form onSubmit={handleTokenSubmit}>
             <div style={{ marginBottom: '1rem' }}>
               <label style={{
@@ -458,7 +701,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
           )}
 
           {/* Credentials Form */}
-          {authMode === 'credentials' && (
+          {!requestSubmitted && authMode === 'credentials' && (
           <form onSubmit={handleCredentialsSubmit}>
             <div style={{ marginBottom: '1rem' }}>
               <label style={{

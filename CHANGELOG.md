@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.13.0] - 2026-04-23
 
 ### Added
-- Access-request workflow (backend only — the UI follow-up lands in a later release)
+- Access-request workflow, end-to-end (backend + UI)
   - New `ENABLE_ACCESS_REQUESTS` flag (off by default) so deployments without MongoDB boot unchanged
   - `POST /user/access-requests` lets an authenticated user submit a request with an optional justification; duplicates (existing pending request for the same user) are rejected with 409
   - `GET /user/access-requests` lists pending requests for administrators, with `?status=pending|approved|rejected|all` filter
@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A new `require_admin` dependency that admits users with either the `ndp_admin` role or the endpoint-specific `{AFFINITIES_EP_UUID}_admin` role
   - A thin client for the NDP AAI API (`add_user_to_group`, `assign_role`, `list_group_members`) so the grant step reuses the administrator's session and no service account is introduced
   - MongoDB-backed persistence in the `access_requests` collection, with the connection string and database name reused from `CatalogSettings` (no new env vars)
+  - UI: the AuthGuard 403 screen now offers a "Request access to this Endpoint" button with an optional justification, replaced by a success confirmation once the request is submitted. The user's bearer token is held in memory only for this single call and never persisted to `localStorage`.
+  - UI: a new "Access Requests" page, visible in the top nav only to users with the `ndp_admin` or endpoint-scoped `{UUID}_admin` role, lists pending/approved/rejected requests and lets administrators approve (choosing between `member` or `admin` grant, with optional notes) or reject (with optional notes).
 
 ## [0.12.0] - 2026-04-22
 
