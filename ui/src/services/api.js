@@ -359,6 +359,82 @@ export const userAPI = {
   getUserInfo: () => apiClient.get('/user/info'),
 };
 
+// Access-request workflow API
+export const accessRequestsAPI = {
+  /**
+   * Submit an access request for the currently-authenticated user.
+   * Used from pages that are already inside the app and therefore have a
+   * token in localStorage (goes through the standard apiClient interceptor).
+   */
+  create: (justification) =>
+    apiClient.post('/user/access-requests', { justification: justification || null }),
+
+  /**
+   * Submit an access request using an explicit token that is NOT stored in
+   * localStorage. Used from the AuthGuard screen for users that have a
+   * valid token but are denied entry to the Endpoint — we do not want to
+   * persist their token but we still need to attach it to this one call.
+   */
+  createWithToken: (token, justification) => {
+    const tempClient = axios.create({
+      baseURL: BASE_URL,
+      timeout: 60000,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return tempClient.post('/user/access-requests', {
+      justification: justification || null,
+    });
+  },
+
+  /**
+   * List access requests. Admin only.
+   * @param {string|null} status - One of 'pending' | 'approved' | 'rejected' | 'all', or null to use the backend default (pending).
+   */
+  list: (status = null) =>
+    apiClient.get('/user/access-requests', {
+      params: status ? { status } : {},
+    }),
+
+  /**
+   * Approve a pending request. Admin only.
+   * @param {string} requestId
+   * @param {'member'|'admin'} grantType
+   * @param {string|null} notes
+   */
+  approve: (requestId, grantType, notes = null) =>
+    apiClient.post(`/user/access-requests/${requestId}/approve`, {
+      grant_type: grantType,
+      notes: notes || null,
+    }),
+
+  /**
+   * Reject a pending request. Admin only.
+   */
+  reject: (requestId, notes = null) =>
+    apiClient.post(`/user/access-requests/${requestId}/reject`, {
+      notes: notes || null,
+    }),
+};
+
+/**
+ * Return true if the given user_info payload grants admin access to the
+ * access-request management page. Admins are: holders of the `ndp_admin`
+ * realm role OR holders of any role ending in `_admin` (which covers the
+ * endpoint-scoped `{UUID}_admin` role).
+ */
+export const isAccessRequestAdmin = (userInfo) => {
+  const roles = userInfo?.roles;
+  if (!Array.isArray(roles)) return false;
+  return roles.some((role) => {
+    if (typeof role !== 'string') return false;
+    const lower = role.trim().toLowerCase();
+    return lower === 'ndp_admin' || lower.endsWith('_admin');
+  });
+};
+
 // Authentication API - Enhanced with proper user info validation
 export const authAPI = {
   /**
@@ -433,10 +509,14 @@ export const authAPI = {
       await authAPI.validateToken(data.access_token);
     } catch (error) {
       if (error.response?.status === 403) {
-        throw new Error(
+        // Propagate the raw token so the caller can offer a
+        // Request-access flow without re-entering credentials.
+        const err = new Error(
           error.response.data?.detail ||
             'You do not have permission to access this Endpoint.'
         );
+        err.deniedToken = data.access_token;
+        throw err;
       }
       if (error.response?.status === 401) {
         throw new Error('Invalid username or password');
@@ -476,10 +556,14 @@ export const authAPI = {
       if (error.response?.status === 401) {
         throw new Error('Invalid token: Authentication failed');
       } else if (error.response?.status === 403) {
-        throw new Error(
+        const err = new Error(
           error.response.data?.detail ||
             'You do not have permission to access this Endpoint.'
         );
+        // Propagate the raw token so the caller can offer a Request-access
+        // flow without forcing the user to re-enter it.
+        err.deniedToken = token.trim();
+        throw err;
       } else if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
         throw new Error('Cannot connect to API server');
       } else {
