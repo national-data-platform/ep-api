@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     swagger_title: str = "API Documentation"
     swagger_description: str = "This is the API documentation."
-    swagger_version: str = "0.12.0"
+    swagger_version: str = "0.13.0"
     root_path: str = ""  # API root path prefix (e.g., "/test" or "")
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"
@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     auth_api_url: str = "https://idp.nationaldataplatform.org/temp/information"
     enable_group_based_access: bool = False
     group_names: str = ""  # Comma-separated list of allowed groups
+
+    # Access-request workflow (user requests entry → admin approves/rejects).
+    # Requires a MongoDB instance reachable via MONGODB_CONNECTION_STRING
+    # (reused from CatalogSettings) when turned on. Kept off by default
+    # so existing deployments without MongoDB keep booting as before.
+    enable_access_requests: bool = False
+    access_requests_collection: str = "access_requests"
 
     model_config = {
         "env_file": ".env",
