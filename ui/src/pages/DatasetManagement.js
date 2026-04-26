@@ -343,6 +343,9 @@ const DatasetManagement = () => {
     setExtrasMode('fields');
     setExtrasPairs([]);
     setExtrasModeError(null);
+    setResourcesMode('fields');
+    setResourcesItems([]);
+    setResourcesModeError(null);
     setEditingDataset(null);
     setShowCreateForm(false);
   };
@@ -355,7 +358,9 @@ const DatasetManagement = () => {
     const extras = extrasMode === 'fields'
       ? pairsToObject(extrasPairs)
       : parseJsonSafely(extrasJson, {});
-    const resources = parseJsonSafely(resourcesJson, []);
+    const resources = resourcesMode === 'fields'
+      ? itemsToResources(resourcesItems)
+      : parseJsonSafely(resourcesJson, []);
 
     // Prepare final data
     const requestData = {
@@ -444,8 +449,9 @@ const DatasetManagement = () => {
     
     // Set JSON fields
     const extras = dataset.extras || {};
+    const resources = dataset.resources || [];
     setExtrasJson(JSON.stringify(extras, null, 2));
-    setResourcesJson(JSON.stringify(dataset.resources || [], null, 2));
+    setResourcesJson(JSON.stringify(resources, null, 2));
 
     // Default the extras editor to guided fields when the data is a flat
     // primitive map; fall back to raw JSON for nested/non-text values.
@@ -457,6 +463,12 @@ const DatasetManagement = () => {
       setExtrasMode('json');
     }
     setExtrasModeError(null);
+
+    // Resources always default to guided cards. Unknown fields are kept in
+    // each item's _extra bucket so they survive the round-trip.
+    setResourcesItems(resourcesToItems(resources));
+    setResourcesMode('fields');
+    setResourcesModeError(null);
 
     setShowCreateForm(true);
   };
