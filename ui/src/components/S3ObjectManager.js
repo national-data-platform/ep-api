@@ -12,7 +12,6 @@ import {
   FolderOpen,
   Eye,
   Link,
-  Clock,
   FileText,
   Image,
   Video,
@@ -95,8 +94,8 @@ const S3ObjectManager = ({ selectedBucket }) => {
         });
       }, 200);
 
-      const response = await s3ObjectAPI.upload(selectedBucket, file, customKey);
-      
+      await s3ObjectAPI.upload(selectedBucket, file, customKey);
+
       clearInterval(progressInterval);
       setUploadProgress(100);
       
