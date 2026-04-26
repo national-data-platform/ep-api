@@ -850,17 +850,135 @@ const DatasetManagement = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Resources (JSON)</label>
-                <textarea
-                  value={resourcesJson}
-                  onChange={(e) => setResourcesJson(e.target.value)}
-                  className="form-input form-textarea"
-                  placeholder='[{"url": "http://example.com/data.csv", "name": "main_data", "format": "CSV"}]'
-                  style={{ fontFamily: 'monospace', fontSize: '0.875rem', minHeight: '120px' }}
-                />
-                <small style={{ color: '#64748b' }}>
-                  List of resources as JSON array
-                </small>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Resources</label>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    onClick={resourcesMode === 'fields' ? switchResourcesToJsonMode : switchResourcesToFieldsMode}
+                  >
+                    {resourcesMode === 'fields' ? 'Advanced (JSON)' : 'Simple fields'}
+                  </button>
+                </div>
+
+                {resourcesMode === 'fields' ? (
+                  <>
+                    {resourcesItems.length === 0 ? (
+                      <small style={{ color: '#64748b', display: 'block', marginBottom: '0.5rem' }}>
+                        No resources. Click "Add resource" to attach one.
+                      </small>
+                    ) : (
+                      resourcesItems.map((item, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            padding: '0.75rem',
+                            marginBottom: '0.5rem',
+                            background: '#f8fafc'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <small style={{ color: '#64748b', fontWeight: 500 }}>
+                              Resource {idx + 1}
+                            </small>
+                            <button
+                              type="button"
+                              onClick={() => removeResourceItem(idx)}
+                              className="btn btn-secondary"
+                              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                              aria-label="Remove resource"
+                            >
+                              <Trash2 size={12} />
+                              Remove
+                            </button>
+                          </div>
+
+                          <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                            <label className="form-label" style={{ fontSize: '0.8rem' }}>URL *</label>
+                            <input
+                              type="text"
+                              value={item.url}
+                              onChange={(e) => updateResourceItem(idx, 'url', e.target.value)}
+                              className="form-input"
+                              placeholder="http://example.com/data.csv"
+                              style={{ padding: '0.5rem' }}
+                            />
+                          </div>
+
+                          <div className="grid grid-2" style={{ marginBottom: '0.5rem' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label" style={{ fontSize: '0.8rem' }}>Name *</label>
+                              <input
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => updateResourceItem(idx, 'name', e.target.value)}
+                                className="form-input"
+                                placeholder="main_data"
+                                style={{ padding: '0.5rem' }}
+                              />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label" style={{ fontSize: '0.8rem' }}>Format</label>
+                              <input
+                                type="text"
+                                value={item.format}
+                                onChange={(e) => updateResourceItem(idx, 'format', e.target.value)}
+                                className="form-input"
+                                placeholder="CSV"
+                                style={{ padding: '0.5rem' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: '0.8rem' }}>Description</label>
+                            <textarea
+                              value={item.description}
+                              onChange={(e) => updateResourceItem(idx, 'description', e.target.value)}
+                              className="form-input"
+                              placeholder="What is in this resource"
+                              style={{ padding: '0.5rem', minHeight: '50px' }}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <button
+                      type="button"
+                      onClick={addResourceItem}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.875rem' }}
+                    >
+                      <Plus size={14} />
+                      Add resource
+                    </button>
+                    <small style={{ color: '#64748b', display: 'block', marginTop: '0.5rem' }}>
+                      Each resource is a downloadable file or link attached to the dataset.
+                    </small>
+                  </>
+                ) : (
+                  <>
+                    <textarea
+                      value={resourcesJson}
+                      onChange={(e) => setResourcesJson(e.target.value)}
+                      className="form-input form-textarea"
+                      placeholder='[{"url": "http://example.com/data.csv", "name": "main_data", "format": "CSV"}]'
+                      style={{ fontFamily: 'monospace', fontSize: '0.875rem', minHeight: '120px' }}
+                    />
+                    <small style={{ color: '#64748b' }}>
+                      List of resources as JSON array. Use this to set fields the simple editor does not expose (mimetype, size, …).
+                    </small>
+                  </>
+                )}
+
+                {resourcesModeError && (
+                  <small style={{ color: '#dc2626', display: 'block', marginTop: '0.5rem' }}>
+                    {resourcesModeError}
+                  </small>
+                )}
               </div>
             </div>
 
