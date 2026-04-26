@@ -51,6 +51,82 @@ const DatasetManagement = () => {
   const [extrasJson, setExtrasJson] = useState('{}');
   const [resourcesJson, setResourcesJson] = useState('[]');
 
+  // Extras editor: 'fields' for guided key/value rows, 'json' for raw JSON
+  const [extrasMode, setExtrasMode] = useState('fields');
+  const [extrasPairs, setExtrasPairs] = useState([]);
+  const [extrasModeError, setExtrasModeError] = useState(null);
+
+  /**
+   * True when value is a flat object whose values are all string/number/boolean/null.
+   * The guided key/value editor can only round-trip this shape; nested objects or
+   * arrays force the user into raw JSON mode.
+   */
+  const isFlatPrimitiveMap = (obj) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+    return Object.values(obj).every((v) =>
+      v === null || ['string', 'number', 'boolean'].includes(typeof v)
+    );
+  };
+
+  const objectToPairs = (obj) => {
+    if (!obj || typeof obj !== 'object') return [];
+    return Object.entries(obj).map(([key, value]) => ({
+      key,
+      value: value === null || value === undefined ? '' : String(value)
+    }));
+  };
+
+  const pairsToObject = (pairs) => {
+    const out = {};
+    for (const { key, value } of pairs) {
+      const trimmed = (key || '').trim();
+      if (trimmed === '') continue;
+      out[trimmed] = value;
+    }
+    return out;
+  };
+
+  const addExtraPair = () => {
+    setExtrasPairs((prev) => [...prev, { key: '', value: '' }]);
+    setExtrasModeError(null);
+  };
+
+  const removeExtraPair = (idx) => {
+    setExtrasPairs((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateExtraPair = (idx, field, value) => {
+    setExtrasPairs((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
+    );
+  };
+
+  const switchToJsonMode = () => {
+    const obj = pairsToObject(extrasPairs);
+    setExtrasJson(JSON.stringify(obj, null, 2));
+    setExtrasMode('json');
+    setExtrasModeError(null);
+  };
+
+  const switchToFieldsMode = () => {
+    let parsed;
+    try {
+      parsed = extrasJson.trim() === '' ? {} : JSON.parse(extrasJson);
+    } catch {
+      setExtrasModeError('Cannot switch to simple fields: the JSON is invalid.');
+      return;
+    }
+    if (!isFlatPrimitiveMap(parsed)) {
+      setExtrasModeError(
+        'Cannot switch to simple fields: this metadata has nested or non-text values. Stay in advanced mode to edit it.'
+      );
+      return;
+    }
+    setExtrasPairs(objectToPairs(parsed));
+    setExtrasMode('fields');
+    setExtrasModeError(null);
+  };
+
   /**
    * Fetch organizations for dropdown
    */
