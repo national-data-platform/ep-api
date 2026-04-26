@@ -825,17 +825,88 @@ const DatasetManagement = () => {
             {/* Advanced Configuration */}
             <div className="grid grid-2">
               <div className="form-group">
-                <label className="form-label">Extras (JSON)</label>
-                <textarea
-                  value={extrasJson}
-                  onChange={(e) => setExtrasJson(e.target.value)}
-                  className="form-input form-textarea"
-                  placeholder='{"version": "1.0", "project": "research"}'
-                  style={{ fontFamily: 'monospace', fontSize: '0.875rem', minHeight: '120px' }}
-                />
-                <small style={{ color: '#64748b' }}>
-                  Additional metadata as JSON
-                </small>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Extras</label>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    onClick={extrasMode === 'fields' ? switchToJsonMode : switchToFieldsMode}
+                  >
+                    {extrasMode === 'fields' ? 'Advanced (JSON)' : 'Simple fields'}
+                  </button>
+                </div>
+
+                {extrasMode === 'fields' ? (
+                  <>
+                    {extrasPairs.length === 0 ? (
+                      <small style={{ color: '#64748b', display: 'block', marginBottom: '0.5rem' }}>
+                        No extra metadata. Click "Add field" to add one.
+                      </small>
+                    ) : (
+                      extrasPairs.map((pair, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                          <input
+                            type="text"
+                            value={pair.key}
+                            onChange={(e) => updateExtraPair(idx, 'key', e.target.value)}
+                            placeholder="Key"
+                            className="form-input"
+                            style={{ flex: 1 }}
+                          />
+                          <input
+                            type="text"
+                            value={pair.value}
+                            onChange={(e) => updateExtraPair(idx, 'value', e.target.value)}
+                            placeholder="Value"
+                            className="form-input"
+                            style={{ flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExtraPair(idx)}
+                            className="btn btn-secondary"
+                            style={{ padding: '0.5rem' }}
+                            aria-label="Remove field"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                    <button
+                      type="button"
+                      onClick={addExtraPair}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.875rem' }}
+                    >
+                      <Plus size={14} />
+                      Add field
+                    </button>
+                    <small style={{ color: '#64748b', display: 'block', marginTop: '0.5rem' }}>
+                      Additional metadata as key/value pairs.
+                    </small>
+                  </>
+                ) : (
+                  <>
+                    <textarea
+                      value={extrasJson}
+                      onChange={(e) => setExtrasJson(e.target.value)}
+                      className="form-input form-textarea"
+                      placeholder='{"version": "1.0", "project": "research"}'
+                      style={{ fontFamily: 'monospace', fontSize: '0.875rem', minHeight: '120px' }}
+                    />
+                    <small style={{ color: '#64748b' }}>
+                      Additional metadata as JSON. Use this for nested or non-text values.
+                    </small>
+                  </>
+                )}
+
+                {extrasModeError && (
+                  <small style={{ color: '#dc2626', display: 'block', marginTop: '0.5rem' }}>
+                    {extrasModeError}
+                  </small>
+                )}
               </div>
 
               <div className="form-group">
