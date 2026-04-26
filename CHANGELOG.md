@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-04-26
+
+### Changed
+- Dataset Management page: the "Extras" input on the Create/Edit dataset form no longer requires the user to write JSON
+  - Default editor is a guided list of key/value rows with Add/Remove controls, so users unfamiliar with JSON can still attach metadata
+  - An "Advanced (JSON)" toggle still exposes the raw textarea for nested or non-text values that the simple fields cannot represent
+  - When editing an existing dataset whose extras are a flat primitive map, the editor opens in the guided fields mode pre-populated with the current pairs; nested or non-text values open in the advanced JSON mode instead
+  - Switching back from JSON to fields is blocked with an inline message when the JSON is invalid or contains nested/non-text values, so the user is never silently downgraded
+
+### Removed
+- UI dead code: the unused client-side `handleSendToPreCkan` flow and the unused `getDatasetTypeBadge` helper in `DatasetManagement` were removed; the Pre-CKAN publish workflow is fully driven from the backend (see 0.14.0)
+
+### Fixed
+- Outstanding ESLint warnings in the UI build (`Navigation`, `S3ObjectManager`, `S3Resources`, `Organizations`) were cleaned up so the production build now compiles without warnings
+
 ## [0.14.0] - 2026-04-26
 
 ### Changed
