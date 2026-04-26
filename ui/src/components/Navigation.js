@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Home,
   Building2,
@@ -22,7 +22,6 @@ import { isAccessRequestAdmin, userAPI } from '../services/api';
  * Gray background with improved dropdown logic that always closes properly
  */
 const Navigation = () => {
-  const location = useLocation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);

@@ -51,6 +51,82 @@ const DatasetManagement = () => {
   const [extrasJson, setExtrasJson] = useState('{}');
   const [resourcesJson, setResourcesJson] = useState('[]');
 
+  // Extras editor: 'fields' for guided key/value rows, 'json' for raw JSON
+  const [extrasMode, setExtrasMode] = useState('fields');
+  const [extrasPairs, setExtrasPairs] = useState([]);
+  const [extrasModeError, setExtrasModeError] = useState(null);
+
+  /**
+   * True when value is a flat object whose values are all string/number/boolean/null.
+   * The guided key/value editor can only round-trip this shape; nested objects or
+   * arrays force the user into raw JSON mode.
+   */
+  const isFlatPrimitiveMap = (obj) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+    return Object.values(obj).every((v) =>
+      v === null || ['string', 'number', 'boolean'].includes(typeof v)
+    );
+  };
+
+  const objectToPairs = (obj) => {
+    if (!obj || typeof obj !== 'object') return [];
+    return Object.entries(obj).map(([key, value]) => ({
+      key,
+      value: value === null || value === undefined ? '' : String(value)
+    }));
+  };
+
+  const pairsToObject = (pairs) => {
+    const out = {};
+    for (const { key, value } of pairs) {
+      const trimmed = (key || '').trim();
+      if (trimmed === '') continue;
+      out[trimmed] = value;
+    }
+    return out;
+  };
+
+  const addExtraPair = () => {
+    setExtrasPairs((prev) => [...prev, { key: '', value: '' }]);
+    setExtrasModeError(null);
+  };
+
+  const removeExtraPair = (idx) => {
+    setExtrasPairs((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateExtraPair = (idx, field, value) => {
+    setExtrasPairs((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
+    );
+  };
+
+  const switchToJsonMode = () => {
+    const obj = pairsToObject(extrasPairs);
+    setExtrasJson(JSON.stringify(obj, null, 2));
+    setExtrasMode('json');
+    setExtrasModeError(null);
+  };
+
+  const switchToFieldsMode = () => {
+    let parsed;
+    try {
+      parsed = extrasJson.trim() === '' ? {} : JSON.parse(extrasJson);
+    } catch {
+      setExtrasModeError('Cannot switch to simple fields: the JSON is invalid.');
+      return;
+    }
+    if (!isFlatPrimitiveMap(parsed)) {
+      setExtrasModeError(
+        'Cannot switch to simple fields: this metadata has nested or non-text values. Stay in advanced mode to edit it.'
+      );
+      return;
+    }
+    setExtrasPairs(objectToPairs(parsed));
+    setExtrasMode('fields');
+    setExtrasModeError(null);
+  };
+
   /**
    * Fetch organizations for dropdown
    */
@@ -168,6 +244,9 @@ const DatasetManagement = () => {
     });
     setExtrasJson('{}');
     setResourcesJson('[]');
+    setExtrasMode('fields');
+    setExtrasPairs([]);
+    setExtrasModeError(null);
     setEditingDataset(null);
     setShowCreateForm(false);
   };
@@ -177,7 +256,9 @@ const DatasetManagement = () => {
    */
   const prepareFormData = () => {
     // Parse JSON fields
-    const extras = parseJsonSafely(extrasJson, {});
+    const extras = extrasMode === 'fields'
+      ? pairsToObject(extrasPairs)
+      : parseJsonSafely(extrasJson, {});
     const resources = parseJsonSafely(resourcesJson, []);
 
     // Prepare final data
@@ -266,160 +347,22 @@ const DatasetManagement = () => {
     });
     
     // Set JSON fields
-    setExtrasJson(JSON.stringify(dataset.extras || {}, null, 2));
+    const extras = dataset.extras || {};
+    setExtrasJson(JSON.stringify(extras, null, 2));
     setResourcesJson(JSON.stringify(dataset.resources || [], null, 2));
+
+    // Default the extras editor to guided fields when the data is a flat
+    // primitive map; fall back to raw JSON for nested/non-text values.
+    if (isFlatPrimitiveMap(extras)) {
+      setExtrasPairs(objectToPairs(extras));
+      setExtrasMode('fields');
+    } else {
+      setExtrasPairs([]);
+      setExtrasMode('json');
+    }
+    setExtrasModeError(null);
+
     setShowCreateForm(true);
-  };
-
-  /**
-   * Handle sending dataset to pre-ckan server
-   */
-  const handleSendToPreCkan = async (dataset) => {
-    const displayName = dataset.title || dataset.name || 'Unnamed Dataset';
-    
-    if (!window.confirm(
-      `Send dataset "${displayName}" to Pre-CKAN server? This will create a copy of the dataset on the pre-ckan server with required Pre-CKAN metadata.`
-    )) {
-      return;
-    }
-
-    try {
-      setError(null);
-      setSuccess(null);
-      
-      // Debug: Log the dataset being sent
-      console.log('Attempting to send dataset to pre-ckan:', dataset);
-      
-      // Prepare the dataset data for pre-ckan with all required fields
-      const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-      const existingExtras = dataset.extras || {};
-      
-      // Ensure all required Pre-CKAN fields are present
-      const datasetForPreCkan = {
-        name: dataset.name,
-        title: dataset.title,
-        owner_org: dataset.owner_org,
-        // Required: notes
-        notes: dataset.notes || 'Dataset transferred from local CKAN server',
-        // Optional fields
-        version: dataset.version,
-        // Required and optional extras for Pre-CKAN
-        extras: {
-          // Keep existing extras
-          ...existingExtras,
-          // Required Pre-CKAN extras
-          uploadType: existingExtras.uploadType || 'manual',
-          dataType: existingExtras.dataType || 'dataset',
-          purpose: existingExtras.purpose || 'Data sharing and analysis',
-          publisherName: existingExtras.publisherName || 'Local CKAN Administrator',
-          publisherEmail: existingExtras.publisherEmail || 'admin@example.com',
-          creatorName: existingExtras.creatorName || 'Local CKAN System',
-          creatorEmail: existingExtras.creatorEmail || 'system@example.com',
-          pocName: existingExtras.pocName || 'Local CKAN Administrator',
-          pocEmail: existingExtras.pocEmail || 'admin@example.com',
-          otherLicense: existingExtras.otherLicense || 'Standard license terms apply',
-          issueDate: existingExtras.issueDate || currentDate,
-          lastUpdateDate: existingExtras.lastUpdateDate || currentDate
-        },
-        // Required: resources with required fields
-        resources: (dataset.resources && dataset.resources.length > 0) 
-          ? dataset.resources.map(resource => {
-              console.log('Processing resource:', resource); // Debug log
-              return {
-                url: resource.url || 'http://example.com/placeholder',
-                // Required resource fields for Pre-CKAN
-                name: resource.name || 'Transferred Resource',
-                description: resource.description || 'Resource transferred from local CKAN server',
-                mimetype: resource.mimetype || resource.format 
-                  ? `application/${(resource.format || 'octet-stream').toLowerCase()}`
-                  : 'application/octet-stream',
-                status: resource.status || 'active',
-                // Optional resource fields
-                format: resource.format || 'Unknown'
-              };
-            })
-          : [
-              // Default placeholder resource if none exist
-              {
-                url: 'http://example.com/placeholder',
-                name: 'Placeholder Resource',
-                description: 'This dataset was transferred without resources from local CKAN',
-                mimetype: 'text/plain',
-                status: 'active',
-                format: 'TXT'
-              }
-            ]
-      };
-      
-      // If no resources exist, add a placeholder
-      if (!datasetForPreCkan.resources || datasetForPreCkan.resources.length === 0) {
-        datasetForPreCkan.resources = [{
-          url: 'http://example.com/placeholder',
-          name: 'Placeholder Resource',
-          description: 'This dataset was transferred without resources from local CKAN',
-          mimetype: 'text/plain',
-          status: 'active',
-          format: 'TXT'
-        }];
-      }
-      
-      // Debug: Log each resource to verify required fields
-      console.log('Final resources being sent to Pre-CKAN:');
-      datasetForPreCkan.resources.forEach((resource, index) => {
-        console.log(`Resource ${index + 1}:`, {
-          name: resource.name,
-          description: resource.description,
-          mimetype: resource.mimetype,
-          status: resource.status,
-          url: resource.url,
-          format: resource.format
-        });
-      });
-      
-      console.log('Sending dataset to pre-ckan with Pre-CKAN required fields:');
-      console.log('Dataset basics:', {
-        name: datasetForPreCkan.name,
-        title: datasetForPreCkan.title,
-        notes: datasetForPreCkan.notes,
-        license_id: datasetForPreCkan.license_id
-      });
-      console.log('Dataset extras:', datasetForPreCkan.extras);
-      console.log('Dataset resources count:', datasetForPreCkan.resources.length);
-      
-      // Send to pre-ckan server
-      await generalDatasetAPI.create(datasetForPreCkan, 'pre_ckan');
-      
-      setSuccess(`Dataset "${displayName}" sent to Pre-CKAN server successfully! Note: Some fields were auto-filled to meet Pre-CKAN requirements.`);
-      
-    } catch (err) {
-      console.error('Error sending dataset to pre-ckan:', err);
-      console.error('Full error object:', err);
-      console.error('Error response:', err.response);
-      
-      let errorMessage = 'Failed to send dataset to Pre-CKAN: ';
-      
-      if (err.response?.status === 409) {
-        errorMessage += `Dataset "${displayName}" already exists on Pre-CKAN server.`;
-      } else if (err.response?.status === 400) {
-        const detail = err.response?.data?.detail || 'Unknown validation error';
-        errorMessage += 'Invalid dataset data. ' + detail;
-        
-        // If it's still missing fields, show which ones
-        if (detail.includes('Missing required fields')) {
-          errorMessage += '\n\nTip: Some Pre-CKAN fields may need to be manually configured. Please check the Pre-CKAN documentation for specific requirements.';
-        }
-      } else if (err.response?.status === 401) {
-        errorMessage += 'Authentication required. Please login again.';
-      } else if (err.response?.status === 403) {
-        errorMessage += 'You do not have permission to create datasets on Pre-CKAN server.';
-      } else if (err.response?.status === 404) {
-        errorMessage += 'Pre-CKAN server is not available or configured.';
-      } else {
-        errorMessage += (err.response?.data?.detail || err.message);
-      }
-      
-      setError(errorMessage);
-    }
   };
 
   /**
@@ -471,23 +414,6 @@ const DatasetManagement = () => {
       
       setError(errorMessage);
     }
-  };
-
-  /**
-   * Get dataset type badge
-   */
-  const getDatasetTypeBadge = (dataset) => {
-    const extras = dataset.extras || {};
-    
-    // Check for specific resource types
-    if (dataset.resources && dataset.resources.length > 0) {
-      const resource = dataset.resources[0];
-      if (extras.kafka_topic) return { type: 'Kafka', color: 'status-info' };
-      if (resource.url && resource.url.startsWith('s3://')) return { type: 'S3', color: 'status-warning' };
-      if (resource.url) return { type: 'URL', color: 'status-success' };
-    }
-    
-    return { type: 'General', color: 'status-info' };
   };
 
   /**
@@ -731,17 +657,88 @@ const DatasetManagement = () => {
             {/* Advanced Configuration */}
             <div className="grid grid-2">
               <div className="form-group">
-                <label className="form-label">Extras (JSON)</label>
-                <textarea
-                  value={extrasJson}
-                  onChange={(e) => setExtrasJson(e.target.value)}
-                  className="form-input form-textarea"
-                  placeholder='{"version": "1.0", "project": "research"}'
-                  style={{ fontFamily: 'monospace', fontSize: '0.875rem', minHeight: '120px' }}
-                />
-                <small style={{ color: '#64748b' }}>
-                  Additional metadata as JSON
-                </small>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Extras</label>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    onClick={extrasMode === 'fields' ? switchToJsonMode : switchToFieldsMode}
+                  >
+                    {extrasMode === 'fields' ? 'Advanced (JSON)' : 'Simple fields'}
+                  </button>
+                </div>
+
+                {extrasMode === 'fields' ? (
+                  <>
+                    {extrasPairs.length === 0 ? (
+                      <small style={{ color: '#64748b', display: 'block', marginBottom: '0.5rem' }}>
+                        No extra metadata. Click "Add field" to add one.
+                      </small>
+                    ) : (
+                      extrasPairs.map((pair, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                          <input
+                            type="text"
+                            value={pair.key}
+                            onChange={(e) => updateExtraPair(idx, 'key', e.target.value)}
+                            placeholder="Key"
+                            className="form-input"
+                            style={{ flex: 1 }}
+                          />
+                          <input
+                            type="text"
+                            value={pair.value}
+                            onChange={(e) => updateExtraPair(idx, 'value', e.target.value)}
+                            placeholder="Value"
+                            className="form-input"
+                            style={{ flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExtraPair(idx)}
+                            className="btn btn-secondary"
+                            style={{ padding: '0.5rem' }}
+                            aria-label="Remove field"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                    <button
+                      type="button"
+                      onClick={addExtraPair}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.875rem' }}
+                    >
+                      <Plus size={14} />
+                      Add field
+                    </button>
+                    <small style={{ color: '#64748b', display: 'block', marginTop: '0.5rem' }}>
+                      Additional metadata as key/value pairs.
+                    </small>
+                  </>
+                ) : (
+                  <>
+                    <textarea
+                      value={extrasJson}
+                      onChange={(e) => setExtrasJson(e.target.value)}
+                      className="form-input form-textarea"
+                      placeholder='{"version": "1.0", "project": "research"}'
+                      style={{ fontFamily: 'monospace', fontSize: '0.875rem', minHeight: '120px' }}
+                    />
+                    <small style={{ color: '#64748b' }}>
+                      Additional metadata as JSON. Use this for nested or non-text values.
+                    </small>
+                  </>
+                )}
+
+                {extrasModeError && (
+                  <small style={{ color: '#dc2626', display: 'block', marginTop: '0.5rem' }}>
+                    {extrasModeError}
+                  </small>
+                )}
               </div>
 
               <div className="form-group">
@@ -814,7 +811,6 @@ const DatasetManagement = () => {
               </thead>
               <tbody>
                 {datasets.map((dataset, index) => {
-                  const typeBadge = getDatasetTypeBadge(dataset);
                   const isExpanded = expandedDatasets[dataset.id];
                   const hasResources = dataset.resources && dataset.resources.length > 0;
 

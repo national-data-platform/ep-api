@@ -27,6 +27,10 @@ const Organizations = () => {
    */
   useEffect(() => {
     fetchOrganizations();
+    // fetchOrganizations is defined inline and reads searchTerm at call time;
+    // the effect should only re-run when the server changes, so we leave the
+    // function out of the deps to avoid a fetch on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedServer]);
 
   /**

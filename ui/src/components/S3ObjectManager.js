@@ -12,7 +12,6 @@ import {
   FolderOpen,
   Eye,
   Link,
-  Clock,
   FileText,
   Image,
   Video,
@@ -62,6 +61,10 @@ const S3ObjectManager = ({ selectedBucket }) => {
     } else {
       setObjects([]);
     }
+    // searchPrefix is read intentionally without subscribing to it: the
+    // search button drives prefix-based refetches; this effect only needs
+    // to react to bucket changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBucket, fetchObjects]);
 
   const handleSearch = () => {
@@ -95,8 +98,8 @@ const S3ObjectManager = ({ selectedBucket }) => {
         });
       }, 200);
 
-      const response = await s3ObjectAPI.upload(selectedBucket, file, customKey);
-      
+      await s3ObjectAPI.upload(selectedBucket, file, customKey);
+
       clearInterval(progressInterval);
       setUploadProgress(100);
       

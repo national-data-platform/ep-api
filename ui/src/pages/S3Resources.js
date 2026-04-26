@@ -329,7 +329,7 @@ const S3Resources = () => {
         const match = url.match(/https:\/\/([^.]+)\.s3/);
         if (match) return match[1];
         
-        const bucketMatch = url.match(/amazonaws\.com\/([^\/]+)/);
+        const bucketMatch = url.match(/amazonaws\.com\/([^/]+)/);
         if (bucketMatch) return bucketMatch[1];
       }
     } catch (e) {
