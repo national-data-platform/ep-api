@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-04-26
+
+### Changed
+- Dataset Management page: the "Resources" input on the Create/Edit dataset form no longer requires the user to write JSON
+  - Default editor is a guided list of resource cards with URL, Name, Format and Description inputs and Add/Remove controls, mirroring the field set already exposed by the inline resource editor on the dataset detail row
+  - An "Advanced (JSON)" toggle still exposes the raw textarea for resources that need fields the simple editor does not show (mimetype, size, …)
+  - When editing an existing dataset, each resource is loaded into a card and any non-canonical fields it carries are preserved on save, so a fields-mode round-trip never silently drops data
+  - Switching back from JSON to fields is blocked with an inline message when the JSON is invalid, is not an array, or contains non-object items, so the user is never silently downgraded
+
 ## [0.15.1] - 2026-04-26
 
 ### Fixed
