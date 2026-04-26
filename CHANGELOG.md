@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-04-26
+
+### Fixed
+- `example.env` now documents `CKAN_VERIFY_SSL` and `PRE_CKAN_VERIFY_SSL`, the existing settings that toggle TLS certificate verification for the local CKAN and Pre-CKAN instances. Both default to `True` in code, so behavior is unchanged; this only makes the option discoverable for operators running against a self-signed CKAN.
+
 ## [0.15.0] - 2026-04-26
 
 ### Changed
