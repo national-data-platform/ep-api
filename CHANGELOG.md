@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-04-26
+
+### Changed
+- `POST /dataset/{dataset_id}/publish` now marks both the local dataset and the Pre-CKAN copy with a `status=submitted` entry in their `extras`, so an Endpoint can tell which of its datasets are pending review and Pre-CKAN reviewers can identify newly submitted datasets in their queue
+  - The status is stored as a CKAN-style extra (`{"key": "status", "value": "submitted"}`) alongside any existing extras (`ndp_user_id`, `ndp_group_id`, `ndp_creator_md5`, user-provided extras)
+  - Re-publishing a dataset that already had a `status` entry (for example `approved` or `rejected`) replaces it with `submitted`, since this represents a fresh submission to the review queue
+  - If creating the dataset in Pre-CKAN fails, the local dataset is left untouched
+  - If the local update fails after a successful Pre-CKAN creation, the failure is logged as a warning and the publish still returns success — the Pre-CKAN copy is the source of truth for the review workflow
+
 ## [0.13.0] - 2026-04-23
 
 ### Added

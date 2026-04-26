@@ -27,6 +27,27 @@ EXCLUDED_FIELDS = {
     "organization",
 }
 
+SUBMITTED_STATUS_EXTRA = {"key": "status", "value": "submitted"}
+
+
+def _with_submitted_status(
+    extras: Optional[List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    """
+    Return a new extras list carrying ``status=submitted``.
+
+    Any pre-existing ``status`` entry is dropped so that re-publishing a
+    previously approved or rejected dataset always resets it to a fresh
+    submission.
+    """
+    cleaned = [
+        extra
+        for extra in (extras or [])
+        if not (isinstance(extra, dict) and extra.get("key") == "status")
+    ]
+    cleaned.append(dict(SUBMITTED_STATUS_EXTRA))
+    return cleaned
+
 
 def publish_dataset_to_preckan(
     dataset_id: str,
@@ -105,6 +126,11 @@ def publish_dataset_to_preckan(
                     f"Could not resolve owner_org '{owner_org}', using as-is"
                 )
 
+    # Mark the Pre-CKAN copy as freshly submitted for review. Any previous
+    # status entry is dropped so re-published datasets always go back to
+    # the start of the review queue.
+    dataset_dict["extras"] = _with_submitted_status(dataset_dict.get("extras"))
+
     # Extract resources to create separately
     resources = dataset_dict.pop("resources", [])
 
@@ -153,6 +179,21 @@ def publish_dataset_to_preckan(
                 "does not exist in PRE-CKAN. Create it first."
             )
         raise Exception(f"Error creating dataset in PRE-CKAN: {error_msg}")
+
+    # Mirror the submitted status on the local dataset so the originating
+    # Endpoint can tell which of its datasets are already pending review.
+    # A failure here must not undo the Pre-CKAN creation, so it is logged
+    # and swallowed.
+    try:
+        local_repository.package_patch(
+            id=dataset_id,
+            extras=_with_submitted_status(dataset.get("extras")),
+        )
+        logger.info(f"Local dataset '{dataset_id}' marked as submitted in extras")
+    except Exception as exc:
+        logger.warning(
+            f"Failed to mark local dataset '{dataset_id}' as submitted: " f"{str(exc)}"
+        )
 
     # Create resources in PRE-CKAN
     for resource in cleaned_resources:
