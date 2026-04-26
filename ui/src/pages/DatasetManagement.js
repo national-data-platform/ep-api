@@ -417,23 +417,6 @@ const DatasetManagement = () => {
   };
 
   /**
-   * Get dataset type badge
-   */
-  const getDatasetTypeBadge = (dataset) => {
-    const extras = dataset.extras || {};
-    
-    // Check for specific resource types
-    if (dataset.resources && dataset.resources.length > 0) {
-      const resource = dataset.resources[0];
-      if (extras.kafka_topic) return { type: 'Kafka', color: 'status-info' };
-      if (resource.url && resource.url.startsWith('s3://')) return { type: 'S3', color: 'status-warning' };
-      if (resource.url) return { type: 'URL', color: 'status-success' };
-    }
-    
-    return { type: 'General', color: 'status-info' };
-  };
-
-  /**
    * Toggle dataset expansion to show/hide resources
    */
   const toggleDatasetExpansion = (datasetId) => {
@@ -828,7 +811,6 @@ const DatasetManagement = () => {
               </thead>
               <tbody>
                 {datasets.map((dataset, index) => {
-                  const typeBadge = getDatasetTypeBadge(dataset);
                   const isExpanded = expandedDatasets[dataset.id];
                   const hasResources = dataset.resources && dataset.resources.length > 0;
 
