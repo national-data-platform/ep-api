@@ -244,6 +244,9 @@ const DatasetManagement = () => {
     });
     setExtrasJson('{}');
     setResourcesJson('[]');
+    setExtrasMode('fields');
+    setExtrasPairs([]);
+    setExtrasModeError(null);
     setEditingDataset(null);
     setShowCreateForm(false);
   };
@@ -253,7 +256,9 @@ const DatasetManagement = () => {
    */
   const prepareFormData = () => {
     // Parse JSON fields
-    const extras = parseJsonSafely(extrasJson, {});
+    const extras = extrasMode === 'fields'
+      ? pairsToObject(extrasPairs)
+      : parseJsonSafely(extrasJson, {});
     const resources = parseJsonSafely(resourcesJson, []);
 
     // Prepare final data
@@ -342,8 +347,21 @@ const DatasetManagement = () => {
     });
     
     // Set JSON fields
-    setExtrasJson(JSON.stringify(dataset.extras || {}, null, 2));
+    const extras = dataset.extras || {};
+    setExtrasJson(JSON.stringify(extras, null, 2));
     setResourcesJson(JSON.stringify(dataset.resources || [], null, 2));
+
+    // Default the extras editor to guided fields when the data is a flat
+    // primitive map; fall back to raw JSON for nested/non-text values.
+    if (isFlatPrimitiveMap(extras)) {
+      setExtrasPairs(objectToPairs(extras));
+      setExtrasMode('fields');
+    } else {
+      setExtrasPairs([]);
+      setExtrasMode('json');
+    }
+    setExtrasModeError(null);
+
     setShowCreateForm(true);
   };
 
