@@ -127,6 +127,102 @@ const DatasetManagement = () => {
     setExtrasModeError(null);
   };
 
+  // Resources editor: 'fields' for guided cards, 'json' for raw JSON array
+  const [resourcesMode, setResourcesMode] = useState('fields');
+  const [resourcesItems, setResourcesItems] = useState([]);
+  const [resourcesModeError, setResourcesModeError] = useState(null);
+
+  // The guided editor exposes the canonical resource fields. Anything else
+  // present on a loaded resource (mimetype, size, server-managed ids, …) is
+  // kept untouched in `_extra` so a fields-mode round-trip never drops data.
+  const SIMPLE_RESOURCE_FIELDS = ['name', 'url', 'format', 'description'];
+
+  const emptyResourceItem = () => ({
+    name: '',
+    url: '',
+    format: '',
+    description: '',
+    _extra: {}
+  });
+
+  const resourceToItem = (resource) => {
+    const item = emptyResourceItem();
+    if (!resource || typeof resource !== 'object') return item;
+    for (const [key, value] of Object.entries(resource)) {
+      if (SIMPLE_RESOURCE_FIELDS.includes(key)) {
+        item[key] = value === null || value === undefined ? '' : String(value);
+      } else {
+        item._extra[key] = value;
+      }
+    }
+    return item;
+  };
+
+  const itemToResource = (item) => {
+    const out = { ...(item._extra || {}) };
+    for (const f of SIMPLE_RESOURCE_FIELDS) {
+      if (item[f] !== undefined && item[f] !== null && item[f] !== '') {
+        out[f] = item[f];
+      }
+    }
+    return out;
+  };
+
+  const resourcesToItems = (resources) => {
+    if (!Array.isArray(resources)) return [];
+    return resources.map(resourceToItem);
+  };
+
+  const itemsToResources = (items) =>
+    items.map(itemToResource).filter((r) => Object.keys(r).length > 0);
+
+  const addResourceItem = () => {
+    setResourcesItems((prev) => [...prev, emptyResourceItem()]);
+    setResourcesModeError(null);
+  };
+
+  const removeResourceItem = (idx) => {
+    setResourcesItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateResourceItem = (idx, field, value) => {
+    setResourcesItems((prev) =>
+      prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r))
+    );
+  };
+
+  const switchResourcesToJsonMode = () => {
+    const arr = itemsToResources(resourcesItems);
+    setResourcesJson(JSON.stringify(arr, null, 2));
+    setResourcesMode('json');
+    setResourcesModeError(null);
+  };
+
+  const switchResourcesToFieldsMode = () => {
+    let parsed;
+    try {
+      parsed = resourcesJson.trim() === '' ? [] : JSON.parse(resourcesJson);
+    } catch {
+      setResourcesModeError('Cannot switch to simple fields: the JSON is invalid.');
+      return;
+    }
+    if (!Array.isArray(parsed)) {
+      setResourcesModeError(
+        'Cannot switch to simple fields: resources must be a JSON array.'
+      );
+      return;
+    }
+    if (!parsed.every((r) => r && typeof r === 'object' && !Array.isArray(r))) {
+      setResourcesModeError(
+        'Cannot switch to simple fields: every resource must be a JSON object.'
+      );
+      return;
+    }
+    setResourcesItems(resourcesToItems(parsed));
+    setResourcesMode('fields');
+    setResourcesModeError(null);
+  };
+
   /**
    * Fetch organizations for dropdown
    */
