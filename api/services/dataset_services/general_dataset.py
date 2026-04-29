@@ -1,5 +1,6 @@
 # api/services/dataset_services/general_dataset.py
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from api.config.catalog_settings import catalog_settings
@@ -74,8 +75,16 @@ def create_general_dataset(
 
     Returns
     -------
-    str
-        The ID of the newly created dataset.
+    Dict[str, Any]
+        A dictionary with keys:
+        - ``id``: The ID of the newly created dataset.
+        - ``name``: The final name stored (may differ from ``name`` if a
+          duplicate was detected and a timestamp suffix was appended).
+        - ``title``: The final title stored (suffixed with a timestamp when
+          a duplicate name caused an automatic rename).
+        - ``warning``: ``None`` when the dataset was created with the
+          requested name, or a human-readable message explaining the
+          automatic rename when the requested name was already in use.
 
     Raises
     ------
@@ -132,12 +141,40 @@ def create_general_dataset(
     if extras:
         dataset_dict["extras"] = [{"key": k, "value": v} for k, v in extras.items()]
 
-    # Create the dataset
+    # Create the dataset. If the catalog reports that the name (or its
+    # derived URL) is already in use, retry once with a timestamp suffix so
+    # the request keeps succeeding and the caller is informed via a warning.
+    final_name = name
+    final_title = title
+    warning: Optional[str] = None
     try:
         dataset = repository.package_create(**dataset_dict)
         dataset_id = dataset["id"]
     except Exception as exc:
-        raise Exception(f"Error creating general dataset: {str(exc)}")
+        error_msg = str(exc)
+        if (
+            "That name is already in use" in error_msg
+            or "That URL is already in use" in error_msg
+        ):
+            now = datetime.now()
+            slug_suffix = now.strftime("%Y%m%d%H%M%S")
+            human_suffix = now.strftime("%Y-%m-%d %H:%M:%S")
+            final_name = f"{name}-{slug_suffix}"
+            final_title = f"{title} ({human_suffix})"
+            dataset_dict["name"] = final_name
+            dataset_dict["title"] = final_title
+            warning = (
+                f"A dataset named '{name}' already exists. "
+                f"This dataset was saved as '{final_name}' "
+                f"with title '{final_title}'."
+            )
+            try:
+                dataset = repository.package_create(**dataset_dict)
+                dataset_id = dataset["id"]
+            except Exception as retry_exc:
+                raise Exception(f"Error creating general dataset: {str(retry_exc)}")
+        else:
+            raise Exception(f"Error creating general dataset: {error_msg}")
 
     # Create resources if provided
     if resources:
@@ -149,7 +186,12 @@ def create_general_dataset(
         except Exception as exc:
             raise Exception(f"Error creating dataset resources: {str(exc)}")
 
-    return dataset_id
+    return {
+        "id": dataset_id,
+        "name": final_name,
+        "title": final_title,
+        "warning": warning,
+    }
 
 
 def update_general_dataset(

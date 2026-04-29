@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-04-29
+
+### Changed
+- `POST /dataset` no longer rejects requests whose `name` (or its derived URL) is already in use. Instead, the dataset is created with an automatic timestamp suffix and the response keeps a `201 Created` status while including a `warning` field that explains the rename:
+  - `name` becomes `<original>-<YYYYMMDDHHMMSS>` so it still satisfies CKAN's slug constraint (`^[a-z0-9_-]+$`)
+  - `title` becomes `<original> (YYYY-MM-DD HH:MM:SS)` so the rename is obvious to humans
+  - The response body now also returns the final `name` and `title` so any consumer (UI, CURL, scripts) can detect and surface the rename
+- The previous `409 Conflict` response with a structured `detail` object has been removed from this endpoint, since the duplicate-name case is now handled transparently
+- Dataset Management page: when the backend renames a duplicate dataset, the create form now shows a dedicated yellow warning banner prefixed with "WARNING:" instead of the green success banner, so the user immediately notices that the stored `name` and `title` differ from the ones they submitted
+
+### Fixed
+- Dataset Management page: creating a dataset that triggered a backend error with a structured `detail` payload used to display the meaningless string "Failed to create dataset: [object Object]". A new helper now flattens structured detail objects into a readable message before showing them to the user
+
 ## [0.16.0] - 2026-04-26
 
 ### Changed

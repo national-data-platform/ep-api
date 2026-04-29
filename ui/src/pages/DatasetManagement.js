@@ -15,6 +15,18 @@ import {
 } from 'lucide-react';
 import { organizationsAPI, searchAPI, generalDatasetAPI, datasetAPI, resourcesAPI } from '../services/api';
 
+// Extract a human-readable message from an axios error so we never display
+// the meaningless string "[object Object]" when the backend returns a
+// structured detail payload (e.g. {"error": "...", "detail": "..."}).
+const formatApiError = (err) => {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object') {
+    return detail.detail || detail.error || JSON.stringify(detail);
+  }
+  return err?.message || 'Unknown error';
+};
+
 /**
  * Dataset Management component for creating and managing general datasets
  * Provides full CRUD operations for datasets with flexible schema
@@ -25,6 +37,7 @@ const DatasetManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [warning, setWarning] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingDataset, setEditingDataset] = useState(null);
   const [selectedServer] = useState('local'); // Fixed to local for consistency
@@ -384,23 +397,28 @@ const DatasetManagement = () => {
    */
   const handleCreate = async (e) => {
     e.preventDefault();
-    
+
     try {
       setError(null);
       setSuccess(null);
+      setWarning(null);
       setLoading(true);
 
       const requestData = prepareFormData();
-      await generalDatasetAPI.create(requestData, selectedServer);
+      const response = await generalDatasetAPI.create(requestData, selectedServer);
 
-      setSuccess('Dataset created successfully!');
+      const apiWarning = response?.data?.warning;
+      if (apiWarning) {
+        setWarning(`WARNING: ${apiWarning}`);
+      } else {
+        setSuccess('Dataset created successfully!');
+      }
       resetForm();
       fetchDatasets();
-      
+
     } catch (err) {
       console.error('Error creating dataset:', err);
-      setError('Failed to create dataset: ' + 
-        (err.response?.data?.detail || err.message));
+      setError('Failed to create dataset: ' + formatApiError(err));
     } finally {
       setLoading(false);
     }
@@ -415,6 +433,7 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
+      setWarning(null);
       setLoading(true);
 
       const requestData = prepareFormData();
@@ -488,7 +507,8 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
-      
+      setWarning(null);
+
       // Debug: Log the dataset being deleted
       console.log('Attempting to delete dataset with ID:', dataset.id);
       console.log('Using endpoint: DELETE /resource?resource_id=' + dataset.id + '&server=local');
@@ -580,6 +600,7 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
+      setWarning(null);
 
       await resourcesAPI.patch(editingResource.id, resourceFormData, selectedServer);
 
@@ -609,6 +630,7 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
+      setWarning(null);
 
       await resourcesAPI.deleteById(resource.id, selectedServer);
 
@@ -646,6 +668,13 @@ const DatasetManagement = () => {
       {success && (
         <div className="alert alert-success">
           {success}
+        </div>
+      )}
+
+      {warning && (
+        <div className="alert alert-warning">
+          <AlertCircle size={20} />
+          {warning}
         </div>
       )}
 
