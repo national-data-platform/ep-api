@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-04-29
+
+### Removed
+- Dataset Management, Kafka Topics, URL Resources and S3 Resources pages: the "Controls" card that wrapped the create / refresh buttons (and showed a static "📍 Local Server Only" badge) has been removed. The page header now flows directly into the action buttons, which removes visual weight that was not carrying any function
+
 ## [0.17.0] - 2026-04-29
 
 ### Changed
