@@ -75,10 +75,46 @@ router = APIRouter()
     ),
     responses={
         201: {
-            "description": "Dataset created successfully",
+            "description": (
+                "Dataset created successfully. If the requested name was "
+                "already in use, the dataset is still created with a "
+                "timestamped name and the response includes a 'warning' "
+                "field describing the automatic rename."
+            ),
             "content": {
                 "application/json": {
-                    "example": {"id": "12345678-abcd-efgh-ijkl-1234567890ab"}
+                    "examples": {
+                        "created": {
+                            "summary": "Dataset created with the requested name",
+                            "value": {
+                                "id": "12345678-abcd-efgh-ijkl-1234567890ab",
+                                "name": "my_research_dataset",
+                                "title": "My Research Dataset",
+                                "warning": None,
+                            },
+                        },
+                        "auto_renamed": {
+                            "summary": (
+                                "Dataset created with an auto-generated "
+                                "timestamp suffix because the requested "
+                                "name was already in use"
+                            ),
+                            "value": {
+                                "id": "12345678-abcd-efgh-ijkl-1234567890ab",
+                                "name": "my_research_dataset-20260429143052",
+                                "title": (
+                                    "My Research Dataset " "(2026-04-29 14:30:52)"
+                                ),
+                                "warning": (
+                                    "A dataset named 'my_research_dataset' "
+                                    "already exists. This dataset was saved "
+                                    "as 'my_research_dataset-20260429143052' "
+                                    "with title 'My Research Dataset "
+                                    "(2026-04-29 14:30:52)'."
+                                ),
+                            },
+                        },
+                    }
                 }
             },
         },
@@ -97,19 +133,6 @@ router = APIRouter()
                             "Access forbidden: write operations require "
                             "membership in organization 'Research Group'"
                         )
-                    }
-                }
-            },
-        },
-        409: {
-            "description": "Conflict - Duplicate dataset",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": {
-                            "error": "Duplicate Dataset",
-                            "detail": ("A dataset with the given name already exists."),
-                        }
                     }
                 }
             },
@@ -167,7 +190,6 @@ async def create_general_dataset_endpoint(
     HTTPException
         - 401: Authentication required
         - 403: Organization membership required (if enabled)
-        - 409: Duplicate dataset
         - 400: Invalid parameters, server configuration, or other errors
     """
     try:
@@ -187,7 +209,7 @@ async def create_general_dataset_endpoint(
         if data.resources:
             resources = [resource.dict() for resource in data.resources]
 
-        dataset_id = create_general_dataset(
+        creation_result = create_general_dataset(
             name=data.name,
             title=data.title,
             owner_org=data.owner_org,
@@ -203,14 +225,19 @@ async def create_general_dataset_endpoint(
             user_info=user_info,
         )
 
+        dataset_id = creation_result["id"]
+        final_name = creation_result["name"]
+        final_title = creation_result["title"]
+        warning = creation_result["warning"]
+
         # Register in Affinities (non-blocking, errors are logged)
         affinities_client = AffinitiesClient()
         if affinities_client.is_enabled:
             try:
                 affinity_uuid = await affinities_client.register_dataset(
-                    title=data.title,
+                    title=final_title,
                     metadata={
-                        "name": data.name,
+                        "name": final_name,
                         "owner_org": data.owner_org,
                         "local_id": dataset_id,
                         "notes": data.notes,
@@ -236,7 +263,12 @@ async def create_general_dataset_endpoint(
             except Exception as e:
                 logger.warning(f"Failed to register dataset in Affinities: {e}")
 
-        return {"id": dataset_id}
+        return {
+            "id": dataset_id,
+            "name": final_name,
+            "title": final_title,
+            "warning": warning,
+        }
 
     except ValueError as exc:
         # Handle validation errors
@@ -254,17 +286,6 @@ async def create_general_dataset_endpoint(
         if "No scheme supplied" in error_msg:
             raise HTTPException(
                 status_code=400, detail="Server is not configured or unreachable."
-            )
-        if (
-            "That name is already in use" in error_msg
-            or "That URL is already in use" in error_msg
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "error": "Duplicate Dataset",
-                    "detail": "A dataset with the given name already exists.",
-                },
             )
 
         # Generic error handling

@@ -1,4 +1,6 @@
 # tests/test_general_dataset.py
+import re
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -48,7 +50,12 @@ class TestCreateGeneralDataset:
             repository=mock_repo,
         )
 
-        assert result == "dataset-123"
+        assert result == {
+            "id": "dataset-123",
+            "name": "test_dataset",
+            "title": "Test Dataset",
+            "warning": None,
+        }
         mock_repo.package_create.assert_called_once()
 
         # Verify the call arguments
@@ -80,7 +87,12 @@ class TestCreateGeneralDataset:
             repository=mock_repo,
         )
 
-        assert result == "dataset-456"
+        assert result == {
+            "id": "dataset-456",
+            "name": "complete_dataset",
+            "title": "Complete Dataset",
+            "warning": None,
+        }
 
         # Verify package_create call
         package_call = mock_repo.package_create.call_args[1]
@@ -111,7 +123,12 @@ class TestCreateGeneralDataset:
             repository=custom_repo,
         )
 
-        assert result == "custom-789"
+        assert result == {
+            "id": "custom-789",
+            "name": "custom_dataset",
+            "title": "Custom Dataset",
+            "warning": None,
+        }
         custom_repo.package_create.assert_called_once()
 
     def test_create_invalid_extras_type(self):
@@ -179,7 +196,12 @@ class TestCreateGeneralDataset:
             # No optional fields provided
         )
 
-        assert result == "minimal-123"
+        assert result == {
+            "id": "minimal-123",
+            "name": "minimal_dataset",
+            "title": "Minimal Dataset",
+            "warning": None,
+        }
 
         # Verify only required fields are in the call
         call_args = mock_repo.package_create.call_args[1]
@@ -189,6 +211,102 @@ class TestCreateGeneralDataset:
         assert "tags" not in call_args
         assert "groups" not in call_args
         assert "extras" not in call_args
+
+    def test_create_with_duplicate_name_auto_renames(self):
+        """Duplicate name -> retry once with timestamp suffix and warn."""
+        mock_repo = MagicMock()
+        mock_repo.package_create.side_effect = [
+            Exception("That name is already in use"),
+            {"id": "dataset-renamed-123"},
+        ]
+
+        fixed_now = datetime(2026, 4, 29, 14, 30, 52)
+        with patch(
+            "api.services.dataset_services.general_dataset.datetime"
+        ) as mock_datetime:
+            mock_datetime.now.return_value = fixed_now
+            mock_datetime.strftime = datetime.strftime
+
+            result = create_general_dataset(
+                name="my_dataset",
+                title="My Dataset",
+                owner_org="test_org",
+                repository=mock_repo,
+            )
+
+        assert result == {
+            "id": "dataset-renamed-123",
+            "name": "my_dataset-20260429143052",
+            "title": "My Dataset (2026-04-29 14:30:52)",
+            "warning": (
+                "A dataset named 'my_dataset' already exists. "
+                "This dataset was saved as 'my_dataset-20260429143052' "
+                "with title 'My Dataset (2026-04-29 14:30:52)'."
+            ),
+        }
+        assert mock_repo.package_create.call_count == 2
+        retry_call = mock_repo.package_create.call_args_list[1][1]
+        assert retry_call["name"] == "my_dataset-20260429143052"
+        assert retry_call["title"] == "My Dataset (2026-04-29 14:30:52)"
+        # Generated slug must satisfy CKAN's name format constraints
+        assert re.match(r"^[a-z0-9_-]+$", retry_call["name"])
+
+    def test_create_with_duplicate_url_auto_renames(self):
+        """Duplicate URL (slug) -> same retry-with-timestamp behavior."""
+        mock_repo = MagicMock()
+        mock_repo.package_create.side_effect = [
+            Exception("That URL is already in use"),
+            {"id": "dataset-renamed-456"},
+        ]
+
+        result = create_general_dataset(
+            name="another_dataset",
+            title="Another Dataset",
+            owner_org="test_org",
+            repository=mock_repo,
+        )
+
+        assert result["id"] == "dataset-renamed-456"
+        assert result["name"].startswith("another_dataset-")
+        assert result["title"].startswith("Another Dataset (")
+        assert result["warning"] is not None
+        assert "another_dataset" in result["warning"]
+        assert mock_repo.package_create.call_count == 2
+
+    def test_create_duplicate_retry_failure_propagates(self):
+        """If the second attempt also fails, surface the retry error."""
+        mock_repo = MagicMock()
+        mock_repo.package_create.side_effect = [
+            Exception("That name is already in use"),
+            Exception("Some other catalog error"),
+        ]
+
+        with pytest.raises(
+            Exception, match="Error creating general dataset: Some other catalog error"
+        ):
+            create_general_dataset(
+                name="dup_dataset",
+                title="Dup Dataset",
+                owner_org="test_org",
+                repository=mock_repo,
+            )
+
+    def test_create_non_duplicate_error_does_not_retry(self):
+        """Non-duplicate errors must not trigger a second package_create call."""
+        mock_repo = MagicMock()
+        mock_repo.package_create.side_effect = Exception("Some unrelated CKAN error")
+
+        with pytest.raises(
+            Exception, match="Error creating general dataset: Some unrelated CKAN error"
+        ):
+            create_general_dataset(
+                name="other_dataset",
+                title="Other Dataset",
+                owner_org="test_org",
+                repository=mock_repo,
+            )
+
+        assert mock_repo.package_create.call_count == 1
 
 
 class TestUpdateGeneralDataset:
