@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-04-29
+
+### Removed
+- Dataset Management page: the "Type" column on the datasets table has been removed. The page already filters out URL / S3 / Kafka / Service datasets, so by construction every row was labeled "General" and the column carried no useful signal
+
 ## [0.17.1] - 2026-04-29
 
 ### Removed
