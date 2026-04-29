@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `title` becomes `<original> (YYYY-MM-DD HH:MM:SS)` so the rename is obvious to humans
   - The response body now also returns the final `name` and `title` so any consumer (UI, CURL, scripts) can detect and surface the rename
 - The previous `409 Conflict` response with a structured `detail` object has been removed from this endpoint, since the duplicate-name case is now handled transparently
-- Dataset Management page: the create form now reads the new `warning` field and shows the rename in the success banner instead of just "Dataset created successfully!"
+- Dataset Management page: when the backend renames a duplicate dataset, the create form now shows a dedicated yellow warning banner prefixed with "WARNING:" instead of the green success banner, so the user immediately notices that the stored `name` and `title` differ from the ones they submitted
 
 ### Fixed
 - Dataset Management page: creating a dataset that triggered a backend error with a structured `detail` payload used to display the meaningless string "Failed to create dataset: [object Object]". A new helper now flattens structured detail objects into a readable message before showing them to the user
