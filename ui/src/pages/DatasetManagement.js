@@ -15,6 +15,18 @@ import {
 } from 'lucide-react';
 import { organizationsAPI, searchAPI, generalDatasetAPI, datasetAPI, resourcesAPI } from '../services/api';
 
+// Extract a human-readable message from an axios error so we never display
+// the meaningless string "[object Object]" when the backend returns a
+// structured detail payload (e.g. {"error": "...", "detail": "..."}).
+const formatApiError = (err) => {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object') {
+    return detail.detail || detail.error || JSON.stringify(detail);
+  }
+  return err?.message || 'Unknown error';
+};
+
 /**
  * Dataset Management component for creating and managing general datasets
  * Provides full CRUD operations for datasets with flexible schema
@@ -384,23 +396,27 @@ const DatasetManagement = () => {
    */
   const handleCreate = async (e) => {
     e.preventDefault();
-    
+
     try {
       setError(null);
       setSuccess(null);
       setLoading(true);
 
       const requestData = prepareFormData();
-      await generalDatasetAPI.create(requestData, selectedServer);
+      const response = await generalDatasetAPI.create(requestData, selectedServer);
 
-      setSuccess('Dataset created successfully!');
+      const warning = response?.data?.warning;
+      if (warning) {
+        setSuccess(`Dataset created. ${warning}`);
+      } else {
+        setSuccess('Dataset created successfully!');
+      }
       resetForm();
       fetchDatasets();
-      
+
     } catch (err) {
       console.error('Error creating dataset:', err);
-      setError('Failed to create dataset: ' + 
-        (err.response?.data?.detail || err.message));
+      setError('Failed to create dataset: ' + formatApiError(err));
     } finally {
       setLoading(false);
     }
