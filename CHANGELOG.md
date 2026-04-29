@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-04-29
+
+### Changed
+- UI footer: the displayed version is now read at runtime from the backend's OpenAPI document (`info.version` exposed at `/openapi.json`), so it always matches the deployed API and no longer needs a manual bump on every release. While the version is being fetched, or if the request fails, the footer renders a neutral placeholder
+
+### Removed
+- UI footer: the "© <year> National Data Platform. All rights reserved." line has been removed; the version row now only shows the "NDP EndPoint" label and the live version badge
+
 ## [0.17.2] - 2026-04-29
 
 ### Removed
