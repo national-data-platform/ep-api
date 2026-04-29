@@ -1043,7 +1043,6 @@ const DatasetManagement = () => {
               <thead>
                 <tr>
                   <th>Dataset</th>
-                  <th>Type</th>
                   <th>Organization</th>
                   <th>Resources</th>
                   <th>Actions</th>
@@ -1098,11 +1097,6 @@ const DatasetManagement = () => {
                           </div>
                         </td>
                         <td>
-                          <span className="status-indicator status-info">
-                            General
-                          </span>
-                        </td>
-                        <td>
                           <span className="status-indicator status-success">
                             {dataset.owner_org || 'No organization'}
                           </span>
@@ -1155,7 +1149,7 @@ const DatasetManagement = () => {
                       {/* Expanded Resources Row */}
                       {isExpanded && hasResources && (
                         <tr>
-                          <td colSpan="5" style={{ backgroundColor: '#f8fafc', padding: '1rem' }}>
+                          <td colSpan="4" style={{ backgroundColor: '#f8fafc', padding: '1rem' }}>
                             <div style={{ marginLeft: '1.5rem' }}>
                               <h4 style={{ marginBottom: '0.75rem', color: '#374151', fontSize: '0.9rem' }}>
                                 Resources ({dataset.resources.length})
