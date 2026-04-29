@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-04-29
+
+### Changed
+- `POST /dataset/{dataset_id}/publish` no longer fails when the dataset's `name` is already in use in PRE-CKAN. The publish is retried automatically with a timestamp suffix on both `name` and `title`, mirroring the auto-rename behavior of `POST /dataset`:
+  - `name` becomes `<original>-<YYYYMMDDHHMMSS>` so it still satisfies CKAN's slug constraint (`^[a-z0-9_-]+$`)
+  - `title` becomes `<original> (YYYY-MM-DD HH:MM:SS)` so the rename is obvious to humans
+  - The response keeps a `201 Created` status and now also returns the final `name`, `title` and a `warning` field describing the rename (or `null` when no rename happened)
+  - The local dataset's `status=submitted` mirror is still applied after the (possibly renamed) publish succeeds, so the originating Endpoint can still tell which datasets are pending review
+- Other publish failures (PRE-CKAN disabled, dataset not found locally, organization missing in PRE-CKAN, transport errors) keep their existing semantics and do not trigger the auto-rename retry
+
 ## [0.17.3] - 2026-04-29
 
 ### Changed

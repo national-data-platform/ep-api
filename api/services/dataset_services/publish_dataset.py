@@ -3,6 +3,7 @@
 """Service for publishing datasets from local catalog to PRE-CKAN."""
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from api.config import catalog_settings, ckan_settings
@@ -52,12 +53,17 @@ def _with_submitted_status(
 def publish_dataset_to_preckan(
     dataset_id: str,
     user_info: Optional[Dict[str, Any]] = None,
-) -> str:
+) -> Dict[str, Any]:
     """
     Publish a dataset from local catalog to PRE-CKAN.
 
     This function fetches a dataset from the local catalog and creates
-    a copy in PRE-CKAN with the same metadata and resources.
+    a copy in PRE-CKAN with the same metadata and resources. If PRE-CKAN
+    reports that the ``name`` is already in use (which happens when local
+    CKAN and PRE-CKAN are pointed at the same instance), the publish is
+    retried once with a timestamp suffix on both ``name`` and ``title``,
+    so the publish keeps succeeding and the caller is informed via a
+    warning message.
 
     Parameters
     ----------
@@ -68,8 +74,15 @@ def publish_dataset_to_preckan(
 
     Returns
     -------
-    str
-        The ID of the newly created dataset in PRE-CKAN.
+    Dict[str, Any]
+        A dictionary with keys:
+        - ``id``: The ID of the newly created dataset in PRE-CKAN.
+        - ``name``: The final name stored in PRE-CKAN (may differ from
+          the local one when a duplicate triggered an automatic rename).
+        - ``title``: The final title stored in PRE-CKAN (suffixed with a
+          timestamp when a duplicate caused an automatic rename).
+        - ``warning``: ``None`` when the publish used the original name,
+          or a human-readable message explaining the automatic rename.
 
     Raises
     ------
@@ -161,24 +174,55 @@ def publish_dataset_to_preckan(
         }
         cleaned_resources.append(cleaned_resource)
 
-    # Create dataset in PRE-CKAN
+    # Create dataset in PRE-CKAN. If PRE-CKAN reports that the name (or
+    # the derived URL) is already in use, retry once with a timestamp
+    # suffix so the publish keeps succeeding and the caller is informed
+    # via a warning. This mirrors the auto-rename behavior of POST
+    # /dataset (see general_dataset.create_general_dataset).
+    original_name = dataset_dict.get("name")
+    original_title = dataset_dict.get("title")
+    final_name = original_name
+    final_title = original_title
+    warning: Optional[str] = None
     try:
         new_dataset = preckan_repository.package_create(**dataset_dict)
         new_dataset_id = new_dataset["id"]
         logger.info(f"Dataset created in PRE-CKAN with ID: {new_dataset_id}")
     except Exception as exc:
         error_msg = str(exc)
-        if "That name is already in use" in error_msg:
-            raise ValueError(
-                f"A dataset with name '{dataset_dict.get('name')}' "
-                "already exists in PRE-CKAN."
+        if (
+            "That name is already in use" in error_msg
+            or "That URL is already in use" in error_msg
+        ):
+            now = datetime.now()
+            slug_suffix = now.strftime("%Y%m%d%H%M%S")
+            human_suffix = now.strftime("%Y-%m-%d %H:%M:%S")
+            final_name = f"{original_name}-{slug_suffix}"
+            final_title = f"{original_title} ({human_suffix})"
+            dataset_dict["name"] = final_name
+            dataset_dict["title"] = final_title
+            warning = (
+                f"A dataset named '{original_name}' already exists in "
+                f"PRE-CKAN. This dataset was published as '{final_name}' "
+                f"with title '{final_title}'."
             )
-        if "Organization does not exist" in error_msg:
+            logger.info(
+                f"Name '{original_name}' is taken in PRE-CKAN; retrying as "
+                f"'{final_name}'."
+            )
+            try:
+                new_dataset = preckan_repository.package_create(**dataset_dict)
+                new_dataset_id = new_dataset["id"]
+                logger.info(f"Dataset created in PRE-CKAN with ID: {new_dataset_id}")
+            except Exception as retry_exc:
+                raise Exception(f"Error creating dataset in PRE-CKAN: {str(retry_exc)}")
+        elif "Organization does not exist" in error_msg:
             raise ValueError(
                 f"Organization '{dataset_dict.get('owner_org')}' "
                 "does not exist in PRE-CKAN. Create it first."
             )
-        raise Exception(f"Error creating dataset in PRE-CKAN: {error_msg}")
+        else:
+            raise Exception(f"Error creating dataset in PRE-CKAN: {error_msg}")
 
     # Mirror the submitted status on the local dataset so the originating
     # Endpoint can tell which of its datasets are already pending review.
@@ -210,4 +254,9 @@ def publish_dataset_to_preckan(
                 "Continuing with remaining resources."
             )
 
-    return new_dataset_id
+    return {
+        "id": new_dataset_id,
+        "name": final_name,
+        "title": final_title,
+        "warning": warning,
+    }

@@ -1,10 +1,13 @@
 # tests/test_publish_dataset_service.py
 """
-Tests for publish_dataset_to_preckan service, focusing on the
+Tests for publish_dataset_to_preckan service, covering both the
 ``status=submitted`` extra written to both the Pre-CKAN copy and the
-original local dataset.
+original local dataset, and the auto-rename behavior when the dataset
+name is already in use in PRE-CKAN.
 """
 
+import re
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -154,7 +157,12 @@ class TestPublishDatasetToPreckan:
 
         result = publish_dataset_to_preckan(dataset_id="my-dataset")
 
-        assert result == "preckan-id-1"
+        assert result == {
+            "id": "preckan-id-1",
+            "name": "my-dataset",
+            "title": "My Dataset",
+            "warning": None,
+        }
 
         # Pre-CKAN copy carries status=submitted alongside existing extras
         preckan_extras = preckan_repo.package_create.call_args.kwargs["extras"]
@@ -217,7 +225,119 @@ class TestPublishDatasetToPreckan:
     @patch("api.services.dataset_services.publish_dataset.CKANRepository")
     @patch("api.services.dataset_services.publish_dataset.ckan_settings")
     @patch("api.services.dataset_services.publish_dataset.catalog_settings")
-    def test_preckan_failure_leaves_local_untouched(
+    def test_duplicate_name_auto_renames_and_publishes(
+        self,
+        mock_catalog_settings,
+        mock_ckan_settings,
+        mock_ckan_repo_cls,
+    ):
+        mock_ckan_settings.pre_ckan_enabled = True
+        mock_ckan_settings.pre_ckan_organization = "preckan-org"
+
+        local_repo, preckan_repo = _build_mocks()
+        # First call raises duplicate, second call succeeds
+        preckan_repo.package_create.side_effect = [
+            Exception("That name is already in use"),
+            {"id": "preckan-id-renamed"},
+        ]
+        mock_catalog_settings.local_catalog = local_repo
+        mock_ckan_repo_cls.return_value = preckan_repo
+
+        fixed_now = datetime(2026, 4, 29, 17, 0, 0)
+        with patch(
+            "api.services.dataset_services.publish_dataset.datetime"
+        ) as mock_datetime:
+            mock_datetime.now.return_value = fixed_now
+            mock_datetime.strftime = datetime.strftime
+
+            result = publish_dataset_to_preckan(dataset_id="my-dataset")
+
+        assert result == {
+            "id": "preckan-id-renamed",
+            "name": "my-dataset-20260429170000",
+            "title": "My Dataset (2026-04-29 17:00:00)",
+            "warning": (
+                "A dataset named 'my-dataset' already exists in PRE-CKAN. "
+                "This dataset was published as 'my-dataset-20260429170000' "
+                "with title 'My Dataset (2026-04-29 17:00:00)'."
+            ),
+        }
+        # Two attempts: first with the original name, second with the suffix
+        assert preckan_repo.package_create.call_count == 2
+        retry_kwargs = preckan_repo.package_create.call_args_list[1].kwargs
+        assert retry_kwargs["name"] == "my-dataset-20260429170000"
+        assert retry_kwargs["title"] == "My Dataset (2026-04-29 17:00:00)"
+        # The slug stays valid for CKAN
+        assert re.match(r"^[a-z0-9_-]+$", retry_kwargs["name"])
+        # Local dataset still gets marked as submitted (publish succeeded)
+        local_repo.package_patch.assert_called_once()
+
+    @patch("api.services.dataset_services.publish_dataset.CKANRepository")
+    @patch("api.services.dataset_services.publish_dataset.ckan_settings")
+    @patch("api.services.dataset_services.publish_dataset.catalog_settings")
+    def test_duplicate_url_also_auto_renames(
+        self,
+        mock_catalog_settings,
+        mock_ckan_settings,
+        mock_ckan_repo_cls,
+    ):
+        mock_ckan_settings.pre_ckan_enabled = True
+        mock_ckan_settings.pre_ckan_organization = "preckan-org"
+
+        local_repo, preckan_repo = _build_mocks()
+        preckan_repo.package_create.side_effect = [
+            Exception("That URL is already in use"),
+            {"id": "preckan-id-2"},
+        ]
+        mock_catalog_settings.local_catalog = local_repo
+        mock_ckan_repo_cls.return_value = preckan_repo
+
+        result = publish_dataset_to_preckan(dataset_id="my-dataset")
+
+        assert result["id"] == "preckan-id-2"
+        assert result["name"].startswith("my-dataset-")
+        assert result["title"].startswith("My Dataset (")
+        assert result["warning"] is not None
+        assert "my-dataset" in result["warning"]
+        assert preckan_repo.package_create.call_count == 2
+
+    @patch("api.services.dataset_services.publish_dataset.CKANRepository")
+    @patch("api.services.dataset_services.publish_dataset.ckan_settings")
+    @patch("api.services.dataset_services.publish_dataset.catalog_settings")
+    def test_non_duplicate_failure_leaves_local_untouched(
+        self,
+        mock_catalog_settings,
+        mock_ckan_settings,
+        mock_ckan_repo_cls,
+    ):
+        """
+        Non-duplicate Pre-CKAN errors (e.g. transport failures) must NOT
+        trigger an auto-rename retry, must propagate, and must leave the
+        local dataset untouched (no mirror patch).
+        """
+        mock_ckan_settings.pre_ckan_enabled = True
+        mock_ckan_settings.pre_ckan_organization = "preckan-org"
+
+        local_repo, preckan_repo = _build_mocks(
+            package_create_side_effect=Exception("Some other CKAN error"),
+        )
+        mock_catalog_settings.local_catalog = local_repo
+        mock_ckan_repo_cls.return_value = preckan_repo
+
+        with pytest.raises(
+            Exception, match="Error creating dataset in PRE-CKAN: Some other CKAN error"
+        ):
+            publish_dataset_to_preckan(dataset_id="my-dataset")
+
+        # No auto-rename retry happened
+        assert preckan_repo.package_create.call_count == 1
+        # Local dataset was not marked as submitted
+        local_repo.package_patch.assert_not_called()
+
+    @patch("api.services.dataset_services.publish_dataset.CKANRepository")
+    @patch("api.services.dataset_services.publish_dataset.ckan_settings")
+    @patch("api.services.dataset_services.publish_dataset.catalog_settings")
+    def test_organization_missing_still_raises_with_clear_message(
         self,
         mock_catalog_settings,
         mock_ckan_settings,
@@ -227,14 +347,17 @@ class TestPublishDatasetToPreckan:
         mock_ckan_settings.pre_ckan_organization = "preckan-org"
 
         local_repo, preckan_repo = _build_mocks(
-            package_create_side_effect=Exception("That name is already in use"),
+            package_create_side_effect=Exception(
+                "Organization does not exist: preckan-org"
+            ),
         )
         mock_catalog_settings.local_catalog = local_repo
         mock_ckan_repo_cls.return_value = preckan_repo
 
-        with pytest.raises(ValueError, match="already exists in PRE-CKAN"):
+        with pytest.raises(ValueError, match="does not exist in PRE-CKAN"):
             publish_dataset_to_preckan(dataset_id="my-dataset")
 
+        assert preckan_repo.package_create.call_count == 1
         local_repo.package_patch.assert_not_called()
 
     @patch("api.services.dataset_services.publish_dataset.CKANRepository")
@@ -258,5 +381,6 @@ class TestPublishDatasetToPreckan:
         # Should still return the new Pre-CKAN id even though the local
         # patch failed (best-effort mirroring).
         result = publish_dataset_to_preckan(dataset_id="my-dataset")
-        assert result == "preckan-id-1"
+        assert result["id"] == "preckan-id-1"
+        assert result["warning"] is None
         local_repo.package_patch.assert_called_once()
