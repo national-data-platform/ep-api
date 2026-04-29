@@ -37,6 +37,7 @@ const DatasetManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [warning, setWarning] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingDataset, setEditingDataset] = useState(null);
   const [selectedServer] = useState('local'); // Fixed to local for consistency
@@ -400,14 +401,15 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
+      setWarning(null);
       setLoading(true);
 
       const requestData = prepareFormData();
       const response = await generalDatasetAPI.create(requestData, selectedServer);
 
-      const warning = response?.data?.warning;
-      if (warning) {
-        setSuccess(`Dataset created. ${warning}`);
+      const apiWarning = response?.data?.warning;
+      if (apiWarning) {
+        setWarning(`WARNING: ${apiWarning}`);
       } else {
         setSuccess('Dataset created successfully!');
       }
@@ -431,6 +433,7 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
+      setWarning(null);
       setLoading(true);
 
       const requestData = prepareFormData();
@@ -504,7 +507,8 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
-      
+      setWarning(null);
+
       // Debug: Log the dataset being deleted
       console.log('Attempting to delete dataset with ID:', dataset.id);
       console.log('Using endpoint: DELETE /resource?resource_id=' + dataset.id + '&server=local');
@@ -596,6 +600,7 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
+      setWarning(null);
 
       await resourcesAPI.patch(editingResource.id, resourceFormData, selectedServer);
 
@@ -625,6 +630,7 @@ const DatasetManagement = () => {
     try {
       setError(null);
       setSuccess(null);
+      setWarning(null);
 
       await resourcesAPI.deleteById(resource.id, selectedServer);
 
@@ -662,6 +668,13 @@ const DatasetManagement = () => {
       {success && (
         <div className="alert alert-success">
           {success}
+        </div>
+      )}
+
+      {warning && (
+        <div className="alert alert-warning">
+          <AlertCircle size={20} />
+          {warning}
         </div>
       )}
 
