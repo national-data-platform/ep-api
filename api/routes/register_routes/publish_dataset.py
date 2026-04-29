@@ -26,28 +26,72 @@ router = APIRouter()
         "1. Fetches the dataset from the local catalog\n"
         "2. Creates the dataset in PRE-CKAN with the same metadata\n"
         "3. Creates all associated resources in PRE-CKAN\n\n"
+        "If the dataset name is already in use in PRE-CKAN (which "
+        "happens when local CKAN and PRE-CKAN are pointed at the same "
+        "instance), the publish is retried automatically with a "
+        "timestamp suffix on both `name` and `title`, so the publish "
+        "keeps succeeding. The response will include a `warning` field "
+        "describing the rename.\n\n"
         "### Requirements\n"
         "- PRE-CKAN must be enabled in the configuration\n"
-        "- The dataset must exist in the local catalog\n"
-        "- The dataset name must not already exist in PRE-CKAN\n\n"
+        "- The dataset must exist in the local catalog\n\n"
         "### Authorization\n"
         "This endpoint requires authentication.\n\n"
         "### Example Response\n"
         "```json\n"
         "{\n"
         '    "id": "12345678-abcd-efgh-ijkl-1234567890ab",\n'
+        '    "name": "my-dataset",\n'
+        '    "title": "My Dataset",\n'
+        '    "warning": null,\n'
         '    "message": "Dataset published to PRE-CKAN successfully"\n'
         "}\n"
         "```\n"
     ),
     responses={
         201: {
-            "description": "Dataset published successfully",
+            "description": (
+                "Dataset published successfully. If the requested name was "
+                "already in use in PRE-CKAN, the dataset is still published "
+                "with a timestamped name and the response includes a "
+                "'warning' field describing the automatic rename."
+            ),
             "content": {
                 "application/json": {
-                    "example": {
-                        "id": "12345678-abcd-efgh-ijkl-1234567890ab",
-                        "message": "Dataset published to PRE-CKAN successfully",
+                    "examples": {
+                        "published": {
+                            "summary": "Published with the original name",
+                            "value": {
+                                "id": "12345678-abcd-efgh-ijkl-1234567890ab",
+                                "name": "my-dataset",
+                                "title": "My Dataset",
+                                "warning": None,
+                                "message": (
+                                    "Dataset published to PRE-CKAN successfully"
+                                ),
+                            },
+                        },
+                        "auto_renamed": {
+                            "summary": (
+                                "Published with an auto-generated timestamp "
+                                "suffix because the name was already in use"
+                            ),
+                            "value": {
+                                "id": "12345678-abcd-efgh-ijkl-1234567890ab",
+                                "name": "my-dataset-20260429170000",
+                                "title": "My Dataset (2026-04-29 17:00:00)",
+                                "warning": (
+                                    "A dataset named 'my-dataset' already "
+                                    "exists in PRE-CKAN. This dataset was "
+                                    "published as "
+                                    "'my-dataset-20260429170000' with title "
+                                    "'My Dataset (2026-04-29 17:00:00)'."
+                                ),
+                                "message": (
+                                    "Dataset published to PRE-CKAN successfully"
+                                ),
+                            },
+                        },
                     }
                 }
             },
@@ -56,23 +100,7 @@ router = APIRouter()
             "description": "Bad Request",
             "content": {
                 "application/json": {
-                    "examples": {
-                        "preckan_disabled": {
-                            "summary": "PRE-CKAN disabled",
-                            "value": {
-                                "detail": "PRE-CKAN is disabled and cannot be used."
-                            },
-                        },
-                        "duplicate": {
-                            "summary": "Dataset already exists",
-                            "value": {
-                                "detail": (
-                                    "A dataset with name 'my-dataset' "
-                                    "already exists in PRE-CKAN."
-                                )
-                            },
-                        },
-                    }
+                    "example": {"detail": "PRE-CKAN is disabled and cannot be used."}
                 }
             },
         },
@@ -133,18 +161,21 @@ async def publish_dataset_endpoint(
         - 500: Error during publication
     """
     try:
-        new_dataset_id = publish_dataset_to_preckan(
+        result = publish_dataset_to_preckan(
             dataset_id=dataset_id,
             user_info=user_info,
         )
 
         logger.info(
             f"Dataset '{dataset_id}' published to PRE-CKAN "
-            f"with new ID: {new_dataset_id}"
+            f"with new ID: {result['id']}"
         )
 
         return {
-            "id": new_dataset_id,
+            "id": result["id"],
+            "name": result["name"],
+            "title": result["title"],
+            "warning": result["warning"],
             "message": "Dataset published to PRE-CKAN successfully",
         }
 
