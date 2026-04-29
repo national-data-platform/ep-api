@@ -383,38 +383,23 @@ const KafkaTopics = () => {
         </div>
       )}
 
-      {/* Controls */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">Controls</h3>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <span style={{ 
-              fontSize: '0.875rem', 
-              color: '#64748b',
-              padding: '0.375rem 0.75rem',
-              backgroundColor: '#f1f5f9',
-              borderRadius: '6px',
-              border: '1px solid #e2e8f0'
-            }}>
-              📍 Local Server Only
-            </span>
-            <button
-              onClick={fetchKafkaTopics}
-              className="btn btn-secondary"
-              disabled={loading}
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
-            <button
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              className="btn btn-primary"
-            >
-              <Plus size={16} />
-              {showCreateForm ? 'Cancel' : 'Create Kafka Topic'}
-            </button>
-          </div>
-        </div>
+      {/* Page actions */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <button
+          onClick={fetchKafkaTopics}
+          className="btn btn-secondary"
+          disabled={loading}
+        >
+          <RefreshCw size={16} />
+          Refresh
+        </button>
+        <button
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          className="btn btn-primary"
+        >
+          <Plus size={16} />
+          {showCreateForm ? 'Cancel' : 'Create Kafka Topic'}
+        </button>
       </div>
 
       {/* Create/Edit Kafka Topic Form */}
