@@ -1,15 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Instagram, X, Linkedin } from 'lucide-react';
 
 /**
- * Enhanced Footer component - More similar to nationaldataplatform.org
- * Larger layout with better spacing and typography
- * Now includes application version display
- * UPDATED: Frontend version upgraded from 0.0.0 to 0.1.0
+ * Footer component for the NDP Endpoint UI.
+ *
+ * The displayed version is read at runtime from the backend's OpenAPI
+ * document (`/openapi.json`, `info.version`) so it always matches the
+ * deployed API and does not need a manual bump on every release.
  */
 const Footer = () => {
-  // Application version - update this when releasing new versions
-  const APP_VERSION = '1.3.0-alpha.2';
+  const [appVersion, setAppVersion] = useState(null);
+
+  useEffect(() => {
+    const rootPath = window.__EP_CONFIG__?.rootPath ?? '';
+    const url = `${rootPath}/openapi.json`;
+    let cancelled = false;
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((doc) => {
+        if (!cancelled) setAppVersion(doc?.info?.version ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setAppVersion(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <footer style={{
@@ -196,14 +213,11 @@ const Footer = () => {
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
           paddingTop: '0.75rem',
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           alignItems: 'center',
           fontSize: '0.75rem',
           color: 'rgba(255, 255, 255, 0.7)'
         }}>
-          <div>
-            © {new Date().getFullYear()} National Data Platform. All rights reserved.
-          </div>
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -218,7 +232,7 @@ const Footer = () => {
               fontFamily: 'monospace',
               color: 'rgba(255, 255, 255, 0.9)'
             }}>
-              v{APP_VERSION}
+              {appVersion ? `v${appVersion}` : '—'}
             </span>
           </div>
         </div>
