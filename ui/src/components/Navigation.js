@@ -112,7 +112,7 @@ const Navigation = () => {
       borderBottom: '1px solid #e5e7eb'
     }}>
       <div style={{
-        maxWidth: '1200px',
+        maxWidth: '1400px',
         margin: '0 auto',
         padding: '0 1rem'
       }}>
@@ -120,7 +120,7 @@ const Navigation = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '2rem'
+          gap: '1rem'
         }}>
           
           {/* Left: NDP Logo */}
@@ -141,7 +141,7 @@ const Navigation = () => {
 
           {/* Center: Navigation Menu */}
           <nav style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               
               {/* Dashboard */}
               <Link
@@ -150,12 +150,13 @@ const Navigation = () => {
                 style={{
                   color: '#6b7280', // Always same color
                   textDecoration: 'none',
-                  padding: '0.75rem 1rem',
+                  padding: '0.5rem 0.75rem',
                   borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
                   fontSize: '0.95rem',
+                  whiteSpace: 'nowrap',
                   fontWeight: '500', // Always same weight
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   backgroundColor: 'transparent',
@@ -181,12 +182,13 @@ const Navigation = () => {
                 style={{
                   color: '#6b7280', // Always same color
                   textDecoration: 'none',
-                  padding: '0.75rem 1rem',
+                  padding: '0.5rem 0.75rem',
                   borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
                   fontSize: '0.95rem',
+                  whiteSpace: 'nowrap',
                   fontWeight: '500', // Always same weight
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   backgroundColor: 'transparent',
@@ -418,12 +420,13 @@ const Navigation = () => {
                 style={{
                   color: '#6b7280', // Always same color
                   textDecoration: 'none',
-                  padding: '0.75rem 1rem',
+                  padding: '0.5rem 0.75rem',
                   borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
                   fontSize: '0.95rem',
+                  whiteSpace: 'nowrap',
                   fontWeight: '500', // Always same weight
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   backgroundColor: 'transparent',
@@ -449,12 +452,13 @@ const Navigation = () => {
                 style={{
                   color: '#6b7280', // Always same color
                   textDecoration: 'none',
-                  padding: '0.75rem 1rem',
+                  padding: '0.5rem 0.75rem',
                   borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
                   fontSize: '0.95rem',
+                  whiteSpace: 'nowrap',
                   fontWeight: '500', // Always same weight
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   backgroundColor: 'transparent',
@@ -509,10 +513,10 @@ const Navigation = () => {
           </nav>
 
           {/* Right: NSF Logo + Logout Button */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '1.5rem',
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
             flex: '0 0 auto'
           }}>
             {/* NSF Logo */}
@@ -535,7 +539,7 @@ const Navigation = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                padding: '0.75rem 1.5rem',
+                padding: '0.5rem 1rem',
                 backgroundColor: '#3b82f6', // Blue like in the image
                 color: 'white',
                 border: 'none',
@@ -543,6 +547,7 @@ const Navigation = () => {
                 fontSize: '0.9rem',
                 fontWeight: '600',
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
                 transition: 'all 0.2s ease',
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
               }}
