@@ -202,6 +202,9 @@ export const generalDatasetAPI = {
 
   partialUpdate: (datasetId, data, server = 'local') =>
     apiClient.patch(`/dataset/${datasetId}`, data, { params: { server } }),
+
+  publish: (datasetId) =>
+    apiClient.post(`/dataset/${datasetId}/publish`),
 };
 
 // Dataset API (for deletion)

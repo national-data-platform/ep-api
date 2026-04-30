@@ -13,7 +13,8 @@ import {
   ExternalLink,
   Link,
   Clock,
-  Home
+  Home,
+  Send
 } from 'lucide-react';
 import { organizationsAPI, searchAPI, generalDatasetAPI, datasetAPI, resourcesAPI } from '../services/api';
 
@@ -72,6 +73,7 @@ const DatasetManagement = () => {
   const [editingDataset, setEditingDataset] = useState(null);
   const [selectedServer] = useState('local'); // Fixed to local for consistency
   const [expandedDatasets, setExpandedDatasets] = useState({});
+  const [publishingIds, setPublishingIds] = useState({});
   const [editingResource, setEditingResource] = useState(null);
   const [resourceFormData, setResourceFormData] = useState({
     name: '',
@@ -525,6 +527,43 @@ const DatasetManagement = () => {
   /**
    * Handle dataset deletion
    */
+  const handlePublishDataset = async (dataset) => {
+    const displayName = dataset.title || dataset.name || 'Unnamed Dataset';
+
+    if (!window.confirm(
+      `Publish dataset "${displayName}" to PRE-CKAN?`
+    )) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setSuccess(null);
+      setWarning(null);
+      setPublishingIds((prev) => ({ ...prev, [dataset.id]: true }));
+
+      const response = await generalDatasetAPI.publish(dataset.id);
+      const apiWarning = response?.data?.warning;
+
+      if (apiWarning) {
+        setWarning(`WARNING: ${apiWarning}`);
+      } else {
+        setSuccess(`Dataset "${displayName}" published successfully!`);
+      }
+
+      fetchDatasets();
+    } catch (err) {
+      console.error('Error publishing dataset:', err);
+      setError(`Failed to publish dataset "${displayName}": ` + formatApiError(err));
+    } finally {
+      setPublishingIds((prev) => {
+        const next = { ...prev };
+        delete next[dataset.id];
+        return next;
+      });
+    }
+  };
+
   const handleDeleteDataset = async (dataset) => {
     const displayName = dataset.title || dataset.name || 'Unnamed Dataset';
     
@@ -1157,6 +1196,21 @@ const DatasetManagement = () => {
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {dataset.extras?.status !== 'submitted' && (
+                              <button
+                                onClick={() => handlePublishDataset(dataset)}
+                                className="btn btn-primary"
+                                style={{ padding: '0.375rem 0.75rem' }}
+                                title="Publish dataset to PRE-CKAN"
+                                disabled={!!publishingIds[dataset.id]}
+                              >
+                                <Send size={14} />
+                                <span style={{ fontSize: '0.75rem' }}>
+                                  {publishingIds[dataset.id] ? 'Publishing…' : 'Publish'}
+                                </span>
+                              </button>
+                            )}
+
                             <button
                               onClick={() => startEditing(dataset)}
                               className="btn btn-secondary"
