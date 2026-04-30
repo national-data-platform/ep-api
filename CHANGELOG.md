@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.4] - 2026-04-30
+
+### Changed
+- Services Registry form: the "Additional Metadata" input no longer requires the user to write JSON
+  - Default editor is a guided list of key/value rows with Add/Remove controls, mirroring the "Extras" editor already exposed on the Dataset Management form so the two forms feel like one
+  - An "Advanced (JSON)" toggle still exposes the raw textarea for metadata that needs nested or non-text values
+  - When editing an existing service, the editor defaults to guided fields if the service's extras (with the service-specific reserved keys already stripped) form a flat primitive map; nested shapes load straight into JSON mode so nothing is dropped
+  - Switching back from JSON to simple fields is blocked with an inline message when the JSON is invalid, is not an object, or contains nested/non-primitive values, so the user is never silently downgraded
+
 ## [0.19.3] - 2026-04-30
 
 ### Fixed

@@ -44,6 +44,80 @@ const Services = () => {
   // JSON editor state for extras
   const [extrasJson, setExtrasJson] = useState('{}');
 
+  // Extras editor: 'fields' for guided key/value rows, 'json' for raw JSON
+  const [extrasMode, setExtrasMode] = useState('fields');
+  const [extrasPairs, setExtrasPairs] = useState([]);
+  const [extrasModeError, setExtrasModeError] = useState(null);
+
+  // True when value is a flat object whose values are all string/number/boolean/null.
+  // The guided key/value editor can only round-trip this shape; nested objects or
+  // arrays force the user into raw JSON mode.
+  const isFlatPrimitiveMap = (obj) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+    return Object.values(obj).every((v) =>
+      v === null || ['string', 'number', 'boolean'].includes(typeof v)
+    );
+  };
+
+  const objectToPairs = (obj) => {
+    if (!obj || typeof obj !== 'object') return [];
+    return Object.entries(obj).map(([key, value]) => ({
+      key,
+      value: value === null || value === undefined ? '' : String(value)
+    }));
+  };
+
+  const pairsToObject = (pairs) => {
+    const out = {};
+    for (const { key, value } of pairs) {
+      const trimmed = (key || '').trim();
+      if (trimmed === '') continue;
+      out[trimmed] = value;
+    }
+    return out;
+  };
+
+  const addExtraPair = () => {
+    setExtrasPairs((prev) => [...prev, { key: '', value: '' }]);
+    setExtrasModeError(null);
+  };
+
+  const removeExtraPair = (idx) => {
+    setExtrasPairs((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateExtraPair = (idx, field, value) => {
+    setExtrasPairs((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
+    );
+  };
+
+  const switchExtrasToJsonMode = () => {
+    const obj = pairsToObject(extrasPairs);
+    setExtrasJson(JSON.stringify(obj, null, 2));
+    setExtrasMode('json');
+    setExtrasModeError(null);
+  };
+
+  const switchExtrasToFieldsMode = () => {
+    let parsed;
+    try {
+      parsed = extrasJson.trim() === '' ? {} : JSON.parse(extrasJson);
+    } catch {
+      setExtrasModeError('Cannot switch to simple fields: the JSON is invalid.');
+      return;
+    }
+    if (!isFlatPrimitiveMap(parsed)) {
+      setExtrasModeError(
+        'Cannot switch to simple fields: this metadata has nested or non-text values. Stay in advanced mode to edit it.'
+      );
+      return;
+    }
+    setExtrasPairs(objectToPairs(parsed));
+    setExtrasMode('fields');
+    setExtrasModeError(null);
+  };
+
   // Available service types
   const serviceTypes = [
     'API',
@@ -132,6 +206,9 @@ const Services = () => {
       documentation_url: ''
     });
     setExtrasJson('{}');
+    setExtrasMode('fields');
+    setExtrasPairs([]);
+    setExtrasModeError(null);
     setEditingService(null);
     setShowCreateForm(false);
   };
@@ -140,8 +217,10 @@ const Services = () => {
    * Prepare form data for submission
    */
   const prepareFormData = () => {
-    // Parse JSON fields
-    const extras = parseJsonSafely(extrasJson, {});
+    // Build extras from whichever editor mode is active
+    const extras = extrasMode === 'fields'
+      ? pairsToObject(extrasPairs)
+      : parseJsonSafely(extrasJson, {});
 
     // Prepare data
     const requestData = {
@@ -264,13 +343,17 @@ const Services = () => {
 
     setFormData(editFormData);
 
-    // Set JSON field with proper formatting
-    try {
-      setExtrasJson(JSON.stringify(cleanExtras, null, 2));
-    } catch (jsonError) {
-      console.error('Error stringifying JSON for edit form:', jsonError);
-      setExtrasJson('{}');
+    // Default the extras editor to guided fields when the data is a flat
+    // primitive map; otherwise keep the raw JSON view so nothing is dropped.
+    setExtrasJson(JSON.stringify(cleanExtras, null, 2));
+    if (isFlatPrimitiveMap(cleanExtras)) {
+      setExtrasPairs(objectToPairs(cleanExtras));
+      setExtrasMode('fields');
+    } else {
+      setExtrasPairs([]);
+      setExtrasMode('json');
     }
+    setExtrasModeError(null);
 
     setShowCreateForm(true);
   };
@@ -557,17 +640,88 @@ const Services = () => {
 
             {/* Extras Configuration */}
             <div className="form-group">
-              <label className="form-label">Additional Metadata (JSON)</label>
-              <textarea
-                value={extrasJson}
-                onChange={(e) => setExtrasJson(e.target.value)}
-                className="form-input form-textarea"
-                placeholder='{"version": "2.1.0", "environment": "production"}'
-                style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
-              />
-              <small style={{ color: '#64748b' }}>
-                Additional metadata as JSON (version, environment, etc.)
-              </small>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Additional Metadata</label>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  onClick={extrasMode === 'fields' ? switchExtrasToJsonMode : switchExtrasToFieldsMode}
+                >
+                  {extrasMode === 'fields' ? 'Advanced (JSON)' : 'Simple fields'}
+                </button>
+              </div>
+
+              {extrasMode === 'fields' ? (
+                <>
+                  {extrasPairs.length === 0 ? (
+                    <small style={{ color: '#64748b', display: 'block', marginBottom: '0.5rem' }}>
+                      No additional metadata. Click "Add field" to add one.
+                    </small>
+                  ) : (
+                    extrasPairs.map((pair, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <input
+                          type="text"
+                          value={pair.key}
+                          onChange={(e) => updateExtraPair(idx, 'key', e.target.value)}
+                          placeholder="Key"
+                          className="form-input"
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          type="text"
+                          value={pair.value}
+                          onChange={(e) => updateExtraPair(idx, 'value', e.target.value)}
+                          placeholder="Value"
+                          className="form-input"
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeExtraPair(idx)}
+                          className="btn btn-secondary"
+                          style={{ padding: '0.5rem' }}
+                          aria-label="Remove field"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                  <button
+                    type="button"
+                    onClick={addExtraPair}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.875rem' }}
+                  >
+                    <Plus size={14} />
+                    Add field
+                  </button>
+                  <small style={{ color: '#64748b', display: 'block', marginTop: '0.5rem' }}>
+                    Additional metadata as key/value pairs (version, environment, etc.).
+                  </small>
+                </>
+              ) : (
+                <>
+                  <textarea
+                    value={extrasJson}
+                    onChange={(e) => setExtrasJson(e.target.value)}
+                    className="form-input form-textarea"
+                    placeholder='{"version": "2.1.0", "environment": "production"}'
+                    style={{ fontFamily: 'monospace', fontSize: '0.875rem', minHeight: '120px' }}
+                  />
+                  <small style={{ color: '#64748b' }}>
+                    Additional metadata as JSON. Use this for nested or non-text values.
+                  </small>
+                </>
+              )}
+
+              {extrasModeError && (
+                <small style={{ color: '#dc2626', display: 'block', marginTop: '0.5rem' }}>
+                  {extrasModeError}
+                </small>
+              )}
             </div>
 
             {/* Submit Button */}
