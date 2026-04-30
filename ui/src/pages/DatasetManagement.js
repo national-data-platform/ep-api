@@ -11,7 +11,9 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
-  Link
+  Link,
+  Clock,
+  Home
 } from 'lucide-react';
 import { organizationsAPI, searchAPI, generalDatasetAPI, datasetAPI, resourcesAPI } from '../services/api';
 
@@ -25,6 +27,34 @@ const formatApiError = (err) => {
     return detail.detail || detail.error || JSON.stringify(detail);
   }
   return err?.message || 'Unknown error';
+};
+
+// Map a dataset's extras.status to a small icon. The backend currently sets
+// extras.status="submitted" after a successful publish to PRE-CKAN; datasets
+// that have never been published have no status entry and are local-only.
+// Unknown values render a defensive AlertCircle so they are still visible.
+const renderDatasetStatusIcon = (status) => {
+  let Icon;
+  let color;
+  let label;
+  if (status === 'submitted') {
+    Icon = Clock;
+    color = '#f59e0b';
+    label = 'Submitted';
+  } else if (!status) {
+    Icon = Home;
+    color = '#94a3b8';
+    label = 'Local only';
+  } else {
+    Icon = AlertCircle;
+    color = '#64748b';
+    label = status;
+  }
+  return (
+    <span title={label} aria-label={`Status: ${label}`} style={{ display: 'inline-flex' }}>
+      <Icon size={16} color={color} />
+    </span>
+  );
 };
 
 /**
@@ -1044,6 +1074,7 @@ const DatasetManagement = () => {
                 <tr>
                   <th>Dataset</th>
                   <th>Organization</th>
+                  <th>Status</th>
                   <th>Resources</th>
                   <th>Actions</th>
                 </tr>
@@ -1102,6 +1133,9 @@ const DatasetManagement = () => {
                           </span>
                         </td>
                         <td>
+                          {renderDatasetStatusIcon(dataset.extras?.status)}
+                        </td>
+                        <td>
                           <button
                             onClick={() => hasResources && toggleDatasetExpansion(dataset.id)}
                             style={{
@@ -1149,7 +1183,7 @@ const DatasetManagement = () => {
                       {/* Expanded Resources Row */}
                       {isExpanded && hasResources && (
                         <tr>
-                          <td colSpan="4" style={{ backgroundColor: '#f8fafc', padding: '1rem' }}>
+                          <td colSpan="5" style={{ backgroundColor: '#f8fafc', padding: '1rem' }}>
                             <div style={{ marginLeft: '1.5rem' }}>
                               <h4 style={{ marginBottom: '0.75rem', color: '#374151', fontSize: '0.9rem' }}>
                                 Resources ({dataset.resources.length})
