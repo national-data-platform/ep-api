@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-04-30
+
+### Added
+- Dataset Management page: a new "Status" column on the datasets table surfaces each dataset's submission state at a glance, using a small icon instead of the raw status string so the table stays compact:
+  - Amber Clock when the dataset has been published to PRE-CKAN (`extras.status === "submitted"`) and is awaiting review
+  - Gray Home when the dataset has no status entry (local-only, never published)
+  - Gray AlertCircle for any unrecognized status, with the raw value still exposed via the hover tooltip so the row never silently hides state
+- Each icon is wrapped in a `title`-bearing span so hovering reveals the underlying status text without cluttering the table
+
 ## [0.18.1] - 2026-04-30
 
 ### Removed
