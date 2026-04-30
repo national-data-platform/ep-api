@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.3] - 2026-04-30
+
+### Fixed
+- Services Registry page: dropped the leftover "Controls" card wrapper, the static "Local Server Only" badge and the Refresh button so the layout now mirrors the other resource management pages — the page header is followed directly by the primary "Register Service" button (Dataset Management, Kafka Topics, URL Resources and S3 Resources had already been cleaned up in 0.17.1; Services was missed back then)
+- Resource management pages (Dataset Management, Kafka Topics, URL Resources, Services, S3 Resources): the outer primary button used to toggle its label between "Create …" / "Register …" and "Cancel" depending on whether the create form was open, which made two separate "Cancel" buttons visible at once (the outer toggle and the one inside the form's card header). The outer button is now only rendered while the form is closed, so the form's own Cancel button stays as the single way to dismiss the form
+
 ## [0.19.2] - 2026-04-30
 
 ### Added

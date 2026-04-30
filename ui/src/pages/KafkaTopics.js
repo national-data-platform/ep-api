@@ -393,13 +393,15 @@ const KafkaTopics = () => {
           <RefreshCw size={16} />
           Refresh
         </button>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="btn btn-primary"
-        >
-          <Plus size={16} />
-          {showCreateForm ? 'Cancel' : 'Create Kafka Topic'}
-        </button>
+        {!showCreateForm && (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="btn btn-primary"
+          >
+            <Plus size={16} />
+            Create Kafka Topic
+          </button>
+        )}
       </div>
 
       {/* Create/Edit Kafka Topic Form */}
