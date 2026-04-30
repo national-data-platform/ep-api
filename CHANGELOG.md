@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.5] - 2026-04-30
+
+### Changed
+- Services Registry table: the "Access Service" link no longer points straight at the registered `service_url`. It now goes through the EP API's existing redirect proxy at `/services/redirect/{service_name}`, so every consumption of the registered service stays inside the EP boundary (consistent logging, headers, future auth handling) and the UI no longer hardcodes external URLs in `<a href>` attributes:
+  - `BASE_URL` is now exported from the shared API client and consumed in the Services page so the proxy URL is built from the same `rootPath` the axios client uses
+  - The link is rendered only when the service has both a usable `service_url` and a `name` (the CKAN-style name is the identifier the backend's `get_service_url` matches against)
+  - The hover tooltip now reads "Proxied through <redirect-url> → <service-url>" so the user can see at a glance that the click goes through the EP API and where it ends up
+- The Documentation link is intentionally left untouched: documentation typically lives on a different host than the service URL, and the redirect proxy is not designed to forward to arbitrary external URLs
+
 ## [0.19.4] - 2026-04-30
 
 ### Changed

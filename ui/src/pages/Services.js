@@ -11,7 +11,7 @@ import {
   Server,
   Edit3
 } from 'lucide-react';
-import { servicesAPI, searchAPI, resourcesAPI } from '../services/api';
+import { servicesAPI, searchAPI, resourcesAPI, BASE_URL } from '../services/api';
 
 /**
  * Services page component for managing registered services
@@ -827,9 +827,9 @@ const Services = () => {
                         </span>
                       </td>
                       <td>
-                        {serviceUrl !== 'No URL' ? (
+                        {serviceUrl !== 'No URL' && service.name ? (
                           <a
-                            href={serviceUrl}
+                            href={`${BASE_URL}/services/redirect/${service.name}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
@@ -844,7 +844,7 @@ const Services = () => {
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap'
                             }}
-                            title={serviceUrl}
+                            title={`Proxied through ${BASE_URL}/services/redirect/${service.name} → ${serviceUrl}`}
                           >
                             <ExternalLink size={12} />
                             Access Service
