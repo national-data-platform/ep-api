@@ -406,15 +406,17 @@ const Services = () => {
       )}
 
       {/* Register service button */}
-      <div style={{ marginBottom: '1rem' }}>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="btn btn-primary"
-        >
-          <Plus size={16} />
-          {showCreateForm ? 'Cancel' : 'Register Service'}
-        </button>
-      </div>
+      {!showCreateForm && (
+        <div style={{ marginBottom: '1rem' }}>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="btn btn-primary"
+          >
+            <Plus size={16} />
+            Register Service
+          </button>
+        </div>
+      )}
 
       {/* Create/Edit Service Form */}
       {showCreateForm && (

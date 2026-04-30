@@ -396,13 +396,15 @@ const S3Resources = () => {
           <RefreshCw size={16} />
           Refresh
         </button>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="btn btn-primary"
-        >
-          <Plus size={16} />
-          {showCreateForm ? 'Cancel' : 'Create S3 Resource'}
-        </button>
+        {!showCreateForm && (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="btn btn-primary"
+          >
+            <Plus size={16} />
+            Create S3 Resource
+          </button>
+        )}
       </div>
 
       {/* Create/Edit S3 Resource Form */}

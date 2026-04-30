@@ -749,15 +749,17 @@ const DatasetManagement = () => {
       )}
 
       {/* Create dataset button */}
-      <div style={{ marginBottom: '1rem' }}>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="btn btn-primary"
-        >
-          <Plus size={16} />
-          {showCreateForm ? 'Cancel' : 'Create Dataset'}
-        </button>
-      </div>
+      {!showCreateForm && (
+        <div style={{ marginBottom: '1rem' }}>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="btn btn-primary"
+          >
+            <Plus size={16} />
+            Create Dataset
+          </button>
+        </div>
+      )}
 
       {/* Create/Edit Dataset Form */}
       {showCreateForm && (

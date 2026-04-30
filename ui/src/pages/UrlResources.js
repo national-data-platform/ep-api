@@ -548,13 +548,15 @@ const UrlResources = () => {
           <RefreshCw size={16} />
           Refresh
         </button>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="btn btn-primary"
-        >
-          <Plus size={16} />
-          {showCreateForm ? 'Cancel' : 'Create URL Resource'}
-        </button>
+        {!showCreateForm && (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="btn btn-primary"
+          >
+            <Plus size={16} />
+            Create URL Resource
+          </button>
+        )}
       </div>
 
       {/* Create/Edit URL Resource Form */}
