@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-04-30
+
+### Added
+- Dataset Management page: each row whose `extras.status` is not "submitted" now exposes a primary "Publish" action button before the Edit/Delete buttons, so a user can push a local dataset to PRE-CKAN directly from the table without leaving the page (no more Swagger or curl round-trip):
+  - The button calls `POST /dataset/{dataset_id}/publish` through a new `generalDatasetAPI.publish` client method
+  - Per-row publishing state disables the button and switches its label to "Publishing…" while the request is in flight, so double-clicks cannot fire the publish twice
+  - On success the datasets list is refetched and the status icon flips from Home to Clock automatically
+  - When the backend had to auto-rename the dataset (because its `name` was already in use in PRE-CKAN), the response's `warning` field is surfaced via the yellow warning banner instead of the green success banner, so the user notices that the published name/title differ from theirs
+  - Once a dataset is already submitted the button is hidden, preventing a re-publish that would just create a renamed duplicate
+
 ## [0.18.2] - 2026-04-30
 
 ### Added
