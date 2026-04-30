@@ -72,6 +72,7 @@ const DatasetManagement = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingDataset, setEditingDataset] = useState(null);
   const [selectedServer] = useState('local'); // Fixed to local for consistency
+  const [orgFilter, setOrgFilter] = useState('');
   const [expandedDatasets, setExpandedDatasets] = useState({});
   const [publishingIds, setPublishingIds] = useState({});
   const [editingResource, setEditingResource] = useState(null);
@@ -1088,11 +1089,33 @@ const DatasetManagement = () => {
       )}
 
       {/* Datasets List */}
+      {(() => {
+        const filteredDatasets = orgFilter
+          ? datasets.filter((d) => d.owner_org === orgFilter)
+          : datasets;
+        return (
       <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">
-            Datasets ({datasets.length})
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <h3 className="card-title" style={{ margin: 0 }}>
+            Datasets ({filteredDatasets.length}{orgFilter ? ` of ${datasets.length}` : ''})
           </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor="org-filter" style={{ fontSize: '0.875rem', color: '#64748b' }}>
+              Organization:
+            </label>
+            <select
+              id="org-filter"
+              value={orgFilter}
+              onChange={(e) => setOrgFilter(e.target.value)}
+              className="form-input"
+              style={{ minWidth: '200px', padding: '0.375rem 0.5rem' }}
+            >
+              <option value="">All organizations</option>
+              {organizations.map((org) => (
+                <option key={org} value={org}>{org}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {loading && !showCreateForm ? (
@@ -1100,11 +1123,20 @@ const DatasetManagement = () => {
             <div className="loading-spinner" style={{ margin: '0 auto' }}></div>
             <p style={{ marginTop: '1rem' }}>Loading datasets...</p>
           </div>
-        ) : datasets.length === 0 ? (
+        ) : filteredDatasets.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
             <Database size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-            <p>No general datasets found</p>
-            <p>Create your first general dataset using the form above, or check other pages for specific resource types (URL, S3, Kafka, Services)</p>
+            {orgFilter ? (
+              <>
+                <p>No datasets found for organization "{orgFilter}"</p>
+                <p>Try selecting a different organization or "All organizations" to see the full list.</p>
+              </>
+            ) : (
+              <>
+                <p>No general datasets found</p>
+                <p>Create your first general dataset using the form above, or check other pages for specific resource types (URL, S3, Kafka, Services)</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="table-container">
@@ -1119,7 +1151,7 @@ const DatasetManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {datasets.map((dataset, index) => {
+                {filteredDatasets.map((dataset, index) => {
                   const isExpanded = expandedDatasets[dataset.id];
                   const hasResources = dataset.resources && dataset.resources.length > 0;
 
@@ -1399,6 +1431,8 @@ const DatasetManagement = () => {
           </div>
         )}
       </div>
+        );
+      })()}
     </div>
   );
 };
