@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-04-30
+
+### Added
+- Dataset Management page: a new "Organization" select on the right side of the datasets card header now filters the visible rows by the organization that owns them. The filter runs client-side on the data the page already fetches, so no extra API call is needed:
+  - Default value is "All organizations", which keeps the current behavior of showing every dataset
+  - When a filter is active, the dataset count next to the title becomes "Datasets (X of Y)" so the user knows how many were hidden
+  - When the filter matches no rows, the empty-state copy suggests trying a different organization or going back to the full list, instead of nudging the user to create a new dataset
+  - The select reuses the organization name strings the page already fetches for the create/edit form, so the dropdown values match the strings rendered in the table's "Organization" column
+
 ## [0.19.1] - 2026-04-30
 
 ### Fixed
