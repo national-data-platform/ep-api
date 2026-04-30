@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-04-30
+
+### Removed
+- Repository root: orphaned `package.json` and `package-lock.json` (legacy `pop-api-frontend` v1.3.0-alpha.2). The actual frontend lives under `ui/` (`ndp-ep-frontend`) and is the only one consumed by the Docker build, so the root-level files were unused and only added confusion about which is the real frontend
+
 ## [0.18.0] - 2026-04-29
 
 ### Changed
