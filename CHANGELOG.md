@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-04-30
+
+### Fixed
+- Top header: when an admin session showed the "Access Requests" link, the row no longer fit horizontally — "Access Requests" wrapped onto a second line and the Logout button on the right ended up looking misaligned. The header now stays on a single row regardless of which nav items are visible:
+  - Every nav link/button label uses `white-space: nowrap` so labels never wrap mid-word
+  - Nav and right-cluster gaps tightened from 1.5rem to 1rem; link padding from 0.75rem 1rem to 0.5rem 0.75rem; Logout button padding from 0.75rem 1.5rem to 0.5rem 1rem
+  - Inner container max width raised from 1200px to 1400px so the header has more horizontal room before falling back on the tighter sizes
+
 ## [0.19.0] - 2026-04-30
 
 ### Added
