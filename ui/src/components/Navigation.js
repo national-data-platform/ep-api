@@ -143,38 +143,6 @@ const Navigation = () => {
           <nav style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               
-              {/* Dashboard */}
-              <Link
-                to="/"
-                onMouseEnter={handleOtherNavEnter}
-                style={{
-                  color: '#6b7280', // Always same color
-                  textDecoration: 'none',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.95rem',
-                  whiteSpace: 'nowrap',
-                  fontWeight: '500', // Always same weight
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  backgroundColor: 'transparent',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.color = '#374151';
-                  e.target.style.fontWeight = '600';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.color = '#6b7280';
-                  e.target.style.fontWeight = '500';
-                }}
-              >
-                <Home size={18} />
-                <span>Dashboard</span>
-              </Link>
-
               {/* Organizations */}
               <Link
                 to="/organizations"
@@ -445,9 +413,9 @@ const Navigation = () => {
                 <span>Services</span>
               </Link>
 
-              {/* Search */}
+              {/* Search (landing page) */}
               <Link
-                to="/search"
+                to="/"
                 onMouseEnter={handleOtherNavEnter}
                 style={{
                   color: '#6b7280', // Always same color
@@ -476,6 +444,40 @@ const Navigation = () => {
                 <Search size={18} />
                 <span>Search</span>
               </Link>
+
+              {/* Dashboard (admin only) */}
+              {isAdmin && (
+                <Link
+                  to="/dashboard"
+                  onMouseEnter={handleOtherNavEnter}
+                  style={{
+                    color: '#6b7280',
+                    textDecoration: 'none',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.95rem',
+                    whiteSpace: 'nowrap',
+                    fontWeight: '500',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    backgroundColor: 'transparent',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.color = '#374151';
+                    e.target.style.fontWeight = '600';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.color = '#6b7280';
+                    e.target.style.fontWeight = '500';
+                  }}
+                >
+                  <Home size={18} />
+                  <span>Dashboard</span>
+                </Link>
+              )}
 
               {/* Access Requests (admin only) */}
               {isAdmin && (
