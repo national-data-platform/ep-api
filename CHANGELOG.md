@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-05-12
+
+### Added
+- Organizations created through `POST /organization` now persist the same one-way creator hashes (`ndp_user_id` and `ndp_creator_md5`) that datasets, services, URL, S3 and Kafka registrations already store via `inject_ndp_metadata`:
+  - The route used to capture the authenticated `user_info` only to satisfy the auth dependency and then discarded it; it now forwards it to the `create_organization` service, which derives the hashes with the existing helpers (`hash_user_id`/`calculate_md5`).
+  - The MongoDB backend persists `ndp_user_id` and `ndp_creator_md5` as top-level fields on the organization document when the request was authenticated.
+  - The CKAN backend turns those same hashes into standard CKAN organization extras (so CKAN never receives unknown top-level fields). Any caller-provided extras are preserved and the creator extras are appended.
+  - No PII is stored. Only the same hash family already used for datasets — the raw user identity is never persisted.
+  - Organizations created before this version stay valid and simply keep no attribution; no migration is performed.
+
+### Changed
+- `hash_user_id` and `calculate_md5` are now re-exported from `api.services.metadata_services`, so services other than `inject_ndp_metadata` can reuse them without reaching into the submodule.
+
 ## [0.21.0] - 2026-05-12
 
 ### Added
