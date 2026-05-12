@@ -1,438 +1,599 @@
-import React, { useState } from 'react';
-import { Search as SearchIcon, AlertCircle, Settings } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Search as SearchIcon,
+  AlertCircle,
+  Settings,
+  FileText,
+  X,
+  ExternalLink,
+  Database
+} from 'lucide-react';
 import { searchAPI } from '../services/api';
+
+const MODES = [
+  { id: 'both', label: 'All' },
+  { id: 'datasets', label: 'Datasets' },
+  { id: 'services', label: 'Services' }
+];
+
+const SERVERS = [
+  { id: 'global', label: 'Global' },
+  { id: 'local', label: 'Local' }
+];
 
 const Search = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [results, setResults] = useState([]);
-  const [searchMode, setSearchMode] = useState('datasets'); // 'datasets' or 'services'
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedServer, setSelectedServer] = useState('global');
+  const [mode, setMode] = useState('both');
+  const [server, setServer] = useState('global');
+  const [hasSearched, setHasSearched] = useState(false);
+  const [datasetResults, setDatasetResults] = useState([]);
+  const [serviceResults, setServiceResults] = useState([]);
+  const inputRef = useRef(null);
 
-  const executeDatasetSearch = async (e) => {
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const fetchDatasets = async (term, selectedServer) => {
+    const response = await searchAPI.searchByTerms([term], null, selectedServer);
+    return (response.data || []).filter((item) => item.owner_org !== 'services');
+  };
+
+  const fetchServices = async (term, selectedServer) => {
+    const response = await searchAPI.searchAdvanced({
+      owner_org: 'services',
+      search_term: term,
+      server: selectedServer
+    });
+    return (response.data || []).filter((item) => item.owner_org === 'services');
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!searchTerm.trim()) {
+    const term = searchTerm.trim();
+    if (!term) {
       setError('Please enter a search term');
       return;
     }
 
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
+      const wantDatasets = mode === 'datasets' || mode === 'both';
+      const wantServices = mode === 'services' || mode === 'both';
 
-      console.log('Dataset search params:', {
-        terms: [searchTerm],
-        keys: null,
-        server: selectedServer
-      }); // Debug log
+      const safe = (p) => p.then((data) => ({ ok: true, data })).catch((err) => ({ ok: false, err }));
+      const [datasetsRes, servicesRes] = await Promise.all([
+        wantDatasets ? safe(fetchDatasets(term, server)) : Promise.resolve({ ok: true, data: [] }),
+        wantServices ? safe(fetchServices(term, server)) : Promise.resolve({ ok: true, data: [] })
+      ]);
 
-      const response = await searchAPI.searchByTerms([searchTerm], null, selectedServer);
-      console.log('Dataset search response:', response.data); // Debug log
-      
-      setResults(response.data || []);
-      
+      // Fail only when every requested search failed.
+      const requested = [wantDatasets && datasetsRes, wantServices && servicesRes].filter(Boolean);
+      const allFailed = requested.every((r) => !r.ok);
+      if (allFailed) throw requested[0].err;
+
+      setDatasetResults(datasetsRes.ok ? datasetsRes.data : []);
+      setServiceResults(servicesRes.ok ? servicesRes.data : []);
+      setHasSearched(true);
     } catch (err) {
-      console.error('Error executing dataset search:', err);
-      console.error('Error details:', {
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        data: err.response?.data,
-        config: err.config
-      }); // Debug log
-      
-      let errorMessage = 'Dataset search failed';
-      
-      if (err.response?.status === 422) {
-        errorMessage += ': Validation error - check your search parameters';
-      } else if (err.response?.status === 401) {
-        errorMessage += ': Authentication required - please login first';
-      } else if (err.response?.data?.detail) {
-        errorMessage += ': ' + err.response.data.detail;
-      } else if (err.message) {
-        errorMessage += ': ' + err.message;
-      } else {
-        errorMessage += ': Unknown error occurred';
-      }
-      
-      setError(errorMessage);
+      const status = err.response?.status;
+      let message = 'Search failed';
+      if (status === 422) message += ': validation error — check your search parameters';
+      else if (status === 401) message += ': authentication required — please log in';
+      else if (err.response?.data?.detail) message += `: ${err.response.data.detail}`;
+      else if (err.message) message += `: ${err.message}`;
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const executeServiceSearch = async (e) => {
-    e.preventDefault();
-    
-    if (!searchTerm.trim()) {
-      setError('Please enter a search term');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const searchData = {
-        owner_org: "services",
-        search_term: searchTerm,
-        server: selectedServer
-      };
-
-      console.log('Service search payload:', searchData); // Debug log
-
-      const response = await searchAPI.searchAdvanced(searchData);
-      
-      // Filter results to only show services organization
-      const filteredResults = (response.data || []).filter(item => 
-        item.owner_org === 'services'
-      );
-      
-      setResults(filteredResults);
-      
-    } catch (err) {
-      console.error('Error executing service search:', err);
-      let errorMessage = 'Service search failed';
-      
-      if (err.response?.data?.detail) {
-        errorMessage += ': ' + err.response.data.detail;
-      } else if (err.message) {
-        errorMessage += ': ' + err.message;
-      } else {
-        errorMessage += ': Unknown error occurred';
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
+  const clearTerm = () => {
+    setSearchTerm('');
+    inputRef.current?.focus();
   };
 
-  const executeSearch = searchMode === 'datasets' ? executeDatasetSearch : executeServiceSearch;
+  const totalResults = datasetResults.length + serviceResults.length;
+  const compact = hasSearched || loading;
 
   return (
-    <div className="search-page">
-      <div className="page-header">
-        <h1 className="page-title">
-          <SearchIcon size={32} style={{ marginRight: '0.5rem' }} />
-          Search
-        </h1>
-        <p className="page-subtitle">
-          Search for datasets and services across your CKAN instances
-        </p>
+    <div style={{ maxWidth: '960px', margin: '0 auto', padding: '0 1rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          paddingTop: compact ? '1.5rem' : '4rem',
+          paddingBottom: compact ? '1rem' : '2rem',
+          transition: 'padding 0.3s ease'
+        }}
+      >
+        {!compact && (
+          <>
+            <h1
+              style={{
+                fontSize: '2.25rem',
+                fontWeight: 700,
+                color: '#1e293b',
+                margin: 0,
+                marginBottom: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem'
+              }}
+            >
+              <SearchIcon size={32} />
+              Find datasets and services
+            </h1>
+            <p style={{ color: '#64748b', margin: 0, marginBottom: '2rem' }}>
+              Search across the National Data Platform
+            </p>
+          </>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '680px' }}>
+          <SearchBar
+            inputRef={inputRef}
+            value={searchTerm}
+            onChange={setSearchTerm}
+            onClear={clearTerm}
+            loading={loading}
+          />
+
+          <FilterRow mode={mode} setMode={setMode} server={server} setServer={setServer} />
+        </form>
       </div>
 
       {error && (
-        <div className="alert alert-error">
+        <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
           <AlertCircle size={20} />
           {error}
         </div>
       )}
 
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">Search</h3>
-        </div>
+      {hasSearched && !loading && !error && (
+        <ResultsSummary total={totalResults} mode={mode} term={searchTerm} />
+      )}
 
-        {/* Search Mode Toggle */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{
-            display: 'flex',
-            backgroundColor: '#f1f5f9',
-            borderRadius: '8px',
-            padding: '0.25rem'
-          }}>
-            <button
-              onClick={() => setSearchMode('datasets')}
-              style={{
-                flex: 1,
-                padding: '0.75rem 1rem',
-                border: 'none',
-                borderRadius: '6px',
-                backgroundColor: searchMode === 'datasets' ? 'white' : 'transparent',
-                color: searchMode === 'datasets' ? '#1e293b' : '#64748b',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                boxShadow: searchMode === 'datasets' ? '0 1px 3px rgba(0, 0, 0, 0.1)' : 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem'
-              }}
+      {hasSearched && !loading && !error && (mode === 'datasets' || mode === 'both') && (
+        <ResultsSection
+          title="Datasets"
+          icon={<FileText size={20} />}
+          items={datasetResults}
+          emptyMessage="No datasets matched your search."
+          isService={false}
+        />
+      )}
+
+      {hasSearched && !loading && !error && (mode === 'services' || mode === 'both') && (
+        <ResultsSection
+          title="Services"
+          icon={<Settings size={20} />}
+          items={serviceResults}
+          emptyMessage="No services matched your search."
+          isService
+        />
+      )}
+    </div>
+  );
+};
+
+const SearchBar = ({ inputRef, value, onChange, onClear, loading }) => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      background: 'white',
+      border: '1px solid #e2e8f0',
+      borderRadius: '999px',
+      padding: '0.25rem 0.25rem 0.25rem 1.25rem',
+      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
+    }}
+  >
+    <SearchIcon size={20} color="#94a3b8" />
+    <input
+      ref={inputRef}
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="Search by name, description, keyword..."
+      aria-label="Search term"
+      style={{
+        flex: 1,
+        border: 'none',
+        outline: 'none',
+        fontSize: '1rem',
+        padding: '0.75rem 0.75rem',
+        background: 'transparent',
+        color: '#1e293b'
+      }}
+    />
+    {value && !loading && (
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label="Clear search"
+        style={{
+          background: 'transparent',
+          border: 'none',
+          padding: '0.5rem',
+          cursor: 'pointer',
+          color: '#94a3b8',
+          display: 'flex',
+          alignItems: 'center'
+        }}
+      >
+        <X size={18} />
+      </button>
+    )}
+    <button
+      type="submit"
+      disabled={loading}
+      style={{
+        background: '#2563eb',
+        color: 'white',
+        border: 'none',
+        borderRadius: '999px',
+        padding: '0.65rem 1.25rem',
+        fontSize: '0.95rem',
+        fontWeight: 600,
+        cursor: loading ? 'not-allowed' : 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        opacity: loading ? 0.7 : 1
+      }}
+    >
+      {loading ? (
+        <>
+          <div className="loading-spinner" />
+          Searching
+        </>
+      ) : (
+        <>
+          <SearchIcon size={16} />
+          Search
+        </>
+      )}
+    </button>
+  </div>
+);
+
+const FilterRow = ({ mode, setMode, server, setServer }) => (
+  <div
+    style={{
+      marginTop: '1rem',
+      display: 'flex',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: '0.75rem',
+      alignItems: 'center'
+    }}
+  >
+    <SegmentedControl options={MODES} value={mode} onChange={setMode} />
+    <span style={{ color: '#cbd5e1' }}>·</span>
+    <SegmentedControl options={SERVERS} value={server} onChange={setServer} subtle />
+  </div>
+);
+
+const SegmentedControl = ({ options, value, onChange, subtle }) => (
+  <div
+    style={{
+      display: 'inline-flex',
+      background: subtle ? 'transparent' : '#f1f5f9',
+      border: subtle ? '1px solid #e2e8f0' : 'none',
+      borderRadius: '999px',
+      padding: '0.2rem'
+    }}
+  >
+    {options.map((opt) => {
+      const active = opt.id === value;
+      return (
+        <button
+          key={opt.id}
+          type="button"
+          onClick={() => onChange(opt.id)}
+          style={{
+            border: 'none',
+            background: active ? 'white' : 'transparent',
+            color: active ? '#1e293b' : '#64748b',
+            borderRadius: '999px',
+            padding: '0.4rem 0.9rem',
+            fontSize: '0.85rem',
+            fontWeight: active ? 600 : 500,
+            cursor: 'pointer',
+            boxShadow: active ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          {opt.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+const ResultsSummary = ({ total, mode, term }) => (
+  <div
+    style={{
+      color: '#64748b',
+      fontSize: '0.9rem',
+      marginBottom: '1rem',
+      padding: '0 0.25rem'
+    }}
+  >
+    {total > 0 ? (
+      <>
+        Found <strong style={{ color: '#1e293b' }}>{total}</strong> result{total === 1 ? '' : 's'} for "
+        <strong style={{ color: '#1e293b' }}>{term}</strong>"
+        {mode !== 'both' && ` in ${mode}`}
+      </>
+    ) : (
+      <>
+        No results for "<strong style={{ color: '#1e293b' }}>{term}</strong>"
+      </>
+    )}
+  </div>
+);
+
+const ResultsSection = ({ title, icon, items, emptyMessage, isService }) => (
+  <div style={{ marginBottom: '2rem' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        marginBottom: '0.75rem',
+        color: '#334155',
+        fontWeight: 600,
+        fontSize: '0.95rem',
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em'
+      }}
+    >
+      {icon}
+      {title}
+      <span
+        style={{
+          background: '#f1f5f9',
+          color: '#475569',
+          borderRadius: '999px',
+          padding: '0.1rem 0.55rem',
+          fontSize: '0.75rem',
+          fontWeight: 600
+        }}
+      >
+        {items.length}
+      </span>
+    </div>
+
+    {items.length === 0 ? (
+      <div
+        style={{
+          background: '#f8fafc',
+          border: '1px dashed #e2e8f0',
+          borderRadius: '8px',
+          padding: '1.25rem',
+          color: '#94a3b8',
+          fontSize: '0.9rem',
+          textAlign: 'center'
+        }}
+      >
+        {emptyMessage}
+      </div>
+    ) : (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {items.map((item, index) => (
+          <ResultCard key={item.id || `${title}-${index}`} item={item} isService={isService} />
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+const ResultCard = ({ item, isService }) => {
+  const [expanded, setExpanded] = useState(false);
+  const resources = item.resources || [];
+  const hasExtras = item.extras && Object.keys(item.extras).length > 0;
+  const showResources = resources.length > 0;
+  const canToggle = showResources || hasExtras;
+
+  return (
+    <div
+      style={{
+        background: 'white',
+        border: '1px solid #e2e8f0',
+        borderRadius: '10px',
+        padding: '1.1rem 1.25rem',
+        transition: 'border-color 0.15s ease, box-shadow 0.15s ease'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+            <Badge
+              color={isService ? '#7c3aed' : '#2563eb'}
+              background={isService ? '#f5f3ff' : '#eff6ff'}
             >
-              <SearchIcon size={16} />
-              Search Datasets
-            </button>
-            <button
-              onClick={() => setSearchMode('services')}
-              style={{
-                flex: 1,
-                padding: '0.75rem 1rem',
-                border: 'none',
-                borderRadius: '6px',
-                backgroundColor: searchMode === 'services' ? 'white' : 'transparent',
-                color: searchMode === 'services' ? '#1e293b' : '#64748b',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                boxShadow: searchMode === 'services' ? '0 1px 3px rgba(0, 0, 0, 0.1)' : 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem'
-              }}
-            >
-              <Settings size={16} />
-              Search Services
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={executeSearch}>
-          <div className="form-group">
-            <label className="form-label">Server</label>
-            <select
-              value={selectedServer}
-              onChange={(e) => setSelectedServer(e.target.value)}
-              className="form-select"
-            >
-              <option value="global">Global</option>
-              <option value="local">Local</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              Search Term
-              {searchMode === 'services' && (
-                <small style={{ fontWeight: 'normal', color: '#64748b', marginLeft: '0.5rem' }}>
-                  - searching in services organization
-                </small>
-              )}
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-input"
-              placeholder={searchMode === 'datasets' ? 'Enter search term...' : 'Enter service name or description...'}
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? (
-              <>
-                <div className="loading-spinner" />
-                Searching...
-              </>
-            ) : (
-              <>
-                <SearchIcon size={16} />
-                Search {searchMode === 'datasets' ? 'Datasets' : 'Services'}
-              </>
+              {isService ? 'Service' : 'Dataset'}
+            </Badge>
+            {item.owner_org && (
+              <Badge color="#475569" background="#f1f5f9">
+                {item.owner_org}
+              </Badge>
             )}
-          </button>
-        </form>
+            {isService && item.extras?.service_type && (
+              <Badge color="#0f766e" background="#ecfdf5">
+                {item.extras.service_type}
+              </Badge>
+            )}
+          </div>
+
+          <h3
+            style={{
+              fontSize: '1.1rem',
+              fontWeight: 600,
+              color: '#0f172a',
+              margin: 0,
+              marginBottom: '0.25rem',
+              wordBreak: 'break-word'
+            }}
+          >
+            {item.title || item.name || 'Untitled'}
+          </h3>
+
+          {item.notes && (
+            <p
+              style={{
+                color: '#475569',
+                margin: 0,
+                marginTop: '0.25rem',
+                fontSize: '0.92rem',
+                lineHeight: 1.5,
+                display: '-webkit-box',
+                WebkitLineClamp: expanded ? 'unset' : 3,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden'
+              }}
+            >
+              {item.notes}
+            </p>
+          )}
+        </div>
       </div>
 
-      {results.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title">
-              {searchMode === 'datasets' ? <SearchIcon size={20} /> : <Settings size={20} />}
-              Search Results ({results.length}) - {searchMode === 'datasets' ? 'Datasets' : 'Services'}
-            </h3>
-          </div>
+      {canToggle && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          style={{
+            marginTop: '0.75rem',
+            background: 'transparent',
+            border: 'none',
+            color: '#2563eb',
+            padding: 0,
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: 500
+          }}
+        >
+          {expanded
+            ? 'Hide details'
+            : `Show ${[
+                showResources && `${resources.length} ${isService ? 'endpoint' : 'resource'}${resources.length === 1 ? '' : 's'}`,
+                hasExtras && 'metadata'
+              ]
+                .filter(Boolean)
+                .join(' & ')}`}
+        </button>
+      )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {results.map((item, index) => (
-              <div 
-                key={item.id || index}
-                style={{
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  padding: '1.5rem',
-                  backgroundColor: 'white'
-                }}
-              >
-                <h4 style={{ 
-                  color: '#1e293b', 
-                  marginBottom: '0.5rem',
-                  fontSize: '1.25rem',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}>
-                  {searchMode === 'services' && <Settings size={20} />}
-                  {item.title || item.name}
-                </h4>
-                
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                  <span className="status-indicator status-success">
-                    Organization: {item.owner_org || 'No organization'}
-                  </span>
-                  
-                  {item.id && (
-                    <span style={{ fontSize: '0.875rem', color: '#64748b' }}>
-                      ID: {item.id}
-                    </span>
-                  )}
+      {expanded && showResources && (
+        <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {resources.map((resource, idx) => (
+            <ResourceRow key={resource.id || idx} resource={resource} isService={isService} />
+          ))}
+        </div>
+      )}
 
-                  {searchMode === 'services' && item.extras?.service_type && (
-                    <span className="status-indicator status-info">
-                      Type: {item.extras.service_type}
-                    </span>
-                  )}
-                </div>
-
-                {item.notes && (
-                  <p style={{ color: '#64748b', margin: '0.5rem 0' }}>
-                    {item.notes}
-                  </p>
-                )}
-
-                {item.resources && item.resources.length > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <h5 style={{ 
-                      color: '#374151', 
-                      marginBottom: '0.5rem',
-                      fontSize: '1rem',
-                      fontWeight: '500'
-                    }}>
-                      {searchMode === 'services' ? 'Service Endpoints' : 'Resources'} ({item.resources.length})
-                    </h5>
-                    
-                    {item.resources.map((resource, resourceIndex) => (
-                      <div 
-                        key={resource.id || resourceIndex}
-                        style={{
-                          backgroundColor: '#f8fafc',
-                          padding: '1rem',
-                          borderRadius: '6px',
-                          border: '1px solid #e2e8f0',
-                          marginBottom: '0.5rem'
-                        }}
-                      >
-                        <div style={{ fontWeight: '500', color: '#1e293b', marginBottom: '0.25rem' }}>
-                          {resource.name || 'Unnamed Resource'}
-                        </div>
-                        
-                        {resource.description && (
-                          <div style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                            {resource.description}
-                          </div>
-                        )}
-
-                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                          {resource.format && (
-                            <span className="status-indicator status-info">
-                              {resource.format}
-                            </span>
-                          )}
-                          
-                          {resource.url && (
-                            <a 
-                              href={resource.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: '#2563eb',
-                                textDecoration: 'none',
-                                fontSize: '0.875rem',
-                                fontWeight: '500'
-                              }}
-                            >
-                              {searchMode === 'services' ? '🔗 Access Service' : '📄 View Resource'} →
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {item.extras && Object.keys(item.extras).length > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <h5 style={{ 
-                      color: '#374151', 
-                      marginBottom: '0.5rem',
-                      fontSize: '1rem',
-                      fontWeight: '500'
-                    }}>
-                      {searchMode === 'services' ? 'Service Details' : 'Additional Information'}
-                    </h5>
-                    
-                    <div style={{
-                      backgroundColor: '#f8fafc',
-                      padding: '1rem',
-                      borderRadius: '6px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                        {Object.entries(item.extras).map(([key, value]) => (
-                          <div key={key} style={{ minWidth: '200px' }}>
-                            <span style={{ fontWeight: '500', color: '#374151' }}>
-                              {key}:
-                            </span>
-                            <span style={{ marginLeft: '0.5rem', color: '#64748b' }}>
-                              {typeof value === 'object' ? JSON.stringify(value) : value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+      {expanded && hasExtras && (
+        <div
+          style={{
+            marginTop: '0.75rem',
+            padding: '0.75rem',
+            background: '#f8fafc',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0'
+          }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem' }}>
+            {Object.entries(item.extras).map(([key, value]) => (
+              <div key={key} style={{ fontSize: '0.85rem' }}>
+                <span style={{ color: '#64748b', fontWeight: 500 }}>{key}: </span>
+                <span style={{ color: '#0f172a', wordBreak: 'break-word' }}>
+                  {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                </span>
               </div>
             ))}
           </div>
         </div>
       )}
-
-      {!loading && results.length === 0 && !error && (
-        <div className="card">
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-            {searchMode === 'datasets' ? 
-              <SearchIcon size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} /> : 
-              <Settings size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-            }
-            <p>No search results yet</p>
-            <p>Enter a search term above to find {searchMode === 'datasets' ? 'datasets' : 'services'}</p>
-          </div>
-        </div>
-      )}
-
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">Search Tips</h3>
-        </div>
-        <div className="grid grid-2">
-          <div>
-            <h4 style={{ marginBottom: '0.5rem', color: '#374151' }}>Dataset Search</h4>
-            <ul style={{ color: '#64748b', paddingLeft: '1.5rem' }}>
-              <li>Search across all dataset fields (title, description, resources)</li>
-              <li>Use keywords to find relevant datasets</li>
-              <li>Select server to search in specific CKAN instances</li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 style={{ marginBottom: '0.5rem', color: '#374151' }}>Service Search</h4>
-            <ul style={{ color: '#64748b', paddingLeft: '1.5rem' }}>
-              <li>Search specifically in the "services" organization</li>
-              <li>Find registered APIs, web services, and microservices</li>
-              <li>View service endpoints and access URLs</li>
-              <li>See service types and additional metadata</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
+
+const ResourceRow = ({ resource, isService }) => (
+  <div
+    style={{
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      borderRadius: '8px',
+      padding: '0.75rem 1rem',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: '1rem',
+      flexWrap: 'wrap'
+    }}
+  >
+    <div style={{ minWidth: 0, flex: 1 }}>
+      <div style={{ fontWeight: 500, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Database size={14} color="#64748b" />
+        {resource.name || 'Unnamed resource'}
+      </div>
+      {resource.description && (
+        <div style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '0.25rem' }}>{resource.description}</div>
+      )}
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      {resource.format && (
+        <Badge color="#475569" background="#e2e8f0">
+          {resource.format}
+        </Badge>
+      )}
+      {resource.url && (
+        <a
+          href={resource.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: '#2563eb',
+            textDecoration: 'none',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.25rem'
+          }}
+        >
+          {isService ? 'Open' : 'View'}
+          <ExternalLink size={14} />
+        </a>
+      )}
+    </div>
+  </div>
+);
+
+const Badge = ({ children, color, background }) => (
+  <span
+    style={{
+      background,
+      color,
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      padding: '0.15rem 0.55rem',
+      borderRadius: '999px',
+      textTransform: 'none',
+      letterSpacing: 0
+    }}
+  >
+    {children}
+  </span>
+);
 
 export default Search;

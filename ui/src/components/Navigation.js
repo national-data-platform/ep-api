@@ -142,13 +142,13 @@ const Navigation = () => {
           {/* Center: Navigation Menu */}
           <nav style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              
-              {/* Dashboard */}
+
+              {/* Search (landing page) */}
               <Link
                 to="/"
                 onMouseEnter={handleOtherNavEnter}
                 style={{
-                  color: '#6b7280', // Always same color
+                  color: '#6b7280',
                   textDecoration: 'none',
                   padding: '0.5rem 0.75rem',
                   borderRadius: '8px',
@@ -157,7 +157,7 @@ const Navigation = () => {
                   gap: '0.5rem',
                   fontSize: '0.95rem',
                   whiteSpace: 'nowrap',
-                  fontWeight: '500', // Always same weight
+                  fontWeight: '500',
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   backgroundColor: 'transparent',
                   transition: 'all 0.2s ease'
@@ -171,8 +171,8 @@ const Navigation = () => {
                   e.target.style.fontWeight = '500';
                 }}
               >
-                <Home size={18} />
-                <span>Dashboard</span>
+                <Search size={18} />
+                <span>Search</span>
               </Link>
 
               {/* Organizations */}
@@ -445,37 +445,39 @@ const Navigation = () => {
                 <span>Services</span>
               </Link>
 
-              {/* Search */}
-              <Link
-                to="/search"
-                onMouseEnter={handleOtherNavEnter}
-                style={{
-                  color: '#6b7280', // Always same color
-                  textDecoration: 'none',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.95rem',
-                  whiteSpace: 'nowrap',
-                  fontWeight: '500', // Always same weight
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  backgroundColor: 'transparent',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.color = '#374151';
-                  e.target.style.fontWeight = '600';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.color = '#6b7280';
-                  e.target.style.fontWeight = '500';
-                }}
-              >
-                <Search size={18} />
-                <span>Search</span>
-              </Link>
+              {/* Dashboard (admin only) */}
+              {isAdmin && (
+                <Link
+                  to="/dashboard"
+                  onMouseEnter={handleOtherNavEnter}
+                  style={{
+                    color: '#6b7280',
+                    textDecoration: 'none',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.95rem',
+                    whiteSpace: 'nowrap',
+                    fontWeight: '500',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    backgroundColor: 'transparent',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.color = '#374151';
+                    e.target.style.fontWeight = '600';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.color = '#6b7280';
+                    e.target.style.fontWeight = '500';
+                  }}
+                >
+                  <Home size={18} />
+                  <span>Dashboard</span>
+                </Link>
+              )}
 
               {/* Access Requests (admin only) */}
               {isAdmin && (

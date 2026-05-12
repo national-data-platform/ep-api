@@ -25,26 +25,27 @@ function App() {
         <Router basename={`${window.__EP_CONFIG__?.rootPath ?? ''}/ui`}>
           <Layout>
             <Routes>
-              {/* Dashboard route - main overview page */}
-              <Route path="/" element={<Dashboard />} />
-              
+              {/* Search is the landing page */}
+              <Route path="/" element={<Search />} />
+              <Route path="/search" element={<Search />} />
+
+              {/* Dashboard remains available for admins */}
+              <Route path="/dashboard" element={<Dashboard />} />
+
               {/* Organizations management routes */}
               <Route path="/organizations" element={<Organizations />} />
-              
+
               {/* Data sources management routes */}
               <Route path="/kafka-topics" element={<KafkaTopics />} />
               <Route path="/url-resources" element={<UrlResources />} />
               <Route path="/s3-resources" element={<S3Resources />} />
               <Route path="/s3-management" element={<S3Management />} />
-              
+
               {/* Services management route */}
               <Route path="/services" element={<Services />} />
-              
+
               {/* Dataset management routes */}
               <Route path="/datasets" element={<DatasetManagement />} />
-              
-              {/* Search functionality route */}
-              <Route path="/search" element={<Search />} />
 
               {/* Access request management route (admin-gated on backend) */}
               <Route path="/access-requests" element={<AccessRequests />} />

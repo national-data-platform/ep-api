@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-05-11
+
+### Changed
+- The UI landing page is now the Search page instead of the Dashboard. Regular users land directly on the search experience, which matches what they actually need to do on the EP (find datasets and services) without first navigating through a Dashboard that is primarily useful for administrators
+- The Dashboard is still available, but its nav entry has been moved to the end of the navigation bar (just before "Access Requests") and is only shown to administrators — the same gate that already controls the "Access Requests" entry
+- The "Search" nav entry now points to `/` (the new landing route); `/search` still works as before for backwards compatibility, and `/dashboard` is the new path for the Dashboard view
+- Search page redesigned to be cleaner and more complete:
+  - Pre-search layout is a centered hero with a large rounded search bar, an inline clear button and an autofocused input, so the page reads as a search experience from the first second
+  - After running a search, the hero collapses and the bar moves up so the results take the visible area
+  - Mode selector now has three options instead of two: "All" (default — runs the dataset search and the service search in parallel and shows the two result groups), "Datasets" and "Services". This removes the need to switch tabs and run the query twice when looking for "everything matching a term"
+  - Results are grouped by type with a section header that shows the count, and each result card uses badges (type, organization, service type) plus a collapsible "Show details" block for resources/endpoints and extras — instead of always rendering the full payload inline
+  - The old static "Search Tips" block was removed; its contents were not actionable and competed with the actual results for screen space
+  - Error messages no longer abort a multi-mode search: when "All" is selected, a failure in one of the two queries is silently dropped and the other group is still rendered; the page only surfaces an error when every requested query fails
+
 ## [0.19.5] - 2026-04-30
 
 ### Changed
