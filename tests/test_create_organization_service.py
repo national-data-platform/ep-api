@@ -158,6 +158,72 @@ class TestCreateOrganization:
         mock_repository.organization_create.assert_called_once()
 
     @patch("api.services.organization_services.create_organization.catalog_settings")
+    def test_create_organization_with_user_info_injects_hashes(
+        self, mock_catalog_settings
+    ):
+        """When user_info is provided, the creator hashes are forwarded."""
+        from api.services.metadata_services import calculate_md5, hash_user_id
+
+        mock_repository = MagicMock()
+        mock_repository.organization_create.return_value = {"id": "org-with-user"}
+        mock_catalog_settings.local_catalog = mock_repository
+
+        user_info = {"sub": "user-sub-abc123"}
+        result = create_organization(
+            name="hashed-org",
+            title="Hashed Org",
+            server="local",
+            user_info=user_info,
+        )
+
+        assert result == "org-with-user"
+        call_args = mock_repository.organization_create.call_args[1]
+        # Same hashing helpers that datasets use; never the raw sub.
+        assert call_args["ndp_user_id"] == hash_user_id(user_info)
+        assert call_args["ndp_creator_md5"] == calculate_md5("user-sub-abc123")
+        # The original org fields are still passed unchanged.
+        assert call_args["name"] == "hashed-org"
+        assert call_args["title"] == "Hashed Org"
+
+    @patch("api.services.organization_services.create_organization.catalog_settings")
+    def test_create_organization_without_user_info_does_not_inject_hashes(
+        self, mock_catalog_settings
+    ):
+        """Without user_info, no hash fields are added to the call."""
+        mock_repository = MagicMock()
+        mock_repository.organization_create.return_value = {"id": "org-no-user"}
+        mock_catalog_settings.local_catalog = mock_repository
+
+        create_organization(name="plain-org", title="Plain Org", server="local")
+
+        call_args = mock_repository.organization_create.call_args[1]
+        assert "ndp_user_id" not in call_args
+        assert "ndp_creator_md5" not in call_args
+
+    @patch("api.services.organization_services.create_organization.catalog_settings")
+    def test_create_organization_with_user_info_without_sub(
+        self, mock_catalog_settings
+    ):
+        """A user_info missing 'sub' still produces deterministic hashes."""
+        from api.services.metadata_services import calculate_md5, hash_user_id
+
+        mock_repository = MagicMock()
+        mock_repository.organization_create.return_value = {"id": "org-fallback"}
+        mock_catalog_settings.local_catalog = mock_repository
+
+        user_info = {"email": "x@example.com"}
+        create_organization(
+            name="sub-less-org",
+            title="Sub-less Org",
+            server="local",
+            user_info=user_info,
+        )
+
+        call_args = mock_repository.organization_create.call_args[1]
+        assert call_args["ndp_user_id"] == hash_user_id(user_info)
+        assert call_args["ndp_creator_md5"] == calculate_md5("unknown")
+
+    @patch("api.services.organization_services.create_organization.catalog_settings")
     def test_create_organization_returns_id_only(self, mock_catalog_settings):
         """Test that function returns only the ID, not full response."""
         mock_repository = MagicMock()

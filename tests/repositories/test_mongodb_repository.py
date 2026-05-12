@@ -254,6 +254,26 @@ def test_organization_create(mongodb_repo):
     assert org["name"] == "new-test-org"
     assert org["title"] == "New Test Organization"
     assert org["description"] == "A test organization"
+    # Without creator hashes, the fields stay absent from the doc.
+    assert "ndp_user_id" not in org
+    assert "ndp_creator_md5" not in org
+
+
+def test_organization_create_with_creator_hashes(mongodb_repo):
+    """When ndp_user_id is provided it is persisted on the org doc."""
+    org = mongodb_repo.organization_create(
+        name="hashed-test-org",
+        title="Hashed Test Org",
+        ndp_user_id="abc123def4567890",
+        ndp_creator_md5="d41d8cd98f00b204e9800998ecf8427e",
+    )
+
+    assert org["ndp_user_id"] == "abc123def4567890"
+    assert org["ndp_creator_md5"] == "d41d8cd98f00b204e9800998ecf8427e"
+    # Round-trip: the stored doc keeps the fields.
+    fetched = mongodb_repo.organization_show(org["id"])
+    assert fetched["ndp_user_id"] == "abc123def4567890"
+    assert fetched["ndp_creator_md5"] == "d41d8cd98f00b204e9800998ecf8427e"
 
 
 def test_organization_show(mongodb_repo):
