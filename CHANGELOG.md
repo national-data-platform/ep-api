@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-05-12
+
+### Added
+- Search page can now also find organizations alongside datasets and services:
+  - The mode selector gained a third scope, `Organizations`, in addition to `Datasets` and `Services`
+  - The default `All` mode runs the dataset search, the service search and the organization search in parallel, and renders the three result groups together so the user does not need to switch modes and re-run the same query to also see matching organizations
+  - Organization cards expose a `View datasets in this org →` action that re-runs the search scoped to that organization (using the existing POST `/search` `owner_org` filter) and switches the mode to `Datasets`, so the user can drill down without leaving the page
+  - When the org filter is active, a removable chip ("Filtered by org: X (×)") is shown right under the search bar so the user always sees which scope is applied and can clear it with one click
+  - Clicking the chip's clear button restores the unfiltered behavior and keeps the typed term (re-running the broader search if a term is present, or just clearing the page otherwise)
+- The search term is now optional when the mode is `Organizations` (the EP's `GET /organization` endpoint already lists every organization on the server when no `name` filter is provided), so the user can browse the full list of organizations without typing anything
+
+### Changed
+- Search hero title now reads "Find datasets, services and organizations"
+- Results summary now mentions the active organization scope when one is applied
+
 ## [0.20.0] - 2026-05-11
 
 ### Changed
