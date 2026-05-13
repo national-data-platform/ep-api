@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-05-13
+
+### Added
+- Search page has a new "Only mine" toggle alongside the existing scope/server filters. When active, every result group (datasets, services and organizations) is restricted to items whose persisted creator hash matches the authenticated user. The toggle relies on the one-way hash that the EP already stores; no PII is involved.
+- `GET /organization` accepts a new optional `mine=true` query parameter. When set, the response is filtered server-side to organizations whose `ndp_user_id` extra (CKAN) or top-level `ndp_user_id` field (MongoDB) matches the requester's hash. The response shape stays `List[str]`. Requires a Bearer token; the endpoint stays anonymous-friendly when `mine` is not used.
+- `GET /user/info` now also returns the requesting user's own `ndp_user_id` (the same hash that the EP persists alongside resources). The UI uses this so it can filter datasets/services client-side without re-deriving the hash in the browser. Upstream payloads that already carry an `ndp_user_id` are preserved as-is.
+
+### Backwards compatibility
+- All changes are additive. No required parameters, no fields removed, no type changes.
+- `GET /organization` keeps working without authentication when `mine` is not passed; the response shape is unchanged.
+- `GET /user/info` keeps every field the auth service was returning and only adds `ndp_user_id` on top. Clients that ignore unknown fields are unaffected.
+- Items registered before the corresponding creator-hash feature simply do not appear under "Only mine"; no migration is performed.
+
 ## [0.22.0] - 2026-05-12
 
 ### Added

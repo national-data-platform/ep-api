@@ -155,3 +155,76 @@ class TestListOrganization:
         result = list_organization(name="organization", server="global")
 
         assert result == ["my-organization", "your-organization"]
+
+    @patch("api.services.organization_services.list_organization.catalog_settings")
+    def test_list_organization_with_user_hash_mongo_shape(self, mock_catalog_settings):
+        """When user_hash is set, MongoDB-style docs are filtered by their top-level ndp_user_id."""
+        mock_repository = MagicMock()
+        mock_repository.organization_list.return_value = [
+            {"name": "alpha", "ndp_user_id": "abc1234567890def"},
+            {"name": "beta", "ndp_user_id": "deadbeefcafef00d"},
+            {"name": "gamma"},  # legacy org with no creator hash
+        ]
+        mock_catalog_settings.global_catalog = mock_repository
+
+        result = list_organization(server="global", user_hash="abc1234567890def")
+
+        assert result == ["alpha"]
+        mock_repository.organization_list.assert_called_once_with(
+            all_fields=True, include_extras=True
+        )
+
+    @patch("api.services.organization_services.list_organization.catalog_settings")
+    def test_list_organization_with_user_hash_ckan_shape(self, mock_catalog_settings):
+        """When user_hash is set, CKAN-style docs are filtered by the ndp_user_id extra."""
+        mock_repository = MagicMock()
+        mock_repository.organization_list.return_value = [
+            {
+                "name": "alpha",
+                "extras": [
+                    {"key": "ndp_user_id", "value": "abc1234567890def"},
+                    {"key": "ndp_creator_md5", "value": "ignored"},
+                ],
+            },
+            {
+                "name": "beta",
+                "extras": [{"key": "ndp_user_id", "value": "deadbeefcafef00d"}],
+            },
+            # legacy org: no extras at all
+            {"name": "gamma", "extras": []},
+        ]
+        mock_catalog_settings.global_catalog = mock_repository
+
+        result = list_organization(server="global", user_hash="abc1234567890def")
+
+        assert result == ["alpha"]
+
+    @patch("api.services.organization_services.list_organization.catalog_settings")
+    def test_list_organization_with_user_hash_and_name_filter(
+        self, mock_catalog_settings
+    ):
+        """Name filter is applied on top of the creator-hash filter."""
+        mock_repository = MagicMock()
+        mock_repository.organization_list.return_value = [
+            {"name": "alpha-team", "ndp_user_id": "h"},
+            {"name": "beta-team", "ndp_user_id": "h"},
+            {"name": "alpha-archive", "ndp_user_id": "other"},
+        ]
+        mock_catalog_settings.global_catalog = mock_repository
+
+        result = list_organization(name="alpha", server="global", user_hash="h")
+
+        assert result == ["alpha-team"]
+
+    @patch("api.services.organization_services.list_organization.catalog_settings")
+    def test_list_organization_without_user_hash_does_not_request_extras(
+        self, mock_catalog_settings
+    ):
+        """The pre-existing call shape is preserved when user_hash is not provided."""
+        mock_repository = MagicMock()
+        mock_repository.organization_list.return_value = ["org1", "org2"]
+        mock_catalog_settings.global_catalog = mock_repository
+
+        list_organization(server="global")
+
+        mock_repository.organization_list.assert_called_once_with(all_fields=False)

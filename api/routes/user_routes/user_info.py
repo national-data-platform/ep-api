@@ -5,6 +5,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends
 
 from api.services.auth_services import get_user_for_endpoint_access
+from api.services.metadata_services import hash_user_id
 
 router = APIRouter()
 
@@ -92,6 +93,14 @@ async def get_user_info(
     satisfy any of the configured authorization paths are rejected
     with a 403 response.
 
+    On top of the upstream payload, the response is enriched with the
+    user's own ``ndp_user_id`` — the same SHA-256-based hash that the EP
+    persists alongside resources created by this user. The hash is
+    derived from the ``sub`` claim and is *not* PII; surfacing it here
+    lets clients (notably the Search UI) filter resources by the
+    "creator hash" they already see in resource extras without having
+    to compute the hash themselves.
+
     Parameters
     ----------
     user_info : Dict[str, Any]
@@ -100,7 +109,8 @@ async def get_user_info(
     Returns
     -------
     Dict[str, Any]
-        Complete user information as returned by the authentication service
+        Complete user information as returned by the authentication
+        service, plus a top-level ``ndp_user_id`` field.
 
     Raises
     ------
@@ -109,4 +119,9 @@ async def get_user_info(
         403: If the user is not authorized to access this Endpoint
         502: If authentication service is unavailable
     """
-    return user_info
+    # Additive enrichment — never overwrite an upstream value that
+    # happens to share the name, to keep this strictly backwards
+    # compatible if the auth service ever starts returning it itself.
+    enriched = dict(user_info)
+    enriched.setdefault("ndp_user_id", hash_user_id(user_info))
+    return enriched

@@ -9,7 +9,7 @@ import {
   Database,
   Building2
 } from 'lucide-react';
-import { searchAPI, organizationsAPI } from '../services/api';
+import { searchAPI, organizationsAPI, userAPI } from '../services/api';
 
 const MODES = [
   { id: 'both', label: 'All' },
@@ -37,26 +37,63 @@ const Search = () => {
   // term is ignored, so clicking "View datasets" on an org card lists every
   // dataset of that org without forcing the user to retype anything.
   const [ownerOrgFilter, setOwnerOrgFilter] = useState(null);
+  // "Only mine" toggle: filters every result group to items whose
+  // ndp_user_id matches the authenticated user's hash. Orgs filter
+  // server-side; datasets/services filter client-side using the hash
+  // that comes back in /user/info.
+  const [onlyMine, setOnlyMine] = useState(false);
+  const [myUserHash, setMyUserHash] = useState(null);
   const inputRef = useRef(null);
+  // Monotonically-increasing id of the most recent search request.
+  // Only the latest request is allowed to update state, so a slow
+  // response that arrives after the user has already changed a filter
+  // can never overwrite the new search or leave loading stuck on.
+  const searchRequestIdRef = useRef(0);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  const fetchDatasets = async (term, selectedServer, ownerOrg) => {
+  // Fetch the user's own ndp_user_id once on mount. The backend
+  // enriches /user/info with this hash, so the UI does not have to
+  // decode the JWT or compute SHA-256 in the browser.
+  useEffect(() => {
+    let cancelled = false;
+    userAPI
+      .getUserInfo()
+      .then((response) => {
+        if (!cancelled) setMyUserHash(response.data?.ndp_user_id || null);
+      })
+      .catch(() => {
+        if (!cancelled) setMyUserHash(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Client-side filter applied when "Only mine" is on. Items missing
+  // a creator hash (legacy data) are intentionally excluded.
+  const keepOnlyMine = (items, mine, hash) =>
+    !mine || !hash ? items : items.filter((item) => item.extras?.ndp_user_id === hash);
+
+  const fetchDatasets = async (term, selectedServer, ownerOrg, mine, hash) => {
+    let raw;
     if (ownerOrg) {
       const response = await searchAPI.searchAdvanced({
         owner_org: ownerOrg,
         search_term: term || undefined,
         server: selectedServer
       });
-      return (response.data || []).filter((item) => item.owner_org !== 'services');
+      raw = (response.data || []).filter((item) => item.owner_org !== 'services');
+    } else {
+      const response = await searchAPI.searchByTerms([term], null, selectedServer);
+      raw = (response.data || []).filter((item) => item.owner_org !== 'services');
     }
-    const response = await searchAPI.searchByTerms([term], null, selectedServer);
-    return (response.data || []).filter((item) => item.owner_org !== 'services');
+    return keepOnlyMine(raw, mine, hash);
   };
 
-  const fetchServices = async (term, selectedServer, ownerOrg) => {
+  const fetchServices = async (term, selectedServer, ownerOrg, mine, hash) => {
     // Services always live in the "services" org; an external ownerOrg filter
     // doesn't make sense for them, so we silently skip when one is active.
     if (ownerOrg && ownerOrg !== 'services') return [];
@@ -65,26 +102,45 @@ const Search = () => {
       search_term: term,
       server: selectedServer
     });
-    return (response.data || []).filter((item) => item.owner_org === 'services');
+    const raw = (response.data || []).filter((item) => item.owner_org === 'services');
+    return keepOnlyMine(raw, mine, hash);
   };
 
-  const fetchOrganizations = async (term, selectedServer) => {
+  const fetchOrganizations = async (term, selectedServer, mine) => {
     const params = { server: selectedServer };
     if (term) params.name = term;
+    if (mine) params.mine = true;
     const response = await organizationsAPI.list(params);
     return Array.isArray(response.data) ? response.data : [];
   };
 
-  const runSearch = async ({ term, currentMode, currentServer, currentOwnerOrg }) => {
+  const runSearch = async ({
+    term,
+    currentMode,
+    currentServer,
+    currentOwnerOrg,
+    currentOnlyMine,
+    currentUserHash
+  }) => {
     const trimmed = (term || '').trim();
     // Term is required unless the query already has another scope: a
-    // selected organization filter, or the "Organizations" mode (which can
-    // list every organization on the server).
-    if (!trimmed && !currentOwnerOrg && currentMode !== 'organizations') {
+    // selected organization filter, the "Organizations" mode (which can
+    // list every organization on the server), or an active "Only mine"
+    // toggle (which is itself a scope — the user wants their own items).
+    if (
+      !trimmed &&
+      !currentOwnerOrg &&
+      currentMode !== 'organizations' &&
+      !currentOnlyMine
+    ) {
       setError('Please enter a search term');
       return;
     }
 
+    // Claim a fresh request id. If the user changes a filter while we
+    // are still awaiting the network, a newer call will bump this id
+    // and our late response will be discarded below.
+    const requestId = ++searchRequestIdRef.current;
     setLoading(true);
     setError(null);
 
@@ -103,15 +159,35 @@ const Search = () => {
         p.then((data) => ({ ok: true, data })).catch((err) => ({ ok: false, err }));
       const [datasetsRes, servicesRes, orgsRes] = await Promise.all([
         wantDatasets
-          ? safe(fetchDatasets(trimmed, currentServer, currentOwnerOrg))
+          ? safe(
+              fetchDatasets(
+                trimmed,
+                currentServer,
+                currentOwnerOrg,
+                currentOnlyMine,
+                currentUserHash
+              )
+            )
           : Promise.resolve({ ok: true, data: [] }),
         wantServices
-          ? safe(fetchServices(trimmed, currentServer, currentOwnerOrg))
+          ? safe(
+              fetchServices(
+                trimmed,
+                currentServer,
+                currentOwnerOrg,
+                currentOnlyMine,
+                currentUserHash
+              )
+            )
           : Promise.resolve({ ok: true, data: [] }),
         wantOrgs
-          ? safe(fetchOrganizations(trimmed, currentServer))
+          ? safe(fetchOrganizations(trimmed, currentServer, currentOnlyMine))
           : Promise.resolve({ ok: true, data: [] })
       ]);
+
+      // If a newer request has been issued in the meantime, drop our
+      // results on the floor — we don't own the UI any more.
+      if (requestId !== searchRequestIdRef.current) return;
 
       const requested = [
         wantDatasets && datasetsRes,
@@ -126,6 +202,7 @@ const Search = () => {
       setOrganizationResults(orgsRes.ok ? orgsRes.data : []);
       setHasSearched(true);
     } catch (err) {
+      if (requestId !== searchRequestIdRef.current) return;
       const status = err.response?.status;
       let message = 'Search failed';
       if (status === 422) message += ': validation error — check your search parameters';
@@ -134,7 +211,10 @@ const Search = () => {
       else if (err.message) message += `: ${err.message}`;
       setError(message);
     } finally {
-      setLoading(false);
+      // Only the latest request clears the loading flag, so loading
+      // tracks the freshest in-flight search rather than the order in
+      // which responses come back.
+      if (requestId === searchRequestIdRef.current) setLoading(false);
     }
   };
 
@@ -144,36 +224,23 @@ const Search = () => {
       term: searchTerm,
       currentMode: mode,
       currentServer: server,
-      currentOwnerOrg: ownerOrgFilter
+      currentOwnerOrg: ownerOrgFilter,
+      currentOnlyMine: onlyMine,
+      currentUserHash: myUserHash
     });
   };
 
+  // Handlers below mutate filter state only. The effect right after the
+  // component body picks up the change and re-runs the search, so any
+  // stale results from a previous mode never linger on screen.
   const handleViewDatasetsInOrg = (orgName) => {
+    setSearchTerm('');
     setOwnerOrgFilter(orgName);
     setMode('datasets');
-    runSearch({
-      term: '',
-      currentMode: 'datasets',
-      currentServer: server,
-      currentOwnerOrg: orgName
-    });
   };
 
   const handleClearOrgFilter = () => {
     setOwnerOrgFilter(null);
-    if (searchTerm.trim()) {
-      runSearch({
-        term: searchTerm,
-        currentMode: mode,
-        currentServer: server,
-        currentOwnerOrg: null
-      });
-    } else {
-      setDatasetResults([]);
-      setServiceResults([]);
-      setOrganizationResults([]);
-      setHasSearched(false);
-    }
   };
 
   const clearTerm = () => {
@@ -181,8 +248,50 @@ const Search = () => {
     inputRef.current?.focus();
   };
 
+  // Re-run the search whenever any of the filter toggles change after the
+  // first search. This keeps the "Found X results" summary and the
+  // rendered groups consistent with the toggles the user just clicked —
+  // without it, switching from Organizations to Datasets would leave the
+  // counts and the (empty) result groups out of sync. Initial mount
+  // (hasSearched=false) does nothing, so this never fires on its own.
+  useEffect(() => {
+    if (!hasSearched) return;
+    const trimmed = searchTerm.trim();
+    // No scope at all? Reset to the pre-search hero instead of letting
+    // runSearch surface a validation error from a state the user
+    // arrived at by clearing the org filter.
+    if (!trimmed && !ownerOrgFilter && mode !== 'organizations' && !onlyMine) {
+      setDatasetResults([]);
+      setServiceResults([]);
+      setOrganizationResults([]);
+      setHasSearched(false);
+      setError(null);
+      return;
+    }
+    runSearch({
+      term: searchTerm,
+      currentMode: mode,
+      currentServer: server,
+      currentOwnerOrg: ownerOrgFilter,
+      currentOnlyMine: onlyMine,
+      currentUserHash: myUserHash
+    });
+    // runSearch is a stable in-component function; we intentionally
+    // watch only the filter inputs so typing in the bar does not
+    // trigger a request on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, server, ownerOrgFilter, onlyMine]);
+
+  // Count only what is *actually visible* given the current mode, so the
+  // summary never claims results from a hidden group.
+  const datasetsVisible = mode === 'datasets' || mode === 'both';
+  const servicesVisible = mode === 'services' || mode === 'both';
+  const orgsVisible =
+    mode === 'organizations' || (mode === 'both' && !ownerOrgFilter);
   const totalResults =
-    datasetResults.length + serviceResults.length + organizationResults.length;
+    (datasetsVisible ? datasetResults.length : 0) +
+    (servicesVisible ? serviceResults.length : 0) +
+    (orgsVisible ? organizationResults.length : 0);
   const compact = hasSearched || loading;
 
   return (
@@ -230,7 +339,15 @@ const Search = () => {
             loading={loading}
           />
 
-          <FilterRow mode={mode} setMode={setMode} server={server} setServer={setServer} />
+          <FilterRow
+            mode={mode}
+            setMode={setMode}
+            server={server}
+            setServer={setServer}
+            onlyMine={onlyMine}
+            onToggleOnlyMine={setOnlyMine}
+            canOnlyMine={Boolean(myUserHash)}
+          />
 
           {ownerOrgFilter && mode !== 'organizations' && (
             <OrgFilterChip orgName={ownerOrgFilter} onClear={handleClearOrgFilter} />
@@ -369,7 +486,15 @@ const SearchBar = ({ inputRef, value, onChange, onClear, loading }) => (
   </div>
 );
 
-const FilterRow = ({ mode, setMode, server, setServer }) => (
+const FilterRow = ({
+  mode,
+  setMode,
+  server,
+  setServer,
+  onlyMine,
+  onToggleOnlyMine,
+  canOnlyMine
+}) => (
   <div
     style={{
       marginTop: '1rem',
@@ -383,7 +508,47 @@ const FilterRow = ({ mode, setMode, server, setServer }) => (
     <SegmentedControl options={MODES} value={mode} onChange={setMode} />
     <span style={{ color: '#cbd5e1' }}>·</span>
     <SegmentedControl options={SERVERS} value={server} onChange={setServer} subtle />
+    <span style={{ color: '#cbd5e1' }}>·</span>
+    <OnlyMineToggle
+      checked={onlyMine}
+      onChange={onToggleOnlyMine}
+      disabled={!canOnlyMine}
+    />
   </div>
+);
+
+const OnlyMineToggle = ({ checked, onChange, disabled }) => (
+  <label
+    title={
+      disabled
+        ? 'Unavailable: could not load your user identity'
+        : 'Show only items I created'
+    }
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.4rem',
+      padding: '0.4rem 0.9rem',
+      borderRadius: '999px',
+      border: '1px solid #e2e8f0',
+      background: checked ? '#eff6ff' : 'transparent',
+      color: disabled ? '#cbd5e1' : checked ? '#1d4ed8' : '#475569',
+      fontSize: '0.85rem',
+      fontWeight: checked ? 600 : 500,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      transition: 'all 0.15s ease',
+      userSelect: 'none'
+    }}
+  >
+    <input
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.checked)}
+      style={{ accentColor: '#2563eb', cursor: disabled ? 'not-allowed' : 'pointer' }}
+    />
+    Only mine
+  </label>
 );
 
 const SegmentedControl = ({ options, value, onChange, subtle }) => (
