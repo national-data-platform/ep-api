@@ -13,7 +13,8 @@ import {
   FolderOpen,
   ChevronDown,
   HardDrive,
-  ShieldAlert
+  ShieldAlert,
+  Plus
 } from 'lucide-react';
 import { isAccessRequestAdmin, userAPI } from '../services/api';
 
@@ -26,6 +27,10 @@ const Navigation = () => {
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
   const timeoutRef = useRef(null);
+  const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
+  const newMenuRef = useRef(null);
+  const newButtonRef = useRef(null);
+  const newTimeoutRef = useRef(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Determine admin status from the current token's /user/info response so
@@ -45,25 +50,32 @@ const Navigation = () => {
     };
   }, []);
 
-  // Clear timeout on unmount
+  // Clear timeouts on unmount
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (newTimeoutRef.current) clearTimeout(newTimeoutRef.current);
     };
   }, []);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        dropdownRef.current && 
+        dropdownRef.current &&
         !dropdownRef.current.contains(event.target) &&
         buttonRef.current &&
         !buttonRef.current.contains(event.target)
       ) {
         setIsDropdownOpen(false);
+      }
+      if (
+        newMenuRef.current &&
+        !newMenuRef.current.contains(event.target) &&
+        newButtonRef.current &&
+        !newButtonRef.current.contains(event.target)
+      ) {
+        setIsNewMenuOpen(false);
       }
     };
 
@@ -79,6 +91,7 @@ const Navigation = () => {
       clearTimeout(timeoutRef.current);
     }
     setIsDropdownOpen(true);
+    setIsNewMenuOpen(false);
   };
 
   const handleDropdownLeave = () => {
@@ -88,12 +101,24 @@ const Navigation = () => {
     }, 150);
   };
 
-  // Handle mouse entering other nav items - close dropdown immediately
-  const handleOtherNavEnter = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+  const handleNewMenuEnter = () => {
+    if (newTimeoutRef.current) clearTimeout(newTimeoutRef.current);
+    setIsNewMenuOpen(true);
     setIsDropdownOpen(false);
+  };
+
+  const handleNewMenuLeave = () => {
+    newTimeoutRef.current = setTimeout(() => {
+      setIsNewMenuOpen(false);
+    }, 150);
+  };
+
+  // Handle mouse entering other nav items - close dropdowns immediately
+  const handleOtherNavEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (newTimeoutRef.current) clearTimeout(newTimeoutRef.current);
+    setIsDropdownOpen(false);
+    setIsNewMenuOpen(false);
   };
 
   const handleLogout = () => {
@@ -173,38 +198,6 @@ const Navigation = () => {
               >
                 <Search size={18} />
                 <span>Search</span>
-              </Link>
-
-              {/* Organizations */}
-              <Link
-                to="/organizations"
-                onMouseEnter={handleOtherNavEnter}
-                style={{
-                  color: '#6b7280', // Always same color
-                  textDecoration: 'none',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.95rem',
-                  whiteSpace: 'nowrap',
-                  fontWeight: '500', // Always same weight
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  backgroundColor: 'transparent',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.color = '#374151';
-                  e.target.style.fontWeight = '600';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.color = '#6b7280';
-                  e.target.style.fontWeight = '500';
-                }}
-              >
-                <Building2 size={18} />
-                <span>Organizations</span>
               </Link>
 
               {/* Resources Dropdown */}
@@ -444,6 +437,97 @@ const Navigation = () => {
                 <Settings size={18} />
                 <span>Services</span>
               </Link>
+
+              {/* + New menu (compact entry point for create flows) */}
+              <div
+                style={{ position: 'relative' }}
+                onMouseEnter={handleNewMenuEnter}
+                onMouseLeave={handleNewMenuLeave}
+              >
+                <button
+                  ref={newButtonRef}
+                  style={{
+                    color: isNewMenuOpen ? '#374151' : '#6b7280',
+                    background: 'none',
+                    border: 'none',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    fontSize: '0.95rem',
+                    fontWeight: isNewMenuOpen ? '600' : '500',
+                    fontFamily:
+                      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    cursor: 'pointer',
+                    backgroundColor: 'transparent',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isNewMenuOpen) {
+                      e.target.style.color = '#374151';
+                      e.target.style.fontWeight = '600';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!isNewMenuOpen) {
+                      e.target.style.color = '#6b7280';
+                      e.target.style.fontWeight = '500';
+                    }
+                  }}
+                >
+                  <Plus size={18} />
+                  <span>New</span>
+                  <ChevronDown size={16} />
+                </button>
+
+                {isNewMenuOpen && (
+                  <div
+                    ref={newMenuRef}
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: '0',
+                      backgroundColor: 'white',
+                      borderRadius: '10px',
+                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+                      border: '1px solid #e5e7eb',
+                      minWidth: '220px',
+                      zIndex: 1000,
+                      marginTop: '0.5rem'
+                    }}
+                  >
+                    <Link
+                      to="/organizations"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '1rem 1.25rem',
+                        color: '#374151',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        backgroundColor: 'white'
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.backgroundColor = '#f9fafb';
+                        e.target.style.color = '#2563eb';
+                        e.target.style.fontWeight = '600';
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.backgroundColor = 'white';
+                        e.target.style.color = '#374151';
+                        e.target.style.fontWeight = '500';
+                      }}
+                    >
+                      <Building2 size={18} />
+                      <span>Organization</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
 
               {/* Dashboard (admin only) */}
               {isAdmin && (

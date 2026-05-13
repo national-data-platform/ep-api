@@ -49,13 +49,25 @@ async def delete_organization(
     server: Literal["local"] = Query(
         "local", description="Choose 'local'. Defaults to 'local'."
     ),
+    cascade: bool = Query(
+        True,
+        description=(
+            "When true (default, legacy behavior), every dataset owned "
+            "by the organization is deleted before the organization "
+            "itself. When false, the call refuses to delete an "
+            "organization that still has datasets inside, so the caller "
+            "can clean them up explicitly before retrying."
+        ),
+    ),
 ):
     """
     Endpoint to delete an organization in CKAN by its name.
 
     If ?server=pre_ckan is used, it will delete from the pre-CKAN instance
     if enabled. Returns a 400 error if pre_ckan is disabled or missing a
-    valid scheme. Raises a 404 if the organization does not exist.
+    valid scheme. Raises a 404 if the organization does not exist. With
+    ?cascade=false, returns a 409 when the organization still has
+    datasets owned by it.
     """
     try:
         repository = None
@@ -67,7 +79,9 @@ async def delete_organization(
             repository = CKANRepository(ckan_settings.pre_ckan)
 
         organization_services.delete_organization(
-            organization_name=organization_name, repository=repository
+            organization_name=organization_name,
+            repository=repository,
+            cascade=cascade,
         )
         return {"message": "Organization deleted successfully"}
 
@@ -75,6 +89,11 @@ async def delete_organization(
         error_msg = str(e)
         if "Organization not found" in error_msg:
             raise HTTPException(status_code=404, detail="Organization not found")
+        if "still has" in error_msg.lower() and "dataset" in error_msg.lower():
+            # 409 Conflict — the org cannot be deleted in its current
+            # state. The error string is small and machine-readable so
+            # UI callers can map it to a friendly message.
+            raise HTTPException(status_code=409, detail=error_msg)
         if "No scheme supplied" in error_msg:
             raise HTTPException(
                 status_code=400,

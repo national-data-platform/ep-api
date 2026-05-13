@@ -146,6 +146,52 @@ class TestDeleteOrganization:
         assert "Permission denied" in str(exc_info.value)
 
     @patch("api.services.organization_services.delete_organization.catalog_settings")
+    def test_delete_organization_no_cascade_refuses_when_datasets_exist(
+        self, mock_catalog_settings
+    ):
+        """cascade=False blocks deletion when the org still owns datasets."""
+        mock_repository = MagicMock()
+        mock_repository.organization_show.return_value = {
+            "id": "blocked-org",
+            "name": "blocked",
+        }
+        mock_repository.package_search.return_value = {
+            "count": 2,
+            "results": [{"id": "ds-1"}, {"id": "ds-2"}],
+        }
+        mock_catalog_settings.local_catalog = mock_repository
+
+        with pytest.raises(Exception) as exc_info:
+            delete_organization("blocked", cascade=False)
+
+        message = str(exc_info.value).lower()
+        assert "still has" in message
+        assert "dataset" in message
+        # No deletion calls must have happened.
+        mock_repository.package_delete.assert_not_called()
+        mock_repository.organization_delete.assert_not_called()
+
+    @patch("api.services.organization_services.delete_organization.catalog_settings")
+    def test_delete_organization_no_cascade_deletes_when_empty(
+        self, mock_catalog_settings
+    ):
+        """cascade=False still deletes an empty org and leaves no datasets behind."""
+        mock_repository = MagicMock()
+        mock_repository.organization_show.return_value = {
+            "id": "empty-org",
+            "name": "empty",
+        }
+        mock_repository.package_search.return_value = {"count": 0, "results": []}
+        mock_repository.organization_delete.return_value = None
+        mock_repository.organization_purge.return_value = None
+        mock_catalog_settings.local_catalog = mock_repository
+
+        delete_organization("empty", cascade=False)
+
+        mock_repository.package_delete.assert_not_called()
+        mock_repository.organization_delete.assert_called_once_with(id="empty-org")
+
+    @patch("api.services.organization_services.delete_organization.catalog_settings")
     def test_delete_organization_dataset_deletion_order(self, mock_catalog_settings):
         """Test that datasets are deleted before organization."""
         deletion_order = []

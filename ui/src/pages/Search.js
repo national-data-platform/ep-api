@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Search as SearchIcon,
   AlertCircle,
@@ -7,7 +7,8 @@ import {
   X,
   ExternalLink,
   Database,
-  Building2
+  Building2,
+  Trash2
 } from 'lucide-react';
 import { searchAPI, organizationsAPI, userAPI } from '../services/api';
 
@@ -43,6 +44,11 @@ const Search = () => {
   // that comes back in /user/info.
   const [onlyMine, setOnlyMine] = useState(false);
   const [myUserHash, setMyUserHash] = useState(null);
+  // Names of organizations the current user owns on the *local* catalog.
+  // The Search page uses this to show a Delete action on org cards that
+  // belong to the user. Only local because the delete endpoint targets
+  // the local catalog only.
+  const [myLocalOrgNames, setMyLocalOrgNames] = useState(() => new Set());
   const inputRef = useRef(null);
   // Monotonically-increasing id of the most recent search request.
   // Only the latest request is allowed to update state, so a slow
@@ -71,6 +77,26 @@ const Search = () => {
       cancelled = true;
     };
   }, []);
+
+  // Refresh the list of *my* local orgs. We keep this separate from the
+  // main Search results so we can flag owned orgs even when the user is
+  // browsing the unfiltered list (the server-side ?mine=true filter only
+  // applies to the org list endpoint itself).
+  const refreshMyLocalOrgs = useCallback(async () => {
+    if (!myUserHash) return;
+    try {
+      const response = await organizationsAPI.list({ server: 'local', mine: true });
+      const names = Array.isArray(response.data) ? response.data : [];
+      setMyLocalOrgNames(new Set(names));
+    } catch {
+      // A failure here only means the Delete button stays hidden — it's
+      // a degraded experience, not a broken page, so we swallow it.
+    }
+  }, [myUserHash]);
+
+  useEffect(() => {
+    refreshMyLocalOrgs();
+  }, [refreshMyLocalOrgs]);
 
   // Client-side filter applied when "Only mine" is on. Items missing
   // a creator hash (legacy data) are intentionally excluded.
@@ -243,6 +269,49 @@ const Search = () => {
     setOwnerOrgFilter(null);
   };
 
+  // Translate backend errors into something a non-engineer can act on.
+  // The patterns map to the messages CKAN and our Mongo backend emit
+  // for the most common failure cases.
+  const friendlyDeleteError = (err, orgName) => {
+    const status = err.response?.status;
+    const detail = err.response?.data?.detail;
+    const raw = (typeof detail === 'string' ? detail : err.message) || '';
+    if (status === 401) return 'You need to log in again to delete organizations.';
+    if (status === 403)
+      return `You don't have permission to delete "${orgName}".`;
+    if (status === 404 || /not found/i.test(raw))
+      return `"${orgName}" no longer exists. It may have been deleted already.`;
+    if (status === 409 || /still has/i.test(raw)) {
+      // Try to extract the dataset count from the backend message so the
+      // user knows exactly how much cleanup is left to do.
+      const match = /(\d+)\s+dataset/i.exec(raw);
+      const count = match ? Number(match[1]) : null;
+      const suffix = count
+        ? `${count} dataset${count === 1 ? '' : 's'}`
+        : 'datasets';
+      return `"${orgName}" still has ${suffix} inside. Delete the datasets first, then try again.`;
+    }
+    if (/scheme|unreachable|configured/i.test(raw))
+      return 'The local catalog is not reachable right now. Try again in a moment.';
+    return `Could not delete "${orgName}". Please try again later.`;
+  };
+
+  const handleDeleteOrg = async (orgName) => {
+    // cascade:false → only the organization is deleted; datasets owned
+    // by it are left in place. The user gets a friendly error if any
+    // datasets are still there.
+    await organizationsAPI.delete(orgName, 'local', { cascade: false });
+    // Optimistically drop the org from the rendered list and from the
+    // owned-orgs set so the card disappears immediately on success.
+    setOrganizationResults((prev) => prev.filter((name) => name !== orgName));
+    setMyLocalOrgNames((prev) => {
+      if (!prev.has(orgName)) return prev;
+      const next = new Set(prev);
+      next.delete(orgName);
+      return next;
+    });
+  };
+
   const clearTerm = () => {
     setSearchTerm('');
     inputRef.current?.focus();
@@ -399,6 +468,10 @@ const Search = () => {
           <OrganizationsSection
             items={organizationResults}
             onViewDatasets={handleViewDatasetsInOrg}
+            ownedOrgNames={myLocalOrgNames}
+            canDelete={server === 'local'}
+            onDelete={handleDeleteOrg}
+            mapDeleteError={friendlyDeleteError}
           />
         )}
     </div>
@@ -922,7 +995,14 @@ const OrgFilterChip = ({ orgName, onClear }) => (
   </div>
 );
 
-const OrganizationsSection = ({ items, onViewDatasets }) => (
+const OrganizationsSection = ({
+  items,
+  onViewDatasets,
+  ownedOrgNames,
+  canDelete,
+  onDelete,
+  mapDeleteError
+}) => (
   <div style={{ marginBottom: '2rem' }}>
     <div
       style={{
@@ -980,6 +1060,9 @@ const OrganizationsSection = ({ items, onViewDatasets }) => (
             key={orgName}
             orgName={orgName}
             onViewDatasets={onViewDatasets}
+            isOwned={Boolean(canDelete && ownedOrgNames?.has(orgName))}
+            onDelete={onDelete}
+            mapDeleteError={mapDeleteError}
           />
         ))}
       </div>
@@ -987,49 +1070,191 @@ const OrganizationsSection = ({ items, onViewDatasets }) => (
   </div>
 );
 
-const OrganizationCard = ({ orgName, onViewDatasets }) => (
-  <div
-    style={{
-      background: 'white',
-      border: '1px solid #e2e8f0',
-      borderRadius: '10px',
-      padding: '1rem 1.1rem',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.6rem'
-    }}
-  >
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-      <Badge color="#0f766e" background="#ecfdf5">Organization</Badge>
-    </div>
+const OrganizationCard = ({
+  orgName,
+  onViewDatasets,
+  isOwned,
+  onDelete,
+  mapDeleteError
+}) => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  const handleConfirm = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await onDelete(orgName);
+      // On success the parent removes us from the list, so no need to
+      // touch local state — the card unmounts.
+    } catch (err) {
+      setDeleteError(mapDeleteError ? mapDeleteError(err, orgName) : err.message);
+      setDeleting(false);
+    }
+  };
+
+  return (
     <div
       style={{
-        fontSize: '1.05rem',
-        fontWeight: 600,
-        color: '#0f172a',
-        wordBreak: 'break-word'
+        background: 'white',
+        border: '1px solid #e2e8f0',
+        borderRadius: '10px',
+        padding: '1rem 1.1rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.6rem'
       }}
     >
-      {orgName}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Badge color="#0f766e" background="#ecfdf5">Organization</Badge>
+        {isOwned && (
+          <Badge color="#1d4ed8" background="#eff6ff">Yours</Badge>
+        )}
+      </div>
+      <div
+        style={{
+          fontSize: '1.05rem',
+          fontWeight: 600,
+          color: '#0f172a',
+          wordBreak: 'break-word'
+        }}
+      >
+        {orgName}
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <button
+          type="button"
+          onClick={() => onViewDatasets(orgName)}
+          disabled={deleting}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            color: '#2563eb',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            cursor: deleting ? 'not-allowed' : 'pointer'
+          }}
+        >
+          View datasets in this org →
+        </button>
+
+        {isOwned && !confirmOpen && (
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteError(null);
+              setConfirmOpen(true);
+            }}
+            disabled={deleting}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              color: '#b91c1c',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+              cursor: deleting ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem'
+            }}
+          >
+            <Trash2 size={14} />
+            Delete
+          </button>
+        )}
+      </div>
+
+      {confirmOpen && (
+        <div
+          role="alertdialog"
+          aria-label={`Confirm deleting ${orgName}`}
+          style={{
+            marginTop: '0.25rem',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            padding: '0.75rem'
+          }}
+        >
+          <div style={{ color: '#7f1d1d', fontSize: '0.85rem', marginBottom: '0.6rem' }}>
+            Delete <strong>{orgName}</strong>? This cannot be undone. Datasets
+            inside the organization are <strong>not</strong> deleted.
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={deleting}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: deleting ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}
+            >
+              {deleting ? (
+                <>
+                  <div className="loading-spinner" />
+                  Deleting
+                </>
+              ) : (
+                <>
+                  <Trash2 size={14} />
+                  Delete
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmOpen(false);
+                setDeleteError(null);
+              }}
+              disabled={deleting}
+              style={{
+                background: 'white',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+                cursor: deleting ? 'not-allowed' : 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {deleteError && (
+            <div
+              style={{
+                marginTop: '0.6rem',
+                color: '#7f1d1d',
+                fontSize: '0.8rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.4rem'
+              }}
+            >
+              <AlertCircle size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
+              <span>{deleteError}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
-    <button
-      type="button"
-      onClick={() => onViewDatasets(orgName)}
-      style={{
-        marginTop: '0.1rem',
-        alignSelf: 'flex-start',
-        background: 'transparent',
-        border: 'none',
-        padding: 0,
-        color: '#2563eb',
-        fontSize: '0.85rem',
-        fontWeight: 500,
-        cursor: 'pointer'
-      }}
-    >
-      View datasets in this org →
-    </button>
-  </div>
-);
+  );
+};
 
 export default Search;

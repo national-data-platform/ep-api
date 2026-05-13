@@ -86,9 +86,12 @@ export const organizationsAPI = {
   create: (data, server = 'local') => 
     apiClient.post('/organization', data, { params: { server } }),
   
-  delete: (organizationName, server = 'local') => 
-    apiClient.delete(`/organization/${organizationName}`, { 
-      params: { server } 
+  // `cascade` defaults to true for backwards-compatibility with the
+  // existing API contract; callers that want a "delete the org only"
+  // semantic (the UI does) should pass `{ cascade: false }`.
+  delete: (organizationName, server = 'local', { cascade = true } = {}) =>
+    apiClient.delete(`/organization/${organizationName}`, {
+      params: { server, cascade }
     }),
 };
 

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-05-13
+
+### Added
+- Navigation: new "+ New" dropdown replaces the old "Organizations" entry. It currently contains a single "Organization" item that takes the user to the simplified organization-creation page; the menu is wired so adding more entries (Dataset, Service, etc.) later is a single-line change.
+- Search page: organization result cards that belong to the authenticated user now show a "Delete" action and a "Yours" badge. Clicking Delete opens an in-line confirmation panel on the card itself (no `window.confirm`, no full-screen modal). On success the card disappears immediately; on failure the panel shows a friendly, actionable error message rather than the raw backend string.
+- `DELETE /organization/{name}` accepts a new optional `cascade` query parameter (default `true`, the legacy behavior). When `cascade=false`, the endpoint deletes only the organization and refuses with `409 Conflict` if the organization still owns datasets. The error payload includes the dataset count so callers can render a helpful message. The Search UI always passes `cascade=false`, so users never lose datasets by clicking Delete.
+
+### Changed
+- The Organizations page is now a focused "create a new organization" form. The list-and-delete role it played before moved to the Search page (listing was already there; deletion is new). The route stays at `/organizations` so the "+ New > Organization" item lands there.
+- The Organizations entry has been removed from the navigation bar; the page is now reached exclusively from "+ New > Organization".
+
+### Backwards compatibility
+- The new `cascade` parameter defaults to `true`, matching the legacy "delete the organization and every dataset it owns" behavior. Existing API clients are unaffected.
+- The HTTP path and response shape of `DELETE /organization/{name}` are unchanged; `cascade=false` introduces a new `409` response code in addition to the existing `200/400/404`.
+- The `/organizations` UI route still exists and still creates organizations; the create-only redesign drops listing/delete features that are now duplicated on Search.
+
 ## [0.23.0] - 2026-05-13
 
 ### Added
