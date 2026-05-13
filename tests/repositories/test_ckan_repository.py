@@ -156,6 +156,47 @@ class TestCKANRepositoryOrganizationOperations:
             name="test-org", title="Test Org"
         )
 
+    def test_organization_create_forwards_creator_hashes_as_extras(self):
+        """Creator hashes are turned into CKAN organization extras."""
+        mock_ckan = MagicMock()
+        mock_ckan.action.organization_create.return_value = {"id": "org-with-hash"}
+
+        repo = CKANRepository(mock_ckan)
+        repo.organization_create(
+            name="hashed-org",
+            title="Hashed Org",
+            ndp_user_id="abcd1234efgh5678",
+            ndp_creator_md5="d41d8cd98f00b204e9800998ecf8427e",
+        )
+
+        call_kwargs = mock_ckan.action.organization_create.call_args.kwargs
+        # The hashes must not leak through as top-level CKAN kwargs.
+        assert "ndp_user_id" not in call_kwargs
+        assert "ndp_creator_md5" not in call_kwargs
+        assert call_kwargs["extras"] == [
+            {"key": "ndp_user_id", "value": "abcd1234efgh5678"},
+            {"key": "ndp_creator_md5", "value": "d41d8cd98f00b204e9800998ecf8427e"},
+        ]
+
+    def test_organization_create_preserves_caller_extras(self):
+        """Hashes are appended to caller-provided extras, not replacing them."""
+        mock_ckan = MagicMock()
+        mock_ckan.action.organization_create.return_value = {"id": "org-mixed"}
+
+        repo = CKANRepository(mock_ckan)
+        repo.organization_create(
+            name="mixed-org",
+            title="Mixed Org",
+            extras=[{"key": "existing", "value": "kept"}],
+            ndp_user_id="abcd1234efgh5678",
+        )
+
+        call_kwargs = mock_ckan.action.organization_create.call_args.kwargs
+        assert call_kwargs["extras"] == [
+            {"key": "existing", "value": "kept"},
+            {"key": "ndp_user_id", "value": "abcd1234efgh5678"},
+        ]
+
     def test_organization_show(self):
         """Test retrieving an organization."""
         mock_ckan = MagicMock()

@@ -69,7 +69,7 @@ async def create_organization_endpoint(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Endpoint to create a new organization in CKAN.
@@ -81,8 +81,10 @@ async def create_organization_endpoint(
         the organization.
     server : Literal['local', 'pre_ckan']
         The CKAN server instance to use.
-    _ : Dict[str, Any]
-        User authentication and authorization (unused).
+    user_info : Dict[str, Any]
+        Authenticated user information. Only used to compute the
+        one-way creator hashes that are persisted with the
+        organization; no PII is stored.
 
     Returns
     -------
@@ -99,7 +101,11 @@ async def create_organization_endpoint(
     """
     try:
         organization_id = organization_services.create_organization(
-            name=org.name, title=org.title, description=org.description, server=server
+            name=org.name,
+            title=org.title,
+            description=org.description,
+            server=server,
+            user_info=user_info,
         )
         return {
             "id": organization_id,

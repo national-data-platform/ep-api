@@ -268,7 +268,10 @@ class CKANRepository(DataCatalogRepository):
         Parameters
         ----------
         **kwargs
-            Organization creation parameters (name, title, etc.)
+            Organization creation parameters (name, title, etc.).
+            ``ndp_user_id`` and ``ndp_creator_md5``, when provided, are
+            forwarded to CKAN as organization extras instead of
+            top-level fields (CKAN would otherwise reject unknown keys).
 
         Returns
         -------
@@ -280,6 +283,19 @@ class CKANRepository(DataCatalogRepository):
         Exception
             If CKAN organization creation fails
         """
+        # Pull the creator hashes out of the kwargs and forward them as
+        # standard CKAN extras, so the data lives on the org but the
+        # public surface of the route stays unchanged.
+        ndp_user_id = kwargs.pop("ndp_user_id", None)
+        ndp_creator_md5 = kwargs.pop("ndp_creator_md5", None)
+        creator_extras = []
+        if ndp_user_id:
+            creator_extras.append({"key": "ndp_user_id", "value": ndp_user_id})
+        if ndp_creator_md5:
+            creator_extras.append({"key": "ndp_creator_md5", "value": ndp_creator_md5})
+        if creator_extras:
+            existing_extras = kwargs.get("extras") or []
+            kwargs["extras"] = list(existing_extras) + creator_extras
         return self.ckan.action.organization_create(**kwargs)
 
     def organization_show(self, id: str) -> Dict[str, Any]:

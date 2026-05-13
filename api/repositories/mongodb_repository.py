@@ -789,6 +789,13 @@ class MongoDBRepository(DataCatalogRepository):
             "state": "active",
             "type": "organization",
         }
+        # Persist the creator hashes when provided. Same one-way scheme
+        # already used by datasets/services via inject_ndp_metadata —
+        # no PII is stored.
+        if kwargs.get("ndp_user_id"):
+            org_doc["ndp_user_id"] = kwargs["ndp_user_id"]
+        if kwargs.get("ndp_creator_md5"):
+            org_doc["ndp_creator_md5"] = kwargs["ndp_creator_md5"]
 
         try:
             self.organizations.insert_one(org_doc.copy())

@@ -1,10 +1,11 @@
 # api/services/organization_services/create_organization.py
-from typing import Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from ckanapi import NotFound, ValidationError
 
 from api.config import catalog_settings
 from api.config.ckan_settings import ckan_settings
+from api.services.metadata_services import calculate_md5, hash_user_id
 
 
 def create_organization(
@@ -12,6 +13,7 @@ def create_organization(
     title: str,
     description: Optional[str] = None,
     server: Literal["local", "pre_ckan"] = "local",
+    user_info: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Create a new organization in CKAN.
@@ -27,6 +29,11 @@ def create_organization(
     server : Literal["local", "pre_ckan"]
         The server instance where the organization will be created.
         Defaults to "local".
+    user_info : Optional[Dict[str, Any]]
+        Authenticated user information. Only used to derive the same
+        one-way creator hashes (``ndp_user_id`` and ``ndp_creator_md5``)
+        that are already persisted alongside datasets via
+        ``inject_ndp_metadata``. The raw user identity is never stored.
 
     Returns
     -------
@@ -47,11 +54,19 @@ def create_organization(
         # Use local catalog (can be CKAN or MongoDB)
         repository = catalog_settings.local_catalog
 
-    try:
-        # Create the organization
-        organization = repository.organization_create(
-            name=name, title=title, description=description
+    create_kwargs: Dict[str, Any] = {
+        "name": name,
+        "title": title,
+        "description": description,
+    }
+    if user_info:
+        create_kwargs["ndp_user_id"] = hash_user_id(user_info)
+        create_kwargs["ndp_creator_md5"] = calculate_md5(
+            user_info.get("sub", "unknown")
         )
+
+    try:
+        organization = repository.organization_create(**create_kwargs)
         # Return the organization ID
         return organization["id"]
     except ValidationError as e:
