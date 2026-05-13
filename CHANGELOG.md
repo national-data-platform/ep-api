@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-05-13
+
+### Added
+- Navigation: the "+ New" menu now hosts a "Dataset" entry between "Organization" and "Service", replacing the dedicated "Datasets" entry inside the "Resources" dropdown.
+- Search page: dataset result cards whose persisted creator hash matches the authenticated user now expose a "Yours" badge plus two inline actions:
+  - **Delete** — opens an inline confirmation panel on the same card; on success the card disappears immediately, on failure a friendly, actionable message is shown.
+  - **Publish** — only shown when the dataset has not yet been published (no `extras.status` on the dataset). Opens an inline confirmation panel; on success the card updates to reflect the new status (`submitted`) and the Publish button disappears, on failure a friendly message is shown.
+- A shared inline confirmation panel renders both delete and publish flows, with action-specific copy and palette (red for destructive, teal for publish) and a single processing/error path. Only one action can be pending per card at a time.
+
+### Changed
+- The Datasets page is now a single-purpose "register a new dataset" form, mirroring the simplified Organizations and Services creation pages. Listing moved to the Search page; deletion and publishing now happen on the dataset result cards (new in this release). Editing, tag/group/license/version inputs and the filter-by-organization controls are dropped from the page; we can revisit them as Search-card actions if it becomes a real ask. The route stays at `/datasets` so deep links keep working.
+- The "Datasets" entry has been removed from the "Resources" navigation dropdown; the page is now reached exclusively from "+ New > Dataset".
+
+### Backwards compatibility
+- No new public API surface. Dataset deletion goes through the existing `DELETE /resource?resource_id=...` endpoint (datasets are CKAN packages). Dataset publishing goes through the existing `POST /dataset/{id}/publish` endpoint, unchanged since 0.19.0.
+- The `/datasets` UI route still exists and still creates datasets; the page only drops the listing/edit/delete/publish features that became redundant once Search took over.
+- Datasets registered before the creator-hash feature do not appear under "Only mine" and never expose Delete or Publish actions on Search; no migration is performed.
+
 ## [0.25.0] - 2026-05-13
 
 ### Added

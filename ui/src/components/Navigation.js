@@ -260,35 +260,6 @@ const Navigation = () => {
                     }}
                   >
                     <Link
-                      to="/datasets"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        padding: '1rem 1.25rem',
-                        color: '#374151', // Always same color
-                        textDecoration: 'none',
-                        fontSize: '0.9rem',
-                        fontWeight: '500', // Always same weight
-                        backgroundColor: 'white',
-                        borderBottom: '1px solid #f3f4f6'
-                      }}
-                      onMouseOver={(e) => {
-                        e.target.style.backgroundColor = '#f9fafb';
-                        e.target.style.color = '#2563eb';
-                        e.target.style.fontWeight = '600';
-                      }}
-                      onMouseOut={(e) => {
-                        e.target.style.backgroundColor = 'white';
-                        e.target.style.color = '#374151';
-                        e.target.style.fontWeight = '500';
-                      }}
-                    >
-                      <FileText size={18} />
-                      <span>Datasets</span>
-                    </Link>
-
-                    <Link
                       to="/kafka-topics"
                       style={{
                         display: 'flex',
@@ -493,6 +464,35 @@ const Navigation = () => {
                     >
                       <Building2 size={18} />
                       <span>Organization</span>
+                    </Link>
+
+                    <Link
+                      to="/datasets"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '1rem 1.25rem',
+                        color: '#374151',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        backgroundColor: 'white',
+                        borderBottom: '1px solid #f3f4f6'
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.backgroundColor = '#f9fafb';
+                        e.target.style.color = '#2563eb';
+                        e.target.style.fontWeight = '600';
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.backgroundColor = 'white';
+                        e.target.style.color = '#374151';
+                        e.target.style.fontWeight = '500';
+                      }}
+                    >
+                      <FileText size={18} />
+                      <span>Dataset</span>
                     </Link>
 
                     <Link

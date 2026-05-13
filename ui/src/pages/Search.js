@@ -8,9 +8,16 @@ import {
   ExternalLink,
   Database,
   Building2,
-  Trash2
+  Trash2,
+  UploadCloud
 } from 'lucide-react';
-import { searchAPI, organizationsAPI, userAPI, resourcesAPI } from '../services/api';
+import {
+  searchAPI,
+  organizationsAPI,
+  userAPI,
+  resourcesAPI,
+  generalDatasetAPI
+} from '../services/api';
 
 const MODES = [
   { id: 'both', label: 'All' },
@@ -335,6 +342,56 @@ const Search = () => {
     setServiceResults((prev) => prev.filter((item) => item.id !== service.id));
   };
 
+  const friendlyDatasetDeleteError = (err, datasetName) => {
+    const status = err.response?.status;
+    const detail = err.response?.data?.detail;
+    const raw = (typeof detail === 'string' ? detail : err.message) || '';
+    if (status === 401) return 'You need to log in again to delete datasets.';
+    if (status === 403)
+      return `You don't have permission to delete "${datasetName}".`;
+    if (status === 404 || /not found/i.test(raw))
+      return `"${datasetName}" no longer exists. It may have been deleted already.`;
+    if (/scheme|unreachable|configured/i.test(raw))
+      return 'The local catalog is not reachable right now. Try again in a moment.';
+    return `Could not delete "${datasetName}". Please try again later.`;
+  };
+
+  const handleDeleteDataset = async (dataset) => {
+    // Datasets are CKAN packages; deletion goes through the same
+    // resource-by-id endpoint that services use.
+    await resourcesAPI.deleteById(dataset.id, 'local');
+    setDatasetResults((prev) => prev.filter((item) => item.id !== dataset.id));
+  };
+
+  const friendlyDatasetPublishError = (err, datasetName) => {
+    const status = err.response?.status;
+    const detail = err.response?.data?.detail;
+    const raw = (typeof detail === 'string' ? detail : err.message) || '';
+    if (status === 401) return 'You need to log in again to publish datasets.';
+    if (status === 403)
+      return `You don't have permission to publish "${datasetName}".`;
+    if (status === 404 || /not found/i.test(raw))
+      return `"${datasetName}" no longer exists. It may have been deleted.`;
+    if (/already.*(published|submitted)/i.test(raw))
+      return `"${datasetName}" has already been published.`;
+    if (/pre[- ]?ckan/i.test(raw) || /disabled/i.test(raw))
+      return 'Publishing to the global catalog is not available right now. Try again later.';
+    return `Could not publish "${datasetName}". Please try again later.`;
+  };
+
+  const handlePublishDataset = async (dataset) => {
+    await generalDatasetAPI.publish(dataset.id);
+    // Reflect the new status on the rendered card so the Publish action
+    // disappears and the user sees the dataset move out of "local only".
+    setDatasetResults((prev) =>
+      prev.map((item) =>
+        item.id === dataset.id
+          ? { ...item, extras: { ...(item.extras || {}), status: 'submitted' } }
+          : item
+      )
+    );
+  };
+
   const clearTerm = () => {
     setSearchTerm('');
     inputRef.current?.focus();
@@ -470,6 +527,12 @@ const Search = () => {
           items={datasetResults}
           emptyMessage="No datasets matched your search."
           isService={false}
+          myUserHash={myUserHash}
+          canDelete={server === 'local'}
+          onDelete={handleDeleteDataset}
+          mapDeleteError={friendlyDatasetDeleteError}
+          onPublish={handlePublishDataset}
+          mapPublishError={friendlyDatasetPublishError}
         />
       )}
 
@@ -738,7 +801,9 @@ const ResultsSection = ({
   myUserHash,
   canDelete,
   onDelete,
-  mapDeleteError
+  mapDeleteError,
+  onPublish,
+  mapPublishError
 }) => (
   <div style={{ marginBottom: '2rem' }}>
     <div
@@ -795,6 +860,8 @@ const ResultsSection = ({
             canDelete={canDelete}
             onDelete={onDelete}
             mapDeleteError={mapDeleteError}
+            onPublish={onPublish}
+            mapPublishError={mapPublishError}
           />
         ))}
       </div>
@@ -808,35 +875,62 @@ const ResultCard = ({
   myUserHash,
   canDelete,
   onDelete,
-  mapDeleteError
+  mapDeleteError,
+  onPublish,
+  mapPublishError
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState(null);
+  // pendingAction can be null | 'delete' | 'publish'. Only one
+  // confirmation panel can be open at a time per card.
+  const [pendingAction, setPendingAction] = useState(null);
+  const [processing, setProcessing] = useState(false);
+  const [actionError, setActionError] = useState(null);
   const resources = item.resources || [];
   const hasExtras = item.extras && Object.keys(item.extras).length > 0;
   const showResources = resources.length > 0;
   const canToggle = showResources || hasExtras;
   // A result card is "owned" by the current user when its persisted
   // creator hash matches and the surrounding section allows deletion
-  // (currently: services on the local server only).
+  // (currently: services or datasets on the local server only).
   const isOwned = Boolean(
     canDelete && myUserHash && item.extras?.ndp_user_id === myUserHash
   );
+  // Publishing only makes sense for datasets that have never been
+  // pushed to the global catalog. Services don't have a publish step.
+  const canPublish = Boolean(
+    isOwned && !isService && onPublish && !item.extras?.status
+  );
   const itemLabel = item.title || item.name || 'this item';
 
-  const handleConfirmDelete = async () => {
-    setDeleting(true);
-    setDeleteError(null);
+  const openAction = (action) => {
+    setActionError(null);
+    setPendingAction(action);
+  };
+  const closeAction = () => {
+    if (processing) return;
+    setActionError(null);
+    setPendingAction(null);
+  };
+
+  const handleConfirm = async () => {
+    if (!pendingAction) return;
+    setProcessing(true);
+    setActionError(null);
     try {
-      await onDelete(item);
-      // On success the parent unmounts us; nothing else to do here.
+      if (pendingAction === 'delete') {
+        await onDelete(item);
+        // Parent unmounts the card; nothing else to do.
+      } else if (pendingAction === 'publish') {
+        await onPublish(item);
+        // Parent updates the dataset's status; close the panel.
+        setPendingAction(null);
+        setProcessing(false);
+      }
     } catch (err) {
-      setDeleteError(
-        mapDeleteError ? mapDeleteError(err, itemLabel) : err.message
-      );
-      setDeleting(false);
+      const mapper =
+        pendingAction === 'delete' ? mapDeleteError : mapPublishError;
+      setActionError(mapper ? mapper(err, itemLabel) : err.message);
+      setProcessing(false);
     }
   };
 
@@ -907,7 +1001,7 @@ const ResultCard = ({
         </div>
       </div>
 
-      {(canToggle || isOwned) && (
+      {(canToggle || isOwned || canPublish) && (
         <div
           style={{
             marginTop: '0.75rem',
@@ -921,13 +1015,13 @@ const ResultCard = ({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              disabled={deleting}
+              disabled={processing}
               style={{
                 background: 'transparent',
                 border: 'none',
                 color: '#2563eb',
                 padding: 0,
-                cursor: deleting ? 'not-allowed' : 'pointer',
+                cursor: processing ? 'not-allowed' : 'pointer',
                 fontSize: '0.85rem',
                 fontWeight: 500
               }}
@@ -943,14 +1037,34 @@ const ResultCard = ({
             </button>
           )}
 
-          {isOwned && !confirmOpen && (
+          {canPublish && pendingAction !== 'publish' && (
             <button
               type="button"
-              onClick={() => {
-                setDeleteError(null);
-                setConfirmOpen(true);
+              onClick={() => openAction('publish')}
+              disabled={processing}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                color: '#0f766e',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+                cursor: processing ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem'
               }}
-              disabled={deleting}
+            >
+              <UploadCloud size={14} />
+              Publish
+            </button>
+          )}
+
+          {isOwned && pendingAction !== 'delete' && (
+            <button
+              type="button"
+              onClick={() => openAction('delete')}
+              disabled={processing}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -958,7 +1072,7 @@ const ResultCard = ({
                 color: '#b91c1c',
                 fontSize: '0.85rem',
                 fontWeight: 500,
-                cursor: deleting ? 'not-allowed' : 'pointer',
+                cursor: processing ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.25rem'
@@ -1002,88 +1116,131 @@ const ResultCard = ({
         </div>
       )}
 
-      {isOwned && confirmOpen && (
-        <div
-          role="alertdialog"
-          aria-label={`Confirm deleting ${itemLabel}`}
+      {pendingAction && (
+        <ActionConfirmPanel
+          action={pendingAction}
+          itemLabel={itemLabel}
+          processing={processing}
+          actionError={actionError}
+          onConfirm={handleConfirm}
+          onCancel={closeAction}
+        />
+      )}
+    </div>
+  );
+};
+
+const ActionConfirmPanel = ({
+  action,
+  itemLabel,
+  processing,
+  actionError,
+  onConfirm,
+  onCancel
+}) => {
+  const isDelete = action === 'delete';
+  const palette = isDelete
+    ? {
+        background: '#fef2f2',
+        border: '#fecaca',
+        text: '#7f1d1d',
+        button: '#dc2626'
+      }
+    : {
+        background: '#ecfdf5',
+        border: '#a7f3d0',
+        text: '#065f46',
+        button: '#0f766e'
+      };
+  const verb = isDelete ? 'Delete' : 'Publish';
+  const verbProgressive = isDelete ? 'Deleting' : 'Publishing';
+  const description = isDelete ? (
+    <>
+      Delete <strong>{itemLabel}</strong>? This cannot be undone.
+    </>
+  ) : (
+    <>
+      Publish <strong>{itemLabel}</strong> to the global catalog?
+    </>
+  );
+
+  return (
+    <div
+      role="alertdialog"
+      aria-label={`Confirm ${verb.toLowerCase()} for ${itemLabel}`}
+      style={{
+        marginTop: '0.75rem',
+        background: palette.background,
+        border: `1px solid ${palette.border}`,
+        borderRadius: '8px',
+        padding: '0.75rem'
+      }}
+    >
+      <div style={{ color: palette.text, fontSize: '0.85rem', marginBottom: '0.6rem' }}>
+        {description}
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={processing}
           style={{
-            marginTop: '0.75rem',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            padding: '0.75rem'
+            background: palette.button,
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '0.35rem 0.75rem',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            cursor: processing ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem'
           }}
         >
-          <div style={{ color: '#7f1d1d', fontSize: '0.85rem', marginBottom: '0.6rem' }}>
-            Delete <strong>{itemLabel}</strong>? This cannot be undone.
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              type="button"
-              onClick={handleConfirmDelete}
-              disabled={deleting}
-              style={{
-                background: '#dc2626',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '0.35rem 0.75rem',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: deleting ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem'
-              }}
-            >
-              {deleting ? (
-                <>
-                  <div className="loading-spinner" />
-                  Deleting
-                </>
-              ) : (
-                <>
-                  <Trash2 size={14} />
-                  Delete
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setConfirmOpen(false);
-                setDeleteError(null);
-              }}
-              disabled={deleting}
-              style={{
-                background: 'white',
-                color: '#374151',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                padding: '0.35rem 0.75rem',
-                fontSize: '0.85rem',
-                fontWeight: 500,
-                cursor: deleting ? 'not-allowed' : 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-          {deleteError && (
-            <div
-              style={{
-                marginTop: '0.6rem',
-                color: '#7f1d1d',
-                fontSize: '0.8rem',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.4rem'
-              }}
-            >
-              <AlertCircle size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
-              <span>{deleteError}</span>
-            </div>
+          {processing ? (
+            <>
+              <div className="loading-spinner" />
+              {verbProgressive}
+            </>
+          ) : (
+            <>
+              {isDelete ? <Trash2 size={14} /> : <UploadCloud size={14} />}
+              {verb}
+            </>
           )}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={processing}
+          style={{
+            background: 'white',
+            color: '#374151',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            padding: '0.35rem 0.75rem',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            cursor: processing ? 'not-allowed' : 'pointer'
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+      {actionError && (
+        <div
+          style={{
+            marginTop: '0.6rem',
+            color: palette.text,
+            fontSize: '0.8rem',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.4rem'
+          }}
+        >
+          <AlertCircle size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
+          <span>{actionError}</span>
         </div>
       )}
     </div>
