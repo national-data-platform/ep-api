@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-05-13
+
+### Added
+- Navigation: the "+ New" menu now hosts a "Service" entry next to the existing "Organization" entry, replacing the dedicated "Services" top-level link.
+- Search page: service result cards whose persisted creator hash matches the authenticated user expose a "Yours" badge and a "Delete" action. Clicking Delete opens an inline confirmation panel on the same card (no `window.confirm`, no full-screen modal). On success the card disappears immediately; on failure the panel surfaces a friendly, actionable message instead of the raw backend string.
+
+### Changed
+- The Services page is now a single-purpose "register a new service" form, mirroring the simplified Organizations creation page. Listing, editing and deletion have moved to the Search page (listing was already there; deletion is new with this release). The route stays at `/services` so deep links keep working.
+- The "Services" entry has been removed from the navigation bar; the page is now reached exclusively from "+ New > Service".
+
+### Backwards compatibility
+- No new API surface: service deletion goes through the existing dataset-deletion endpoint (services are CKAN packages under the `services` organization).
+- The `/services` UI route still exists and still creates services; the page only drops the listing/edit/delete features that became redundant once Search took over.
+- Services registered before the creator-hash feature simply do not appear under "Only mine" and never expose a Delete action on Search; no migration is performed.
+
 ## [0.24.0] - 2026-05-13
 
 ### Added

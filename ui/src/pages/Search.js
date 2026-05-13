@@ -10,7 +10,7 @@ import {
   Building2,
   Trash2
 } from 'lucide-react';
-import { searchAPI, organizationsAPI, userAPI } from '../services/api';
+import { searchAPI, organizationsAPI, userAPI, resourcesAPI } from '../services/api';
 
 const MODES = [
   { id: 'both', label: 'All' },
@@ -312,6 +312,29 @@ const Search = () => {
     });
   };
 
+  // Services are CKAN packages under owner_org="services", so deletion
+  // reuses the existing dataset-delete endpoint — no new API surface.
+  const friendlyServiceDeleteError = (err, serviceName) => {
+    const status = err.response?.status;
+    const detail = err.response?.data?.detail;
+    const raw = (typeof detail === 'string' ? detail : err.message) || '';
+    if (status === 401) return 'You need to log in again to delete services.';
+    if (status === 403)
+      return `You don't have permission to delete "${serviceName}".`;
+    if (status === 404 || /not found/i.test(raw))
+      return `"${serviceName}" no longer exists. It may have been deleted already.`;
+    if (/scheme|unreachable|configured/i.test(raw))
+      return 'The local catalog is not reachable right now. Try again in a moment.';
+    return `Could not delete "${serviceName}". Please try again later.`;
+  };
+
+  const handleDeleteService = async (service) => {
+    // Services are CKAN packages under owner_org="services"; the catalog
+    // exposes deletion through the resource endpoint identified by id.
+    await resourcesAPI.deleteById(service.id, 'local');
+    setServiceResults((prev) => prev.filter((item) => item.id !== service.id));
+  };
+
   const clearTerm = () => {
     setSearchTerm('');
     inputRef.current?.focus();
@@ -457,6 +480,10 @@ const Search = () => {
           items={serviceResults}
           emptyMessage="No services matched your search."
           isService
+          myUserHash={myUserHash}
+          canDelete={server === 'local'}
+          onDelete={handleDeleteService}
+          mapDeleteError={friendlyServiceDeleteError}
         />
       )}
 
@@ -702,7 +729,17 @@ const ResultsSummary = ({ total, mode, term, ownerOrg }) => {
   );
 };
 
-const ResultsSection = ({ title, icon, items, emptyMessage, isService }) => (
+const ResultsSection = ({
+  title,
+  icon,
+  items,
+  emptyMessage,
+  isService,
+  myUserHash,
+  canDelete,
+  onDelete,
+  mapDeleteError
+}) => (
   <div style={{ marginBottom: '2rem' }}>
     <div
       style={{
@@ -750,19 +787,58 @@ const ResultsSection = ({ title, icon, items, emptyMessage, isService }) => (
     ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {items.map((item, index) => (
-          <ResultCard key={item.id || `${title}-${index}`} item={item} isService={isService} />
+          <ResultCard
+            key={item.id || `${title}-${index}`}
+            item={item}
+            isService={isService}
+            myUserHash={myUserHash}
+            canDelete={canDelete}
+            onDelete={onDelete}
+            mapDeleteError={mapDeleteError}
+          />
         ))}
       </div>
     )}
   </div>
 );
 
-const ResultCard = ({ item, isService }) => {
+const ResultCard = ({
+  item,
+  isService,
+  myUserHash,
+  canDelete,
+  onDelete,
+  mapDeleteError
+}) => {
   const [expanded, setExpanded] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
   const resources = item.resources || [];
   const hasExtras = item.extras && Object.keys(item.extras).length > 0;
   const showResources = resources.length > 0;
   const canToggle = showResources || hasExtras;
+  // A result card is "owned" by the current user when its persisted
+  // creator hash matches and the surrounding section allows deletion
+  // (currently: services on the local server only).
+  const isOwned = Boolean(
+    canDelete && myUserHash && item.extras?.ndp_user_id === myUserHash
+  );
+  const itemLabel = item.title || item.name || 'this item';
+
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await onDelete(item);
+      // On success the parent unmounts us; nothing else to do here.
+    } catch (err) {
+      setDeleteError(
+        mapDeleteError ? mapDeleteError(err, itemLabel) : err.message
+      );
+      setDeleting(false);
+    }
+  };
 
   return (
     <div
@@ -792,6 +868,9 @@ const ResultCard = ({ item, isService }) => {
               <Badge color="#0f766e" background="#ecfdf5">
                 {item.extras.service_type}
               </Badge>
+            )}
+            {isOwned && (
+              <Badge color="#1d4ed8" background="#eff6ff">Yours</Badge>
             )}
           </div>
 
@@ -828,30 +907,68 @@ const ResultCard = ({ item, isService }) => {
         </div>
       </div>
 
-      {canToggle && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
+      {(canToggle || isOwned) && (
+        <div
           style={{
             marginTop: '0.75rem',
-            background: 'transparent',
-            border: 'none',
-            color: '#2563eb',
-            padding: 0,
-            cursor: 'pointer',
-            fontSize: '0.85rem',
-            fontWeight: 500
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.9rem',
+            alignItems: 'center'
           }}
         >
-          {expanded
-            ? 'Hide details'
-            : `Show ${[
-                showResources && `${resources.length} ${isService ? 'endpoint' : 'resource'}${resources.length === 1 ? '' : 's'}`,
-                hasExtras && 'metadata'
-              ]
-                .filter(Boolean)
-                .join(' & ')}`}
-        </button>
+          {canToggle && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              disabled={deleting}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#2563eb',
+                padding: 0,
+                cursor: deleting ? 'not-allowed' : 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: 500
+              }}
+            >
+              {expanded
+                ? 'Hide details'
+                : `Show ${[
+                    showResources && `${resources.length} ${isService ? 'endpoint' : 'resource'}${resources.length === 1 ? '' : 's'}`,
+                    hasExtras && 'metadata'
+                  ]
+                    .filter(Boolean)
+                    .join(' & ')}`}
+            </button>
+          )}
+
+          {isOwned && !confirmOpen && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteError(null);
+                setConfirmOpen(true);
+              }}
+              disabled={deleting}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                color: '#b91c1c',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+                cursor: deleting ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem'
+              }}
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          )}
+        </div>
       )}
 
       {expanded && showResources && (
@@ -882,6 +999,91 @@ const ResultCard = ({ item, isService }) => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {isOwned && confirmOpen && (
+        <div
+          role="alertdialog"
+          aria-label={`Confirm deleting ${itemLabel}`}
+          style={{
+            marginTop: '0.75rem',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            padding: '0.75rem'
+          }}
+        >
+          <div style={{ color: '#7f1d1d', fontSize: '0.85rem', marginBottom: '0.6rem' }}>
+            Delete <strong>{itemLabel}</strong>? This cannot be undone.
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: deleting ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}
+            >
+              {deleting ? (
+                <>
+                  <div className="loading-spinner" />
+                  Deleting
+                </>
+              ) : (
+                <>
+                  <Trash2 size={14} />
+                  Delete
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmOpen(false);
+                setDeleteError(null);
+              }}
+              disabled={deleting}
+              style={{
+                background: 'white',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+                cursor: deleting ? 'not-allowed' : 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {deleteError && (
+            <div
+              style={{
+                marginTop: '0.6rem',
+                color: '#7f1d1d',
+                fontSize: '0.8rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.4rem'
+              }}
+            >
+              <AlertCircle size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
+              <span>{deleteError}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

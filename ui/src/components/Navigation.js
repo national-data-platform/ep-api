@@ -406,38 +406,6 @@ const Navigation = () => {
                 )}
               </div>
 
-              {/* Services */}
-              <Link
-                to="/services"
-                onMouseEnter={handleOtherNavEnter}
-                style={{
-                  color: '#6b7280', // Always same color
-                  textDecoration: 'none',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.95rem',
-                  whiteSpace: 'nowrap',
-                  fontWeight: '500', // Always same weight
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  backgroundColor: 'transparent',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.color = '#374151';
-                  e.target.style.fontWeight = '600';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.color = '#6b7280';
-                  e.target.style.fontWeight = '500';
-                }}
-              >
-                <Settings size={18} />
-                <span>Services</span>
-              </Link>
-
               {/* + New menu (compact entry point for create flows) */}
               <div
                 style={{ position: 'relative' }}
@@ -509,7 +477,8 @@ const Navigation = () => {
                         textDecoration: 'none',
                         fontSize: '0.9rem',
                         fontWeight: '500',
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        borderBottom: '1px solid #f3f4f6'
                       }}
                       onMouseOver={(e) => {
                         e.target.style.backgroundColor = '#f9fafb';
@@ -524,6 +493,34 @@ const Navigation = () => {
                     >
                       <Building2 size={18} />
                       <span>Organization</span>
+                    </Link>
+
+                    <Link
+                      to="/services"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '1rem 1.25rem',
+                        color: '#374151',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        backgroundColor: 'white'
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.backgroundColor = '#f9fafb';
+                        e.target.style.color = '#2563eb';
+                        e.target.style.fontWeight = '600';
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.backgroundColor = 'white';
+                        e.target.style.color = '#374151';
+                        e.target.style.fontWeight = '500';
+                      }}
+                    >
+                      <Settings size={18} />
+                      <span>Service</span>
                     </Link>
                   </div>
                 )}
