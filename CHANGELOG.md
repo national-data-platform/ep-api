@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-05-14
+
+### Added
+- "+ New > Dataset" form gains a "Publish to the global catalog after creation" checkbox. When checked, the form first registers the dataset on the local catalog and then chains a publish call to `POST /dataset/{id}/publish`. A helper line below the checkbox tells the user the dataset will not appear in the global catalog until an administrator approves the submission.
+- The success banner after submission reflects what actually happened: it mentions both registration and the pending approval when publish was requested, and surfaces any warning returned by the publish endpoint (for example, a name collision that caused PRE-CKAN to publish the dataset under a timestamped variant).
+- If registration succeeds but the publish call fails, the form surfaces a non-fatal yellow warning instead of a destructive error: the local dataset is kept and the user is told they can retry from the Search page.
+
+### Backwards compatibility
+- All changes are UI-only and additive. No backend changes.
+- When the checkbox is left unchecked, the form behaves exactly as it did in 0.26.0 — single registration call against the local catalog.
+
 ## [0.26.0] - 2026-05-13
 
 ### Added

@@ -21,8 +21,13 @@ const DatasetManagement = () => {
     title: '',
     owner_org: '',
     notes: '',
-    private: false
+    private: false,
+    // When true, after a successful create we chain a publish call to
+    // the global catalog. The user still has to wait for an admin to
+    // approve the submission before the dataset becomes visible.
+    publishToGlobal: false
   });
+  const [warning, setWarning] = useState(null);
   const [resources, setResources] = useState([
     { url: '', name: '', format: '', description: '' }
   ]);
@@ -118,6 +123,7 @@ const DatasetManagement = () => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setWarning(null);
     setSubmitting(true);
 
     const payload = {
@@ -132,36 +138,78 @@ const DatasetManagement = () => {
     const extras = buildExtras();
     if (Object.keys(extras).length > 0) payload.extras = extras;
 
+    const datasetName = formData.name;
+    const wantsPublish = Boolean(formData.publishToGlobal);
+    let createdDatasetId = null;
+
     try {
-      await generalDatasetAPI.create(payload, 'local');
-      setSuccess(
-        `Dataset "${formData.name}" registered. You can keep registering more or go back to Search.`
-      );
-      setFormData((prev) => ({
-        ...prev,
-        name: '',
-        title: '',
-        notes: '',
-        private: false
-        // keep owner_org selected so users registering several datasets
-        // in the same org don't have to re-pick it every time.
-      }));
-      setResources([{ url: '', name: '', format: '', description: '' }]);
-      setExtrasPairs([]);
+      const createResponse = await generalDatasetAPI.create(payload, 'local');
+      createdDatasetId = createResponse?.data?.id || null;
     } catch (err) {
       const detail = err.response?.data?.detail;
       const raw = typeof detail === 'string' ? detail : err.message;
       const msg = raw || 'unknown error';
       setError(
         /already exists/i.test(msg)
-          ? `A dataset called "${formData.name}" already exists. Pick a different name.`
+          ? `A dataset called "${datasetName}" already exists. Pick a different name.`
           : /name/i.test(msg) && /(invalid|must contain|lowercase)/i.test(msg)
             ? 'The dataset name is invalid. Use lowercase letters, numbers, underscores and hyphens (no spaces).'
             : `Could not register the dataset: ${msg}.`
       );
-    } finally {
       setSubmitting(false);
+      return;
     }
+
+    // From here on the dataset exists locally. Any publish failure is
+    // surfaced as a non-fatal warning so the user knows the local
+    // registration was kept and the publish action is still available
+    // from the Search page.
+    let publishWarning = null;
+    let publishError = null;
+    if (wantsPublish && createdDatasetId) {
+      try {
+        const publishResponse = await generalDatasetAPI.publish(createdDatasetId);
+        publishWarning = publishResponse?.data?.warning || null;
+      } catch (err) {
+        const detail = err.response?.data?.detail;
+        const raw = typeof detail === 'string' ? detail : err.message;
+        publishError =
+          `Dataset "${datasetName}" was registered, but it could not be ` +
+          `published to the global catalog: ${raw || 'unknown error'}. You can ` +
+          'try the Publish action from the Search page later.';
+      }
+    }
+
+    if (publishError) {
+      setWarning(publishError);
+    } else if (wantsPublish) {
+      const tail = publishWarning
+        ? ` (note: ${publishWarning})`
+        : '';
+      setSuccess(
+        `Dataset "${datasetName}" registered and submitted to the global ` +
+          `catalog. It will only appear there once an administrator approves ` +
+          `the submission.${tail}`
+      );
+    } else {
+      setSuccess(
+        `Dataset "${datasetName}" registered. You can keep registering more or go back to Search.`
+      );
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      name: '',
+      title: '',
+      notes: '',
+      private: false,
+      publishToGlobal: false
+      // keep owner_org selected so users registering several datasets
+      // in the same org don't have to re-pick it every time.
+    }));
+    setResources([{ url: '', name: '', format: '', description: '' }]);
+    setExtrasPairs([]);
+    setSubmitting(false);
   };
 
   return (
@@ -181,6 +229,26 @@ const DatasetManagement = () => {
         <div className="alert alert-error">
           <AlertCircle size={20} />
           {error}
+        </div>
+      )}
+
+      {warning && (
+        <div
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            color: '#78350f',
+            borderRadius: '8px',
+            padding: '0.75rem 1rem',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.5rem',
+            marginBottom: '1rem',
+            fontSize: '0.9rem'
+          }}
+        >
+          <AlertCircle size={20} style={{ marginTop: '2px', flexShrink: 0 }} />
+          <span>{warning}</span>
         </div>
       )}
 
@@ -283,6 +351,26 @@ const DatasetManagement = () => {
             <small style={{ color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
               Private datasets are only visible to members of the owning
               organization.
+            </small>
+          </div>
+
+          <div className="form-group">
+            <label
+              className="form-label"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <input
+                type="checkbox"
+                name="publishToGlobal"
+                checked={formData.publishToGlobal}
+                onChange={handleInputChange}
+                style={{ accentColor: '#2563eb' }}
+              />
+              Publish to the global catalog after creation
+            </label>
+            <small style={{ color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
+              The dataset will not appear in the global catalog until an
+              administrator approves the submission.
             </small>
           </div>
 
