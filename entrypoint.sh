@@ -1,8 +1,13 @@
 #!/bin/sh
 
-# Generate runtime config for the React UI
+# Generate runtime config for the React UI. AFFINITIES_EP_UUID lets the
+# UI highlight the user's group that ties them to this endpoint without
+# having to look the value up against the deployment env manually.
 cat > /app/ui/build/config.js <<EOF
-window.__EP_CONFIG__ = { rootPath: "${ROOT_PATH}" };
+window.__EP_CONFIG__ = {
+  rootPath: "${ROOT_PATH}",
+  affinitiesEpUuid: "${AFFINITIES_EP_UUID}"
+};
 EOF
 
 # Rewrite all /ui/ asset references in the built index.html to include ROOT_PATH

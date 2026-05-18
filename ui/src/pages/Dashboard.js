@@ -147,17 +147,36 @@ const Dashboard = () => {
   };
 
   /**
-   * Get user groups display
-   * Handles both string arrays and object arrays (with id, name, path properties)
+   * Get user groups display.
+   *
+   * Returns an array of `{ label, isThisEp }` objects. `label` is what
+   * gets rendered; `isThisEp` is true when any identifier on the group
+   * (string value, id, name, path) matches the configured
+   * AFFINITIES_EP_UUID exposed through window.__EP_CONFIG__, so the
+   * caller can highlight that one entry.
    */
   const getUserGroups = () => {
     if (!userInfo || !userInfo.groups) return [];
-    return userInfo.groups.map(group => {
-      if (typeof group === 'string') return group;
-      if (typeof group === 'object' && group !== null) {
-        return group.name || group.id || JSON.stringify(group);
+    const epUuid = (window.__EP_CONFIG__?.affinitiesEpUuid || '').trim();
+    const matchesEp = (...candidates) => {
+      if (!epUuid) return false;
+      return candidates.some(
+        (c) =>
+          typeof c === 'string' &&
+          c.replace(/^\/+/, '') === epUuid
+      );
+    };
+    return userInfo.groups.map((group) => {
+      if (typeof group === 'string') {
+        return { label: group, isThisEp: matchesEp(group) };
       }
-      return String(group);
+      if (typeof group === 'object' && group !== null) {
+        return {
+          label: group.name || group.id || JSON.stringify(group),
+          isThisEp: matchesEp(group.id, group.name, group.path)
+        };
+      }
+      return { label: String(group), isThisEp: false };
     });
   };
 
@@ -335,13 +354,23 @@ const Dashboard = () => {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {getUserGroups().length > 0 ? (
                   getUserGroups().map((group, index) => (
-                    <span 
+                    <span
                       key={index}
                       className="status-indicator status-success"
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                      title={
+                        group.isThisEp
+                          ? "This is the group that ties you to this Endpoint"
+                          : undefined
+                      }
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        fontWeight: group.isThisEp ? 700 : undefined
+                      }}
                     >
                       <Users size={12} />
-                      {group}
+                      {group.label}
                     </span>
                   ))
                 ) : (
