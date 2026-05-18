@@ -14,7 +14,11 @@ const Services = () => {
     service_name: '',
     service_title: '',
     service_url: '',
-    service_type: '',
+    // The service type is split between a canonical choice (API/UI/
+    // Trigger) and an "Other" escape hatch with its own text input.
+    // The submitted value is derived from these two fields below.
+    service_type_choice: '',
+    service_type_custom: '',
     notes: '',
     health_check_url: '',
     documentation_url: ''
@@ -63,7 +67,14 @@ const Services = () => {
       owner_org: 'services',
       service_url: formData.service_url
     };
-    if (formData.service_type) payload.service_type = formData.service_type;
+    // Resolve service_type from the choice + Other free-text. Sending
+    // no field at all when nothing is selected preserves the previous
+    // "blank type is fine" behavior.
+    const resolvedType =
+      formData.service_type_choice === 'Other'
+        ? (formData.service_type_custom || '').trim()
+        : formData.service_type_choice;
+    if (resolvedType) payload.service_type = resolvedType;
     if (formData.notes) payload.notes = formData.notes;
     if (formData.health_check_url)
       payload.health_check_url = formData.health_check_url;
@@ -81,7 +92,8 @@ const Services = () => {
         service_name: '',
         service_title: '',
         service_url: '',
-        service_type: '',
+        service_type_choice: '',
+        service_type_custom: '',
         notes: '',
         health_check_url: '',
         documentation_url: ''
@@ -177,14 +189,30 @@ const Services = () => {
 
           <div className="form-group">
             <label className="form-label">Service type</label>
-            <input
-              type="text"
-              name="service_type"
-              value={formData.service_type}
+            <select
+              name="service_type_choice"
+              value={formData.service_type_choice}
               onChange={handleInputChange}
-              className="form-input"
-              placeholder="API, Web Service, Microservice…"
-            />
+              className="form-select"
+            >
+              <option value="">(none)</option>
+              <option value="API">API</option>
+              <option value="UI">UI</option>
+              <option value="Trigger">Trigger</option>
+              <option value="Other">Other…</option>
+            </select>
+            {formData.service_type_choice === 'Other' && (
+              <input
+                type="text"
+                name="service_type_custom"
+                value={formData.service_type_custom}
+                onChange={handleInputChange}
+                className="form-input"
+                placeholder="Describe the service type"
+                style={{ marginTop: '0.5rem' }}
+                maxLength={50}
+              />
+            )}
           </div>
 
           <div className="form-group">

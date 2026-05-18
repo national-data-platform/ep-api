@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-05-14
+
+### Changed
+- "+ New > Service" form: the "Service type" field is now a select with three canonical options (API, UI, Trigger) plus an Other option that reveals a free-text input. Picking a canonical option submits its exact label as `service_type`; choosing Other submits the value typed into the text input. Leaving the field on "(none)" omits `service_type` from the request, preserving the previous "blank type is fine" behavior.
+
+### Backwards compatibility
+- UI-only change. The backend contract for `POST /services` is unchanged — `service_type` is still an optional string up to 50 characters.
+
 ## [0.27.1] - 2026-05-14
 
 ### Changed
