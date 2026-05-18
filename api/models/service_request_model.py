@@ -23,7 +23,24 @@ class ServiceRequest(BaseModel):
     service_url: str = Field(..., description="URL where the service is accessible")
     service_type: Optional[str] = Field(
         None,
-        description="Type of service (e.g., API, Web Service, Microservice)",
+        description=(
+            "Type of service. The UI offers three canonical options "
+            "plus a free-text fallback; the backend accepts any string "
+            "up to 50 characters.\n\n"
+            "- **API**: A programmatic interface (REST/HTTP, GraphQL, "
+            "gRPC, etc.) intended to be consumed by other software. "
+            "Pick this for endpoints designed to be called by code.\n"
+            "- **UI**: A user-facing interface (web app, dashboard, "
+            "data viewer, etc.) intended to be opened in a browser by "
+            "a human. Pick this when the service is a website or "
+            "visual tool.\n"
+            "- **Trigger**: An event source or scheduled job that "
+            "initiates work on its own (webhooks, cron jobs, message "
+            "producers, schedulers, etc.). Pick this when the service "
+            "runs without a direct user request.\n\n"
+            "Use any other free-text value when none of the three "
+            "applies."
+        ),
         max_length=50,
     )
     notes: Optional[str] = Field(

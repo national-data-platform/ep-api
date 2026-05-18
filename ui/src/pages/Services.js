@@ -27,6 +27,7 @@ const Services = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [typeHelpOpen, setTypeHelpOpen] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -212,6 +213,65 @@ const Services = () => {
                 style={{ marginTop: '0.5rem' }}
                 maxLength={50}
               />
+            )}
+            <button
+              type="button"
+              onClick={() => setTypeHelpOpen((v) => !v)}
+              aria-expanded={typeHelpOpen}
+              style={{
+                marginTop: '0.5rem',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                color: '#2563eb',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+            >
+              {typeHelpOpen
+                ? 'Hide service type guide'
+                : "What's this? Show service type guide"}
+            </button>
+            {typeHelpOpen && (
+              <div
+                style={{
+                  marginTop: '0.5rem',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1rem',
+                  fontSize: '0.85rem',
+                  color: '#334155',
+                  lineHeight: 1.55
+                }}
+              >
+                <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <strong>API</strong>: A programmatic interface
+                    (REST/HTTP, GraphQL, gRPC, etc.) intended to be
+                    consumed by other software. Pick this for endpoints
+                    designed to be called by code.
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <strong>UI</strong>: A user-facing interface (web
+                    app, dashboard, data viewer, etc.) intended to be
+                    opened in a browser by a human. Pick this when the
+                    service is a website or visual tool.
+                  </li>
+                  <li>
+                    <strong>Trigger</strong>: An event source or
+                    scheduled job that initiates work on its own
+                    (webhooks, cron jobs, message producers,
+                    schedulers, etc.). Pick this when the service runs
+                    without a direct user request.
+                  </li>
+                </ul>
+                <small style={{ display: 'block', marginTop: '0.5rem', color: '#64748b' }}>
+                  Use the <strong>Other…</strong> option above if none
+                  of these applies.
+                </small>
+              </div>
             )}
           </div>
 

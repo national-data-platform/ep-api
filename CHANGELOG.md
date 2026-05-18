@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.3] - 2026-05-14
+
+### Changed
+- The `service_type` field on the `POST /services` request model now carries a multi-line description (rendered as markdown in Swagger UI) explaining each of the three canonical service types — API, UI, Trigger — and noting that any other free-text value is accepted up to 50 characters. Single source of truth for the same definitions the registration form exposes.
+- "+ New > Service" form: added a "What's this?" expandable block under the Service type select, collapsed by default. When opened, it lists the three canonical types with the same definitions used in the Swagger docs.
+
+### Backwards compatibility
+- Prose-only change. No code paths, no API contracts, no payload shapes are altered. Existing `service_type` values keep working.
+
 ## [0.27.2] - 2026-05-14
 
 ### Changed
