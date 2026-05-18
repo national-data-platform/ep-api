@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-05-14
+
+### Changed
+- Search page: the result-scoping toggle is now labelled "My assets" instead of "Only mine". The tooltip on hover ("Show only assets I created") was adjusted to match the new wording. Behaviour is unchanged — the same client-side and server-side filters are still applied.
+
 ## [0.27.0] - 2026-05-14
 
 ### Added

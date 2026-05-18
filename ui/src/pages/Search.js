@@ -685,7 +685,7 @@ const OnlyMineToggle = ({ checked, onChange, disabled }) => (
     title={
       disabled
         ? 'Unavailable: could not load your user identity'
-        : 'Show only items I created'
+        : 'Show only assets I created'
     }
     style={{
       display: 'inline-flex',
@@ -710,7 +710,7 @@ const OnlyMineToggle = ({ checked, onChange, disabled }) => (
       onChange={(e) => onChange(e.target.checked)}
       style={{ accentColor: '#2563eb', cursor: disabled ? 'not-allowed' : 'pointer' }}
     />
-    Only mine
+    My assets
   </label>
 );
 
