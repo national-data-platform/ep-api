@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.4] - 2026-05-14
+
+### Added
+- Dashboard: the group whose identifier matches the deployment's `AFFINITIES_EP_UUID` env value is now rendered in bold in the user's Groups list, so the user can tell at a glance which of their Keycloak groups ties them to this Endpoint. A hover tooltip explains the highlight. Matching covers all the shapes the auth service returns (plain string, or object with id/name/path, with any leading "/" stripped). Other groups render exactly as before.
+
+### Changed
+- `entrypoint.sh` now also exposes `AFFINITIES_EP_UUID` to the React UI through the runtime `config.js` (already used to expose `rootPath`). The new field is `window.__EP_CONFIG__.affinitiesEpUuid`. When the env var is not set, the field is an empty string and the Dashboard highlight is a no-op.
+
+### Backwards compatibility
+- UI-only feature plus a small entrypoint addition. The shape of `window.__EP_CONFIG__` only grows (new field, existing field unchanged), so any consumer that ignores unknown keys keeps working.
+- When `AFFINITIES_EP_UUID` is not configured or the user has no matching group, the Dashboard renders exactly as before.
+
 ## [0.27.3] - 2026-05-14
 
 ### Changed
