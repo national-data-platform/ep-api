@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-05-18
+
+### Added
+- Three explicit role tiers — Viewer (read-only), Writer (modify catalog content) and Admin (everything) — recognised in two flavours each, mirroring how the admin role already worked:
+  - **Admin**: `ndp_admin` (global, already supported), plus per-endpoint `group:{AFFINITIES_EP_UUID}:admin` (the form Keycloak actually emits). The legacy form `{AFFINITIES_EP_UUID}_admin` is also still accepted for compatibility — we added matchers, we did not replace them.
+  - **Writer**: `ndp_writer` (global) and `group:{AFFINITIES_EP_UUID}:writer` (per-EP). New.
+  - **Viewer**: `ndp_viewer` (global) and `group:{AFFINITIES_EP_UUID}:viewer` (per-EP). New.
+  - Implicit ordering: admin can do everything a writer can; writer can do everything a viewer can. A user only needs the highest tier they want — three separate role assignments are not required.
+- New auth helpers exported from `api.services.auth_services`: `is_writer`, `is_viewer`, `effective_role`, `endpoint_group_role_name`, `get_user_for_read_operation`. The existing `is_admin` and `get_user_for_write_operation` are updated; the existing `get_user_for_endpoint_access` is unchanged.
+- `GET /user/info` carries a new `effective_role` field (`admin`, `writer`, `viewer` or `none`). The UI uses it to decide which actions to expose without re-implementing the role-tier logic in the browser.
+- UI gates write actions on the user's effective role:
+  - The "+ New" menu in the navigation bar is hidden for viewers and users without a role.
+  - The Delete action on owned organization, dataset and service cards in Search is hidden for viewers and users without a role.
+  - The Publish action on owned dataset cards is hidden for viewers and users without a role.
+  - Read paths (browsing Search results, expanding details) are unchanged.
+
+### Changed
+- `get_user_for_write_operation` now adds a role gate on top of the existing group-based-access gate. After group membership has been verified, the user must also carry at least the writer tier; otherwise the request is rejected with `403` and a friendly message asking an administrator to grant them the writer or admin role.
+- The "Access Requests" approval flow now exposes three radios (Viewer / Writer / Admin) instead of the previous two (Member / Admin). The `POST /user/access-requests/{id}/approve` request body's `grant_type` accepts `viewer`, `writer` and `admin`; the legacy `member` value keeps working as an alias for `viewer` so existing API clients are unaffected. Approving as `writer` or `admin` adds the user to the EP group and then assigns the per-EP role on top via the AAI; approving as `viewer` only adds the user to the group (the AAI defaults the per-group role to viewer on join).
+- `aai_client.assign_role` now takes a `group_name` argument and a bare tier name (`"admin"` / `"writer"`) — the AAI expects the per-group role to be specified as `(group_name, tier)` and builds the full `group:{group_name}:{tier}` name server-side. The previous signature was passing the already-prefixed string and got `"Missing token or group"` back from the AAI; tests had been mocking around it so the bug only surfaced once the UI actually exercised the approve-as-admin path on real data.
+
+### Backwards compatibility
+- **Strict default**: users that today belong to the EP group but have no role assigned were implicitly writers before this release; they now become "none" and lose write access until an administrator assigns them a role. The flow that adds approved users to the EP group via the AAI already assigns the `viewer` role automatically, so newly approved users land as viewers and have to be upgraded explicitly to writers.
+- The legacy `{AFFINITIES_EP_UUID}_admin` role keeps working — we did not remove the old matcher.
+- No request/response payload shapes change. The only addition on `/user/info` is `effective_role`, which clients that ignore unknown keys can safely ignore.
+- The new realm roles (`ndp_writer`, `ndp_viewer`, the per-EP `group:{uuid}:writer` and `group:{uuid}:viewer` forms) have to be created in Keycloak before they can be assigned. The EP does not expose role creation; that step happens in the realm's admin console.
+
 ## [0.27.4] - 2026-05-14
 
 ### Added
