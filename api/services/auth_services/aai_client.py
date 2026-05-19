@@ -134,12 +134,28 @@ def add_user_to_group(
     )
 
 
-def assign_role(admin_token: str, role_name: str, username: str) -> Dict[str, Any]:
-    """Assign the realm role ``role_name`` to ``username``."""
+def assign_role(
+    admin_token: str,
+    role_level: str,
+    username: str,
+    group_name: str,
+) -> Dict[str, Any]:
+    """
+    Assign a per-group role to ``username`` on ``group_name``.
+
+    The AAI expects ``role_level`` to be the bare tier name (``"admin"``,
+    ``"writer"``, ``"viewer"``) — it concatenates ``group:{group_name}:``
+    on its own. Passing the fully-qualified ``group:UUID:writer`` form
+    causes the AAI to double-prefix and the call fails with HTTP 500.
+    """
     return _post(
         "/role/assign",
         admin_token,
-        {"role_name": role_name, "username": username},
+        {
+            "role_name": role_level,
+            "username": username,
+            "group_name": group_name,
+        },
     )
 
 

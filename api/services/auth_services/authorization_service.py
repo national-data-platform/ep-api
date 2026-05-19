@@ -11,20 +11,40 @@ from api.services.auth_services.get_current_user import get_current_user
 
 logger = logging.getLogger(__name__)
 
-# Role that always grants access when group-based access is enabled.
+# Platform-wide role names. A user that carries any of these can act at
+# the corresponding tier on any endpoint of the federation.
 ADMIN_ROLE_NAME = "ndp_admin"
+WRITER_ROLE_NAME = "ndp_writer"
+VIEWER_ROLE_NAME = "ndp_viewer"
 
 
 def endpoint_admin_role_name() -> str:
     """
-    Return the endpoint-specific admin role name derived from the configured
-    ``AFFINITIES_EP_UUID``, e.g. ``96207a63-...-002330_admin``. Returns an
-    empty string when the UUID is not configured.
+    Return the *legacy* endpoint-specific admin role name derived from the
+    configured ``AFFINITIES_EP_UUID``, e.g. ``96207a63-...-002330_admin``.
+    Returns an empty string when the UUID is not configured.
+
+    Kept for backwards compatibility; the canonical Keycloak emits
+    ``group:{ep_uuid}:admin`` (see :func:`endpoint_group_role_name`) and
+    both forms are accepted.
     """
     ep_uuid = (affinities_settings.ep_uuid or "").strip()
     if not ep_uuid:
         return ""
     return f"{ep_uuid}_admin"
+
+
+def endpoint_group_role_name(role_level: str) -> str:
+    """
+    Return the per-endpoint role name in the canonical
+    ``group:{AFFINITIES_EP_UUID}:{role_level}`` format that Keycloak
+    actually emits (e.g. ``group:96207a63-...:admin``). Returns an empty
+    string when the UUID is not configured.
+    """
+    ep_uuid = (affinities_settings.ep_uuid or "").strip()
+    if not ep_uuid:
+        return ""
+    return f"group:{ep_uuid}:{role_level}"
 
 
 def normalize_group_path(path: str) -> str:
@@ -237,36 +257,78 @@ def get_user_for_write_operation(
     user_info: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
-    Get current user and check group membership for write operations.
+    Dependency that guards POST, PUT, PATCH and DELETE endpoints.
 
-    This is the main dependency to use on POST, PUT, DELETE endpoints.
-    It will:
-    1. Always require authentication
-    2. If group-based access is enabled, check membership in allowed groups
-    3. If group-based access is disabled, allow all authenticated users
+    Two gates apply in order:
+
+    1. *Endpoint access*: if ``ENABLE_GROUP_BASED_ACCESS`` is on, the
+       user must belong to one of the configured groups, the endpoint
+       group, or carry the ``ndp_admin`` role. Disabled installations
+       skip this gate.
+    2. *Role*: the user must carry at least the writer tier
+       (``ndp_writer``, ``group:{ep_uuid}:writer``, ``ndp_admin``,
+       ``group:{ep_uuid}:admin`` or the legacy ``{ep_uuid}_admin``).
+       A user that satisfies the access gate but has no role assigned
+       is rejected — this is the deliberate strict default introduced
+       with the viewer/writer/admin model.
 
     Parameters
     ----------
     user_info : Dict[str, Any]
-        User information from get_current_user dependency
+        User information from :func:`get_current_user`.
 
     Returns
     -------
     Dict[str, Any]
-        User information if authorized
+        User information when both gates allow the call.
 
     Raises
     ------
     HTTPException
-        401 Unauthorized if not authenticated
-        403 Forbidden if group-based access is enabled and user
-        is not a member of any allowed group
+        401 if not authenticated; 403 if either gate denies.
     """
     if swagger_settings.enable_group_based_access:
-        return require_group_member(user_info)
-    else:
-        # Feature disabled, just return authenticated user
-        return user_info
+        require_group_member(user_info)
+
+    if not is_writer(user_info):
+        logger.warning(
+            "Write denied for user '%s' (sub=%s): no writer or admin role.",
+            user_info.get("username"),
+            user_info.get("sub"),
+        )
+        _raise_forbidden(
+            "You do not have permission to modify resources on this Endpoint. "
+            "Ask an administrator to grant you the writer or admin role."
+        )
+    return user_info
+
+
+def get_user_for_read_operation(
+    user_info: Dict[str, Any] = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Dependency for GET endpoints that should be limited to authenticated
+    readers. Mirrors :func:`get_user_for_write_operation` but accepts
+    viewer-tier users (in addition to writers and admins).
+
+    Not retrofitted onto the existing GET endpoints in the same release
+    that introduced the role tiers; available for future use on any new
+    read endpoint that wants role-gated access.
+    """
+    if swagger_settings.enable_group_based_access:
+        require_group_member(user_info)
+
+    if not is_viewer(user_info):
+        logger.warning(
+            "Read denied for user '%s' (sub=%s): no viewer, writer or admin role.",
+            user_info.get("username"),
+            user_info.get("sub"),
+        )
+        _raise_forbidden(
+            "You do not have permission to read resources on this Endpoint. "
+            "Ask an administrator to grant you a role."
+        )
+    return user_info
 
 
 def get_user_for_endpoint_access(
@@ -310,26 +372,85 @@ def get_user_for_endpoint_access(
     return user_info
 
 
-def is_admin(user_info: Dict[str, Any]) -> bool:
+def _has_any_role(user_info: Dict[str, Any], candidates) -> bool:
     """
-    Return True if the user has either the ``ndp_admin`` role or the
-    endpoint-specific admin role (``{AFFINITIES_EP_UUID}_admin``).
-    """
-    if _has_admin_role(user_info):
-        return True
+    Return True if the user carries any of the role names in ``candidates``.
 
-    ep_admin_role = endpoint_admin_role_name()
-    if not ep_admin_role:
+    Comparison is case-insensitive and ignores surrounding whitespace, so
+    a freshly assigned role like " group:UUID:admin " still matches.
+    Empty strings in ``candidates`` are skipped (callers may pass them
+    when AFFINITIES_EP_UUID is not configured).
+    """
+    targets = {c.strip().lower() for c in candidates if c}
+    if not targets:
         return False
-
     roles = user_info.get("roles", [])
     if not isinstance(roles, list):
         return False
-
-    target = ep_admin_role.strip().lower()
     return any(
-        isinstance(role, str) and role.strip().lower() == target for role in roles
+        isinstance(role, str) and role.strip().lower() in targets for role in roles
     )
+
+
+def is_admin(user_info: Dict[str, Any]) -> bool:
+    """
+    Return True if the user has admin tier on this endpoint.
+
+    Accepts any of:
+    - ``ndp_admin``                         (platform-wide)
+    - ``group:{AFFINITIES_EP_UUID}:admin``  (per-EP, canonical)
+    - ``{AFFINITIES_EP_UUID}_admin``        (per-EP, legacy form kept
+                                             for backwards compatibility)
+    """
+    return _has_any_role(
+        user_info,
+        [
+            ADMIN_ROLE_NAME,
+            endpoint_group_role_name("admin"),
+            endpoint_admin_role_name(),
+        ],
+    )
+
+
+def is_writer(user_info: Dict[str, Any]) -> bool:
+    """
+    Return True if the user has writer tier or above on this endpoint.
+    Admins are implicitly writers — they don't need both roles assigned.
+    """
+    if is_admin(user_info):
+        return True
+    return _has_any_role(
+        user_info,
+        [WRITER_ROLE_NAME, endpoint_group_role_name("writer")],
+    )
+
+
+def is_viewer(user_info: Dict[str, Any]) -> bool:
+    """
+    Return True if the user has viewer tier or above on this endpoint.
+    Writers (and therefore admins) are implicitly viewers.
+    """
+    if is_writer(user_info):
+        return True
+    return _has_any_role(
+        user_info,
+        [VIEWER_ROLE_NAME, endpoint_group_role_name("viewer")],
+    )
+
+
+def effective_role(user_info: Dict[str, Any]) -> str:
+    """
+    Return the highest role tier the user holds on this endpoint as one
+    of ``admin``, ``writer``, ``viewer`` or ``none``. The UI uses this
+    value to gate write-only actions client-side.
+    """
+    if is_admin(user_info):
+        return "admin"
+    if is_writer(user_info):
+        return "writer"
+    if is_viewer(user_info):
+        return "viewer"
+    return "none"
 
 
 def require_admin(

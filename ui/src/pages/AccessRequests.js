@@ -83,7 +83,7 @@ const AccessRequests = () => {
   const openApproveDraft = (id) => {
     setApproveDraft((prev) => ({
       ...prev,
-      [id]: prev[id] || { grant: 'member', notes: '' },
+      [id]: prev[id] || { grant: 'viewer', notes: '' },
     }));
     setRejectDraft((prev) => {
       if (!(id in prev)) return prev;
@@ -121,7 +121,7 @@ const AccessRequests = () => {
   };
 
   const handleApprove = async (id) => {
-    const draft = approveDraft[id] || { grant: 'member', notes: '' };
+    const draft = approveDraft[id] || { grant: 'viewer', notes: '' };
     try {
       setBusyId(id);
       setActionError(null);
@@ -454,43 +454,34 @@ const AccessRequests = () => {
                         <div style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>
                           Approve request — choose grant
                         </div>
-                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#374151' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                            <input
-                              type="radio"
-                              name={`grant-${req.id}`}
-                              value="member"
-                              checked={approveDraft[req.id]?.grant === 'member'}
-                              onChange={() =>
-                                setApproveDraft((prev) => ({
-                                  ...prev,
-                                  [req.id]: {
-                                    ...(prev[req.id] || { notes: '' }),
-                                    grant: 'member',
-                                  },
-                                }))
-                              }
-                            />
-                            Member (access to the Endpoint)
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                            <input
-                              type="radio"
-                              name={`grant-${req.id}`}
-                              value="admin"
-                              checked={approveDraft[req.id]?.grant === 'admin'}
-                              onChange={() =>
-                                setApproveDraft((prev) => ({
-                                  ...prev,
-                                  [req.id]: {
-                                    ...(prev[req.id] || { notes: '' }),
-                                    grant: 'admin',
-                                  },
-                                }))
-                              }
-                            />
-                            Admin (access + manage future requests)
-                          </label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.85rem', color: '#374151' }}>
+                          {[
+                            { value: 'viewer', label: 'Viewer (read-only)' },
+                            { value: 'writer', label: 'Writer (can modify catalog)' },
+                            { value: 'admin', label: 'Admin (full access + manage future requests)' }
+                          ].map((opt) => (
+                            <label
+                              key={opt.value}
+                              style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                            >
+                              <input
+                                type="radio"
+                                name={`grant-${req.id}`}
+                                value={opt.value}
+                                checked={approveDraft[req.id]?.grant === opt.value}
+                                onChange={() =>
+                                  setApproveDraft((prev) => ({
+                                    ...prev,
+                                    [req.id]: {
+                                      ...(prev[req.id] || { notes: '' }),
+                                      grant: opt.value
+                                    }
+                                  }))
+                                }
+                              />
+                              {opt.label}
+                            </label>
+                          ))}
                         </div>
                         <textarea
                           value={approveDraft[req.id]?.notes || ''}

@@ -9,9 +9,17 @@ from fastapi import HTTPException
 
 from api.services.auth_services.authorization_service import (
     ADMIN_ROLE_NAME,
+    VIEWER_ROLE_NAME,
+    WRITER_ROLE_NAME,
     check_group_membership,
+    effective_role,
+    endpoint_group_role_name,
     get_allowed_groups,
     get_user_for_endpoint_access,
+    get_user_for_read_operation,
+    is_admin,
+    is_viewer,
+    is_writer,
     normalize_group_path,
     require_group_member,
     get_user_for_write_operation,
@@ -293,8 +301,9 @@ class TestRequireGroupMember:
 class TestGetUserForWriteOperation:
     """Test cases for get_user_for_write_operation function."""
 
-    def test_feature_enabled_calls_require_group_member(self):
-        """Test that when feature is enabled, it calls require_group_member."""
+    def test_feature_enabled_with_writer_role_passes(self):
+        """When feature is enabled, the user still needs a writer/admin role
+        after passing the group membership check."""
         with patch(
             "api.services.auth_services.authorization_service.swagger_settings"
         ) as mock_settings:
@@ -304,23 +313,32 @@ class TestGetUserForWriteOperation:
                 mock_settings.enable_group_based_access = True
                 mock_require.return_value = {"user_id": "123"}
 
-                user_info = {"user_id": "123", "groups": ["admins"]}
+                # The user has writer-tier so the new role gate passes.
+                user_info = {
+                    "user_id": "123",
+                    "groups": ["admins"],
+                    "roles": [WRITER_ROLE_NAME],
+                }
                 result = get_user_for_write_operation(user_info)
 
-                assert result == {"user_id": "123"}
+                assert result == user_info
                 mock_require.assert_called_once_with(user_info)
 
-    def test_feature_disabled_returns_user_directly(self):
-        """Test that when feature is disabled, returns user info directly."""
+    def test_feature_disabled_still_requires_writer_role(self):
+        """Strict-default: even with group-based-access off, a user without
+        a writer/admin role cannot perform write operations."""
         with patch(
             "api.services.auth_services.authorization_service.swagger_settings"
         ) as mock_settings:
             mock_settings.enable_group_based_access = False
 
-            user_info = {"user_id": "123", "groups": []}
-            result = get_user_for_write_operation(user_info)
+            no_role_user = {"user_id": "123", "groups": [], "roles": []}
+            with pytest.raises(HTTPException) as exc:
+                get_user_for_write_operation(no_role_user)
+            assert exc.value.status_code == 403
 
-            assert result == user_info
+            writer_user = {"user_id": "123", "groups": [], "roles": [WRITER_ROLE_NAME]}
+            assert get_user_for_write_operation(writer_user) == writer_user
 
     def test_feature_enabled_unauthorized_user_raises_403(self):
         """Test that unauthorized user raises 403 when feature is enabled."""
@@ -655,3 +673,117 @@ class TestGetUserForEndpointAccess:
             )
             assert ADMIN_ROLE_NAME not in exc_info.value.detail
             assert "some-uuid" not in exc_info.value.detail
+
+
+class TestRoleTiers:
+    """Tests for the viewer/writer/admin role helpers."""
+
+    def _patch_uuid(self, uuid):
+        return patch(
+            "api.services.auth_services.authorization_service.affinities_settings",
+            ep_uuid=uuid,
+        )
+
+    EP = "11111111-2222-3333-4444-555555555555"
+
+    def test_is_admin_via_global_role(self):
+        assert is_admin({"roles": [ADMIN_ROLE_NAME]}) is True
+
+    def test_is_admin_via_canonical_per_ep_role(self):
+        with self._patch_uuid(self.EP):
+            user = {"roles": [f"group:{self.EP}:admin"]}
+            assert is_admin(user) is True
+
+    def test_is_admin_via_legacy_per_ep_role_is_still_supported(self):
+        with self._patch_uuid(self.EP):
+            user = {"roles": [f"{self.EP}_admin"]}
+            assert is_admin(user) is True
+
+    def test_is_admin_rejects_unrelated_roles(self):
+        with self._patch_uuid(self.EP):
+            assert is_admin({"roles": ["unrelated"]}) is False
+            assert is_admin({"roles": []}) is False
+            assert is_admin({}) is False
+
+    def test_is_writer_includes_writer_and_admin_but_not_viewer(self):
+        with self._patch_uuid(self.EP):
+            assert is_writer({"roles": [WRITER_ROLE_NAME]}) is True
+            assert is_writer({"roles": [f"group:{self.EP}:writer"]}) is True
+            assert is_writer({"roles": [ADMIN_ROLE_NAME]}) is True
+            assert is_writer({"roles": [VIEWER_ROLE_NAME]}) is False
+            assert is_writer({"roles": [f"group:{self.EP}:viewer"]}) is False
+            assert is_writer({"roles": []}) is False
+
+    def test_is_viewer_includes_every_tier_above_none(self):
+        with self._patch_uuid(self.EP):
+            assert is_viewer({"roles": [VIEWER_ROLE_NAME]}) is True
+            assert is_viewer({"roles": [f"group:{self.EP}:viewer"]}) is True
+            assert is_viewer({"roles": [WRITER_ROLE_NAME]}) is True
+            assert is_viewer({"roles": [ADMIN_ROLE_NAME]}) is True
+            assert is_viewer({"roles": []}) is False
+
+    def test_effective_role_returns_highest_tier(self):
+        with self._patch_uuid(self.EP):
+            assert effective_role({"roles": []}) == "none"
+            assert effective_role({"roles": [VIEWER_ROLE_NAME]}) == "viewer"
+            assert effective_role({"roles": [WRITER_ROLE_NAME]}) == "writer"
+            # Admin wins even when paired with writer/viewer.
+            assert (
+                effective_role(
+                    {"roles": [VIEWER_ROLE_NAME, WRITER_ROLE_NAME, ADMIN_ROLE_NAME]}
+                )
+                == "admin"
+            )
+
+    def test_endpoint_group_role_name_emits_canonical_format(self):
+        with self._patch_uuid(self.EP):
+            assert endpoint_group_role_name("admin") == f"group:{self.EP}:admin"
+            assert endpoint_group_role_name("writer") == f"group:{self.EP}:writer"
+            assert endpoint_group_role_name("viewer") == f"group:{self.EP}:viewer"
+
+    def test_endpoint_group_role_name_returns_empty_when_uuid_missing(self):
+        with self._patch_uuid(""):
+            assert endpoint_group_role_name("writer") == ""
+
+    def test_role_comparison_is_case_and_whitespace_insensitive(self):
+        with self._patch_uuid(self.EP):
+            assert is_admin({"roles": ["  NDP_ADMIN  "]}) is True
+            assert is_writer({"roles": ["NDP_WRITER"]}) is True
+
+
+class TestGetUserForReadOperation:
+    """Tests for the new viewer-tier dependency."""
+
+    def test_viewer_passes(self):
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.enable_group_based_access = False
+            user = {"roles": [VIEWER_ROLE_NAME]}
+            assert get_user_for_read_operation(user) == user
+
+    def test_writer_passes(self):
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.enable_group_based_access = False
+            user = {"roles": [WRITER_ROLE_NAME]}
+            assert get_user_for_read_operation(user) == user
+
+    def test_admin_passes(self):
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.enable_group_based_access = False
+            user = {"roles": [ADMIN_ROLE_NAME]}
+            assert get_user_for_read_operation(user) == user
+
+    def test_no_role_is_rejected(self):
+        with patch(
+            "api.services.auth_services.authorization_service.swagger_settings"
+        ) as mock_settings:
+            mock_settings.enable_group_based_access = False
+            with pytest.raises(HTTPException) as exc:
+                get_user_for_read_operation({"roles": []})
+            assert exc.value.status_code == 403
+            assert "read resources" in exc.value.detail

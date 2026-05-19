@@ -218,24 +218,20 @@ class TestApproveAccessRequest:
     )
     @patch("api.services.access_request_services.access_request_service.aai_client")
     @patch(
-        "api.services.access_request_services"
-        ".access_request_service.endpoint_admin_role_name"
-    )
-    @patch(
         "api.services.access_request_services" ".access_request_service.get_repository"
     )
-    def test_admin_grant_calls_add_user_and_assign_role(
+    def test_admin_grant_assigns_bare_admin_role_with_group_name(
         self,
         mock_get_repo,
-        mock_admin_role,
         mock_aai,
         mock_affinities,
         mock_settings,
         mock_repo,
     ):
+        """admin grant passes the bare tier name plus group_name; the AAI
+        builds the fully-qualified group:{uuid}:admin server-side."""
         mock_settings.enable_access_requests = True
         mock_affinities.ep_uuid = "ep-uuid"
-        mock_admin_role.return_value = "ep-uuid_admin"
         mock_repo.find_by_id.return_value = {
             "_id": "req1",
             "status": "pending",
@@ -253,7 +249,97 @@ class TestApproveAccessRequest:
         )
 
         mock_aai.add_user_to_group.assert_called_once_with("tok", "ep-uuid", "yutian")
-        mock_aai.assign_role.assert_called_once_with("tok", "ep-uuid_admin", "yutian")
+        mock_aai.assign_role.assert_called_once_with(
+            "tok", "admin", "yutian", "ep-uuid"
+        )
+
+    @patch(
+        "api.services.access_request_services"
+        ".access_request_service.swagger_settings"
+    )
+    @patch(
+        "api.services.access_request_services"
+        ".access_request_service.affinities_settings"
+    )
+    @patch("api.services.access_request_services.access_request_service.aai_client")
+    @patch(
+        "api.services.access_request_services" ".access_request_service.get_repository"
+    )
+    def test_viewer_grant_only_adds_to_group(
+        self,
+        mock_get_repo,
+        mock_aai,
+        mock_affinities,
+        mock_settings,
+        mock_repo,
+    ):
+        """viewer grant is the same as the AAI default join-the-group:
+        no role assignment is needed, since the AAI auto-assigns
+        viewer when a user joins a group."""
+        mock_settings.enable_access_requests = True
+        mock_affinities.ep_uuid = "ep-uuid"
+        mock_repo.find_by_id.return_value = {
+            "_id": "req1",
+            "status": "pending",
+            "username": "yutian",
+        }
+        mock_repo.mark_decided.return_value = {"_id": "req1", "status": "approved"}
+        mock_get_repo.return_value = mock_repo
+
+        access_request_service.approve_access_request(
+            request_id="req1",
+            admin_info={"sub": "as", "username": "raul"},
+            admin_token="tok",
+            grant_type="viewer",
+            notes=None,
+        )
+
+        mock_aai.add_user_to_group.assert_called_once_with("tok", "ep-uuid", "yutian")
+        mock_aai.assign_role.assert_not_called()
+
+    @patch(
+        "api.services.access_request_services"
+        ".access_request_service.swagger_settings"
+    )
+    @patch(
+        "api.services.access_request_services"
+        ".access_request_service.affinities_settings"
+    )
+    @patch("api.services.access_request_services.access_request_service.aai_client")
+    @patch(
+        "api.services.access_request_services" ".access_request_service.get_repository"
+    )
+    def test_writer_grant_adds_to_group_and_assigns_writer_role(
+        self,
+        mock_get_repo,
+        mock_aai,
+        mock_affinities,
+        mock_settings,
+        mock_repo,
+    ):
+        """writer grant joins the group and assigns the per-EP writer role."""
+        mock_settings.enable_access_requests = True
+        mock_affinities.ep_uuid = "ep-uuid"
+        mock_repo.find_by_id.return_value = {
+            "_id": "req1",
+            "status": "pending",
+            "username": "yutian",
+        }
+        mock_repo.mark_decided.return_value = {"_id": "req1"}
+        mock_get_repo.return_value = mock_repo
+
+        access_request_service.approve_access_request(
+            request_id="req1",
+            admin_info={"sub": "as", "username": "raul"},
+            admin_token="tok",
+            grant_type="writer",
+            notes=None,
+        )
+
+        mock_aai.add_user_to_group.assert_called_once_with("tok", "ep-uuid", "yutian")
+        mock_aai.assign_role.assert_called_once_with(
+            "tok", "writer", "yutian", "ep-uuid"
+        )
 
     @patch(
         "api.services.access_request_services"

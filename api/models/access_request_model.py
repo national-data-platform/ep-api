@@ -34,13 +34,19 @@ class AccessRequestDecision(BaseModel):
 class AccessRequestApproveDecision(AccessRequestDecision):
     """Payload sent by an admin to approve a pending request."""
 
-    grant_type: Literal["member", "admin"] = Field(
+    grant_type: Literal["viewer", "writer", "admin", "member"] = Field(
         ...,
         description=(
-            "What to grant the user. 'member' adds the user to the endpoint "
-            "group; 'admin' assigns the endpoint admin role in addition."
+            "Role tier to grant the user. "
+            "'viewer' adds the user to the endpoint group (the AAI's "
+            "default per-group assignment is viewer, so this is the "
+            "minimal grant). "
+            "'writer' additionally assigns the per-endpoint writer role. "
+            "'admin' additionally assigns the per-endpoint admin role. "
+            "'member' is kept as a deprecated alias for 'viewer' so "
+            "existing clients keep working."
         ),
-        json_schema_extra={"example": "member"},
+        json_schema_extra={"example": "viewer"},
     )
 
 
@@ -67,7 +73,7 @@ class AccessRequest(BaseModel):
     decided_at: Optional[datetime] = None
     decided_by_sub: Optional[str] = None
     decided_by_username: Optional[str] = None
-    grant_type: Optional[Literal["member", "admin"]] = None
+    grant_type: Optional[Literal["viewer", "writer", "admin", "member"]] = None
     decision_notes: Optional[str] = None
 
     @classmethod

@@ -17,7 +17,6 @@ from api.config.catalog_settings import catalog_settings
 from api.config.swagger_settings import swagger_settings
 from api.repositories.access_request_repository import AccessRequestRepository
 from api.services.auth_services import aai_client
-from api.services.auth_services.authorization_service import endpoint_admin_role_name
 
 logger = logging.getLogger(__name__)
 
@@ -124,28 +123,43 @@ def list_access_requests(
 
 def _grant_via_aai(
     admin_token: str,
-    grant_type: Literal["member", "admin"],
+    grant_type: Literal["viewer", "writer", "admin", "member"],
     username: str,
 ) -> None:
-    """Perform the actual IDP write for an approve decision."""
+    """
+    Perform the IDP write for an approve decision.
+
+    The three tiers map to AAI calls as follows:
+
+    - ``viewer`` / ``member`` (alias): only add the user to the endpoint
+      group. The AAI assigns the viewer role automatically on join, so
+      no separate role assignment is needed.
+    - ``writer``: group membership plus the per-endpoint writer role.
+    - ``admin``: group membership plus the per-endpoint admin role.
+
+    For the role-assignment calls we pass the bare tier name
+    (``"writer"`` / ``"admin"``) plus ``group_name=ep_uuid``. The AAI
+    builds the fully-qualified ``group:{ep_uuid}:{tier}`` server-side;
+    passing the qualified form here makes it double-prefix.
+    """
     ep_uuid = _require_endpoint_uuid()
 
-    # "member" always grants group membership. "admin" grants the admin
-    # role on top — the two are complementary, not alternatives, so an
-    # admin user has both.
     aai_client.add_user_to_group(admin_token, ep_uuid, username)
 
-    if grant_type == "admin":
-        admin_role = endpoint_admin_role_name()
-        if admin_role:
-            aai_client.assign_role(admin_token, admin_role, username)
+    if grant_type in ("writer", "admin"):
+        aai_client.assign_role(
+            admin_token,
+            grant_type,
+            username,
+            ep_uuid,
+        )
 
 
 def approve_access_request(
     request_id: str,
     admin_info: Dict[str, Any],
     admin_token: str,
-    grant_type: Literal["member", "admin"],
+    grant_type: Literal["viewer", "writer", "admin", "member"],
     notes: Optional[str],
 ) -> Dict[str, Any]:
     """

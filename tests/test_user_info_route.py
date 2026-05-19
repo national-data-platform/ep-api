@@ -49,3 +49,20 @@ def test_user_info_response_is_a_copy_not_a_mutation():
 
     assert "ndp_user_id" in response
     assert "ndp_user_id" not in upstream
+    assert "effective_role" not in upstream
+
+
+def test_user_info_response_includes_effective_role():
+    """The enriched response carries the highest role tier the user holds."""
+    no_role = _call({"sub": "u1", "roles": []})
+    assert no_role["effective_role"] == "none"
+
+    admin = _call({"sub": "u2", "roles": ["ndp_admin"]})
+    assert admin["effective_role"] == "admin"
+
+
+def test_user_info_response_does_not_overwrite_upstream_effective_role():
+    """If the upstream payload already carries effective_role, don't clobber it."""
+    upstream = {"sub": "u3", "roles": [], "effective_role": "upstream-set"}
+    response = _call(upstream)
+    assert response["effective_role"] == "upstream-set"
