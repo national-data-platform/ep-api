@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-05-19
+
+### Added
+- `docs/roles-and-permissions.md`: operator/support reference for the role model. Covers the three tiers and what each can do, the `ndp_{tier}` and `group:{AFFINITIES_EP_UUID}:{tier}` naming convention (and the legacy `{uuid}_admin` form), how `effective_role` is derived and where that code lives, how realm roles reach the JWT through the client's protocol mapper (with the empirically-verified note that newly created realm roles need no per-role client change), the AAI API surface for role/group management with exact request shapes, the "editor (AAI) vs writer (EP)" gotcha, and step-by-step guidance for the two "I need more roles" scenarios (reuse an existing tier in another group = config only, vs. a new permission level = Endpoint code change) plus when to escalate to NDP support.
+
 ## [0.28.0] - 2026-05-18
 
 ### Added
