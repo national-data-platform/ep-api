@@ -26,8 +26,11 @@ server {
     }
 
     # Redirect ${ROOT_PATH}/ui to ${ROOT_PATH}/ui/
+    # Use a relative redirect so the non-standard port (e.g. :8002) is
+    # preserved — \$host drops it, sending the browser to port 80.
     location = ${ROOT_PATH}/ui {
-        return 301 \$scheme://\$host\$request_uri/;
+        absolute_redirect off;
+        return 301 ${ROOT_PATH}/ui/;
     }
 
     # Alternative API path (also works via ${ROOT_PATH}/api/)

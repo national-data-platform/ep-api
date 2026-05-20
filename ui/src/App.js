@@ -12,6 +12,7 @@ import Services from './pages/Services';
 import Search from './pages/Search';
 import DatasetManagement from './pages/DatasetManagement';
 import AccessRequests from './pages/AccessRequests';
+import RolesHelp from './pages/RolesHelp';
 import './styles/global.css';
 
 /**
@@ -49,6 +50,9 @@ function App() {
 
               {/* Access request management route (admin-gated on backend) */}
               <Route path="/access-requests" element={<AccessRequests />} />
+
+              {/* Roles & permissions documentation */}
+              <Route path="/roles-help" element={<RolesHelp />} />
             </Routes>
           </Layout>
         </Router>

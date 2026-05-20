@@ -6,7 +6,9 @@ import {
   RefreshCw,
   ShieldAlert,
   XCircle,
+  BookOpen,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { accessRequestsAPI } from '../services/api';
 
 const STATUS_TABS = [
@@ -34,6 +36,7 @@ const formatDate = (value) => {
  * Admin-only page to review and act on access requests.
  */
 const AccessRequests = () => {
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [loading, setLoading] = useState(false);
@@ -180,27 +183,49 @@ const AccessRequests = () => {
           <ShieldAlert size={24} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
           Access Requests
         </h1>
-        <button
-          type="button"
-          onClick={fetchRequests}
-          disabled={loading}
-          style={{
-            padding: '0.55rem 0.9rem',
-            backgroundColor: 'white',
-            border: '1px solid #cbd5e1',
-            borderRadius: '6px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            color: '#374151',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            fontSize: '0.85rem',
-            fontWeight: 500,
-          }}
-        >
-          <RefreshCw size={14} />
-          Refresh
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => navigate('/roles-help')}
+            style={{
+              padding: '0.55rem 0.9rem',
+              backgroundColor: 'white',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              color: '#374151',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+            }}
+          >
+            <BookOpen size={14} />
+            Add more roles
+          </button>
+          <button
+            type="button"
+            onClick={fetchRequests}
+            disabled={loading}
+            style={{
+              padding: '0.55rem 0.9rem',
+              backgroundColor: 'white',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              color: '#374151',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+            }}
+          >
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

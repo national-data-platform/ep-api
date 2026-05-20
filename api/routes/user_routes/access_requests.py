@@ -84,9 +84,21 @@ async def list_requests(
     response_model=AccessRequest,
     summary="Approve an access request (admin only)",
     description=(
-        "Approve a pending access request. The administrator chooses what to "
-        "grant via `grant_type`: `member` adds the user to the endpoint "
-        "group, `admin` also assigns the endpoint admin role.\n\n"
+        "Approve a pending access request. The administrator chooses the "
+        "role tier to grant via `grant_type`:\n\n"
+        "- **viewer** — adds the user to the endpoint group; read-only "
+        "access. (The AAI assigns the viewer role automatically on join.)\n"
+        "- **writer** — group membership plus the per-endpoint writer "
+        "role; can create, edit, delete and publish catalog content.\n"
+        "- **admin** — group membership plus the per-endpoint admin "
+        "role; full access including managing access requests.\n"
+        "- **member** — deprecated alias for `viewer`, kept so existing "
+        "clients keep working.\n\n"
+        "Roles are Keycloak realm roles named `ndp_{tier}` (platform-wide) "
+        "or `group:{AFFINITIES_EP_UUID}:{tier}` (per-endpoint). For the "
+        "full role model, how roles reach the JWT, the AAI role-management "
+        "API, and how to introduce a brand-new permission level, see "
+        "`docs/roles-and-permissions.md` in the repository.\n\n"
         "The IDP write is performed using the administrator's own bearer "
         "token, so no service account is involved."
     ),

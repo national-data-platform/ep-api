@@ -393,6 +393,16 @@ The user **will be authorized** because `data-managers` is in both the user's gr
 - GET endpoints remain public regardless of this setting
 - If `ENABLE_GROUP_BASED_ACCESS=True` but `GROUP_NAMES` is empty, all write operations will be denied
 
+### Role tiers (viewer / writer / admin)
+
+On top of group membership, the Endpoint enforces three role tiers —
+**viewer** (read-only), **writer** (modify catalog content) and **admin**
+(everything). See **[Roles and permissions](docs/roles-and-permissions.md)**
+for the full model: how roles are named, how they reach the JWT, the AAI
+role-management API, and how to grant a tier or introduce a brand-new
+permission level. The same reference is available inside the UI from the
+**Access Requests → Add more roles** button.
+
 ## 📖 Usage Examples
 
 For detailed usage examples and tutorials, please check the documentation in the `/docs` folder.
