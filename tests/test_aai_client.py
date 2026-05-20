@@ -132,12 +132,16 @@ class TestAssignRole:
         resp.json.return_value = {}
         mock_post.return_value = resp
 
-        aai_client.assign_role("tok", "my-role", "yutian")
+        aai_client.assign_role("tok", "writer", "yutian", "ep-group")
 
         mock_post.assert_called_once_with(
             "http://idp.example.com:5055/role/assign",
             headers={"Authorization": "Bearer tok"},
-            json={"role_name": "my-role", "username": "yutian"},
+            json={
+                "role_name": "writer",
+                "username": "yutian",
+                "group_name": "ep-group",
+            },
             timeout=15,
         )
 

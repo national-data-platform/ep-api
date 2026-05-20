@@ -51,6 +51,10 @@ const Search = () => {
   // that comes back in /user/info.
   const [onlyMine, setOnlyMine] = useState(false);
   const [myUserHash, setMyUserHash] = useState(null);
+  // canWrite gates the Delete and Publish actions on result cards. We
+  // do not need a separate `isViewer` flag — viewers can browse, and
+  // any tier above viewer is by definition `canWrite`.
+  const [canWrite, setCanWrite] = useState(false);
   // Names of organizations the current user owns on the *local* catalog.
   // The Search page uses this to show a Delete action on org cards that
   // belong to the user. Only local because the delete endpoint targets
@@ -67,18 +71,23 @@ const Search = () => {
     inputRef.current?.focus();
   }, []);
 
-  // Fetch the user's own ndp_user_id once on mount. The backend
-  // enriches /user/info with this hash, so the UI does not have to
-  // decode the JWT or compute SHA-256 in the browser.
+  // Fetch the user's own ndp_user_id and effective role once on mount.
+  // /user/info exposes both, so the UI does not have to decode the JWT,
+  // compute SHA-256, or re-implement the role-tier logic in the browser.
   useEffect(() => {
     let cancelled = false;
     userAPI
       .getUserInfo()
       .then((response) => {
-        if (!cancelled) setMyUserHash(response.data?.ndp_user_id || null);
+        if (cancelled) return;
+        setMyUserHash(response.data?.ndp_user_id || null);
+        const role = response.data?.effective_role || 'none';
+        setCanWrite(role === 'admin' || role === 'writer');
       })
       .catch(() => {
-        if (!cancelled) setMyUserHash(null);
+        if (cancelled) return;
+        setMyUserHash(null);
+        setCanWrite(false);
       });
     return () => {
       cancelled = true;
@@ -528,7 +537,7 @@ const Search = () => {
           emptyMessage="No datasets matched your search."
           isService={false}
           myUserHash={myUserHash}
-          canDelete={server === 'local'}
+          canDelete={server === 'local' && canWrite}
           onDelete={handleDeleteDataset}
           mapDeleteError={friendlyDatasetDeleteError}
           onPublish={handlePublishDataset}
@@ -544,7 +553,7 @@ const Search = () => {
           emptyMessage="No services matched your search."
           isService
           myUserHash={myUserHash}
-          canDelete={server === 'local'}
+          canDelete={server === 'local' && canWrite}
           onDelete={handleDeleteService}
           mapDeleteError={friendlyServiceDeleteError}
         />
@@ -559,7 +568,7 @@ const Search = () => {
             items={organizationResults}
             onViewDatasets={handleViewDatasetsInOrg}
             ownedOrgNames={myLocalOrgNames}
-            canDelete={server === 'local'}
+            canDelete={server === 'local' && canWrite}
             onDelete={handleDeleteOrg}
             mapDeleteError={friendlyDeleteError}
           />

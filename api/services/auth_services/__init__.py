@@ -2,11 +2,16 @@
 from .authorization_service import (  # noqa: F401
     check_group_membership,
     check_organization_membership,  # backward compatibility
+    effective_role,
     endpoint_admin_role_name,
+    endpoint_group_role_name,
     get_allowed_groups,
     get_user_for_endpoint_access,
+    get_user_for_read_operation,
     get_user_for_write_operation,
     is_admin,
+    is_viewer,
+    is_writer,
     require_admin,
     require_group_member,
     require_organization_member,  # backward compatibility

@@ -32,18 +32,28 @@ const Navigation = () => {
   const newButtonRef = useRef(null);
   const newTimeoutRef = useRef(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  // canWrite drives the visibility of the "+ New" menu — viewers and
+  // users with no role can browse but cannot create new resources.
+  const [canWrite, setCanWrite] = useState(false);
 
-  // Determine admin status from the current token's /user/info response so
-  // the "Access Requests" entry is only shown to users that can use it.
+  // Determine admin and write-capability status from the current token's
+  // /user/info response so the admin-only and writer-only entries are
+  // only shown to users that can actually use them.
   useEffect(() => {
     let cancelled = false;
     userAPI
       .getUserInfo()
       .then((response) => {
-        if (!cancelled) setIsAdmin(isAccessRequestAdmin(response.data));
+        if (cancelled) return;
+        setIsAdmin(isAccessRequestAdmin(response.data));
+        const role = response.data?.effective_role || 'none';
+        setCanWrite(role === 'admin' || role === 'writer');
       })
       .catch(() => {
-        if (!cancelled) setIsAdmin(false);
+        if (!cancelled) {
+          setIsAdmin(false);
+          setCanWrite(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -377,7 +387,8 @@ const Navigation = () => {
                 )}
               </div>
 
-              {/* + New menu (compact entry point for create flows) */}
+              {/* + New menu — only visible to users that can write */}
+              {canWrite && (
               <div
                 style={{ position: 'relative' }}
                 onMouseEnter={handleNewMenuEnter}
@@ -525,6 +536,7 @@ const Navigation = () => {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Dashboard (admin only) */}
               {isAdmin && (

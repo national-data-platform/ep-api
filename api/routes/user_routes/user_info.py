@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
 
-from api.services.auth_services import get_user_for_endpoint_access
+from api.services.auth_services import effective_role, get_user_for_endpoint_access
 from api.services.metadata_services import hash_user_id
 
 router = APIRouter()
@@ -124,4 +124,8 @@ async def get_user_info(
     # compatible if the auth service ever starts returning it itself.
     enriched = dict(user_info)
     enriched.setdefault("ndp_user_id", hash_user_id(user_info))
+    # effective_role lets the UI decide which actions to expose without
+    # reimplementing the role-tier logic in the browser. Values are
+    # "admin", "writer", "viewer" or "none".
+    enriched.setdefault("effective_role", effective_role(user_info))
     return enriched
