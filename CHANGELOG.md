@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-05-20
+
+### Changed
+- The "+ New" menu now also creates **Kafka topic**, **URL resource** and **S3 resource** (next to Organization, Dataset, Service). Their pages (`/kafka-topics`, `/url-resources`, `/s3-resources`) are simplified to single-purpose creation forms — listing, editing and deletion are dropped, mirroring the earlier organization/service/dataset reorganization. Listing and deletion of these resources now happen on the Search page (they are CKAN packages, appear in the Datasets group, and owned ones expose the existing Delete action).
+- The "Resources" navigation dropdown is removed. Its only remaining entry that is not a catalog-creation flow — **S3 Management** (bucket/object management) — is now a top-level navigation item.
+
+### Backwards compatibility
+- UI-only reorganization. No API behavior, request/response shapes, or routes change. The `/kafka-topics`, `/url-resources`, `/s3-resources` routes remain (now create-only) and `/s3-management` is unchanged.
+- Resources registered before the creator-hash feature do not expose a Delete action on Search; no migration is performed.
+
 ## [0.29.0] - 2026-05-19
 
 ### Added
