@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-05-26
+
+### Changed
+- **S3 Management is now restricted to users with write permission.** The S3 Management navigation entry is only shown to writers and admins (it was previously visible to everyone), and the underlying bucket/object endpoints (`/s3/buckets`, `/s3/objects`) now require the writer role via `get_user_for_write_operation`. Previously any authenticated user — including viewers and users with no role — could list, create and delete buckets and objects. This brings the administrative S3 storage tool in line with the viewer/writer/admin model already used across the Endpoint.
+
+### Security
+- Read-only users can no longer reach the S3 Management endpoints. Requests without write permission receive `403 Forbidden`.
+
+### Backwards compatibility
+- API request/response shapes and route paths are unchanged. The only change is the required permission level on the `/s3/buckets` and `/s3/objects` endpoints: callers that previously relied on viewer-level (or no-role) access to these endpoints will now receive `403` and must hold the writer role. Writers and admins are unaffected.
+
 ## [0.30.0] - 2026-05-20
 
 ### Changed

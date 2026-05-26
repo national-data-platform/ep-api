@@ -177,7 +177,10 @@ const Navigation = () => {
                 <span>Search</span>
               </Link>
 
-              {/* S3 Management (bucket/object storage tool) */}
+              {/* S3 Management (bucket/object storage tool) — writers only.
+                  It is an administrative storage tool, so viewers and users
+                  with no role do not see it (mirrors the backend guard). */}
+              {canWrite && (
               <Link
                 to="/s3-management"
                 onMouseEnter={handleOtherNavEnter}
@@ -208,6 +211,7 @@ const Navigation = () => {
                 <HardDrive size={18} />
                 <span>S3 Management</span>
               </Link>
+              )}
 
               {/* + New menu — only visible to users that can write */}
               {canWrite && (
