@@ -7,7 +7,7 @@ from api.models.minio_models import (
     ErrorResponse,
 )
 from api.services.minio_services import bucket_service
-from api.services.auth_services.get_current_user import get_current_user
+from api.services.auth_services import get_user_for_write_operation
 from api.config.minio_settings import s3_settings
 
 router = APIRouter(prefix="/s3/buckets", tags=["S3"])
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/s3/buckets", tags=["S3"])
 
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_bucket(
-    request: BucketCreateRequest, current_user=Depends(get_current_user)
+    request: BucketCreateRequest, current_user=Depends(get_user_for_write_operation)
 ):
     """Create a new bucket."""
     if not s3_settings.is_configured:
@@ -45,7 +45,7 @@ async def create_bucket(
 
 
 @router.get("/", response_model=BucketListResponse)
-async def list_buckets(current_user=Depends(get_current_user)):
+async def list_buckets(current_user=Depends(get_user_for_write_operation)):
     """List all buckets."""
     if not s3_settings.is_configured:
         raise HTTPException(
@@ -65,7 +65,9 @@ async def list_buckets(current_user=Depends(get_current_user)):
 
 
 @router.get("/{bucket_name}", response_model=BucketInfo)
-async def get_bucket_info(bucket_name: str, current_user=Depends(get_current_user)):
+async def get_bucket_info(
+    bucket_name: str, current_user=Depends(get_user_for_write_operation)
+):
     """Get information about a specific bucket."""
     if not s3_settings.is_configured:
         raise HTTPException(
@@ -90,7 +92,9 @@ async def get_bucket_info(bucket_name: str, current_user=Depends(get_current_use
 
 
 @router.delete("/{bucket_name}", response_model=dict)
-async def delete_bucket(bucket_name: str, current_user=Depends(get_current_user)):
+async def delete_bucket(
+    bucket_name: str, current_user=Depends(get_user_for_write_operation)
+):
     """Delete a bucket (must be empty)."""
     if not s3_settings.is_configured:
         raise HTTPException(

@@ -21,7 +21,7 @@ from api.models.minio_models import (
 )
 from api.services.minio_services import object_service
 from api.services.minio_services.minio_client import minio_client
-from api.services.auth_services.get_current_user import get_current_user
+from api.services.auth_services import get_user_for_write_operation
 from api.config.minio_settings import s3_settings
 import io
 
@@ -33,7 +33,7 @@ async def upload_object(
     bucket_name: str,
     file: UploadFile = File(...),
     object_key: Optional[str] = Form(None),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_user_for_write_operation),
 ):
     """Upload an object to a bucket."""
     if not s3_settings.is_configured:
@@ -79,7 +79,7 @@ async def upload_object(
 async def list_objects(
     bucket_name: str,
     prefix: Optional[str] = Query(None, description="Object prefix filter"),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_user_for_write_operation),
 ):
     """List objects in a bucket."""
     if not s3_settings.is_configured:
@@ -108,7 +108,9 @@ async def list_objects(
     "/{bucket_name}/{object_key:path}/metadata", response_model=ObjectMetadataResponse
 )
 async def get_object_metadata(
-    bucket_name: str, object_key: str, current_user=Depends(get_current_user)
+    bucket_name: str,
+    object_key: str,
+    current_user=Depends(get_user_for_write_operation),
 ):
     """Get object metadata."""
     if not s3_settings.is_configured:
@@ -146,7 +148,7 @@ async def generate_presigned_upload_url(
     bucket_name: str,
     object_key: str,
     request: PresignedUrlRequest,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_user_for_write_operation),
 ):
     """Generate a presigned URL for uploading an object."""
     if not s3_settings.is_configured:
@@ -181,7 +183,7 @@ async def generate_presigned_download_url(
     bucket_name: str,
     object_key: str,
     request: PresignedUrlRequest,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_user_for_write_operation),
 ):
     """Generate a presigned URL for downloading an object."""
     if not s3_settings.is_configured:
@@ -215,7 +217,9 @@ async def generate_presigned_download_url(
 
 @router.get("/{bucket_name}/{object_key:path}")
 async def download_object(
-    bucket_name: str, object_key: str, current_user=Depends(get_current_user)
+    bucket_name: str,
+    object_key: str,
+    current_user=Depends(get_user_for_write_operation),
 ):
     """Download an object from a bucket."""
     if not s3_settings.is_configured:
@@ -269,7 +273,9 @@ async def download_object(
 
 @router.delete("/{bucket_name}/{object_key:path}", response_model=dict)
 async def delete_object(
-    bucket_name: str, object_key: str, current_user=Depends(get_current_user)
+    bucket_name: str,
+    object_key: str,
+    current_user=Depends(get_user_for_write_operation),
 ):
     """Delete an object from a bucket."""
     if not s3_settings.is_configured:
