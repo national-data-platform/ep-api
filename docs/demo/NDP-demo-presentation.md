@@ -152,21 +152,22 @@ docker compose up -d     # add --profile mongodb to also start a local DB
 
 > 📖 `.env` variables are explained in **`docs/configuration.md`** (template: `example.env`).
 
-<!-- 📸 screenshots/14-ep-home.png — Endpoint home page (search) -->
 
 ---
 
-## What you run, what's shared
+## What you operate vs. what the platform provides
 
-- You run the **Endpoint** (API + web UI); its **catalog DB** and **object storage** are configured in `.env`.
-- **AAI · Affinities · Federation** are the platform's **shared services** — already running.
+| 🛠️ You operate (your Endpoint) | ☁️ Shared by the platform |
+|---|---|
+| **NDP-EP** — API + web UI | **AAI** — identity & roles |
+| **Catalog database** — CKAN or MongoDB | **Affinities** — relationship registry |
+| **Object storage** — MinIO / S3 *(optional)* | **Federation** — registry & discovery |
 
-> 📖 `.env` variables are documented in **`docs/configuration.md`**
-> (template: `example.env`).
+Your `.env` tells the Endpoint **how to reach** the shared services — so you run a
+small footprint and the platform does the heavy lifting.
 
-<!-- note: configuration.md is the full reference; example.env is the annotated
-template to copy. -->
-
+<!-- note: this is the responsibility boundary. In the common case you only run
+the EP + its data backends; identity/affinities/federation are the platform's. -->
 
 ---
 
