@@ -109,7 +109,7 @@ registry the EP writes into; it is non-blocking (the EP works even if it is down
 > A new user gets access, publishes a dataset, automates it from code, and that
 > data shows up in the federation — all securely.
 
-**Demo acts:**
+**Steps:**
 1. Installation
 2. Identity and permissions (sign in and get a role)
 3. The Endpoint in action (publish and search from the web)
@@ -119,7 +119,7 @@ registry the EP writes into; it is non-blocking (the EP works even if it is down
 
 ---
 
-# Act 1 — Installation
+# Step 1 — Installation
 
 ---
 
@@ -134,7 +134,7 @@ already provides identity (**AAI**), **Affinities** and **Federation**.
 Run *everything* on your own machine, with no dependency on the central NDP.
 → you install **all** components.
 
-> Next slide: the common case. The rest of Act 1: the full stack.
+> Next slide: the common case. The rest of Step 1: the full stack.
 
 ---
 
@@ -251,11 +251,11 @@ From here on we work **from the web** (and later from code).
 
 [📸 screenshots/15-docker-ps.png — list of containers in Up state]
 
-<!-- note: close Act 1: "installed in minutes; now let's use it". -->
+<!-- note: close Step 1: "installed in minutes; now let's use it". -->
 
 ---
 
-# Act 2 — Identity and permissions
+# Step 2 — Identity and permissions
 ### A user signs in and gets a role
 
 ---
@@ -289,11 +289,11 @@ adding them to a **group** that carries it. The role travels inside the token to
 
 > With no role assigned, a user can only see public data. **Secure by default.**
 
-<!-- note: this is the permission model; it reappears live in Act 3. -->
+<!-- note: this is the permission model; it reappears live in Step 3. -->
 
 ---
 
-# Act 3 — The Endpoint in action
+# Step 3 — The Endpoint in action
 ### Publish and search from the web
 
 ---
@@ -369,7 +369,7 @@ It is a storage administration tool: **writers/admins only**.
 
 ---
 
-# Act 4 — Automate with Python
+# Step 4 — Automate with Python
 ### The same thing, from code
 
 <!-- note: for the non-dev audience, frame it as "for power users:
@@ -424,7 +424,7 @@ print(client.search_datasets("measurements"))
 
 ---
 
-# Act 5 — Federation
+# Step 5 — Federation
 ### The data is discovered elsewhere
 
 ---
