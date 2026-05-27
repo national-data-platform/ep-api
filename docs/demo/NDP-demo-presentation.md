@@ -70,7 +70,7 @@ A platform to **publish, discover and share data** across institutions.
 | Piece | What it is for | How it looks |
 |---|---|---|
 | <img src="assets/icons/aai.svg" height="34"/> **AAI** (Keycloak) | Who you are (login, users) | Login screen |
-| <img src="assets/icons/affinities.svg" height="34"/> **Affinities** | Which group you belong to and your **role** | Groups web app |
+| <img src="assets/icons/affinities.svg" height="34"/> **Affinities** | Relationships between datasets, services and endpoints | Relationships web app |
 | <img src="assets/icons/ndp-ep.svg" height="34"/> **NDP-EP** | Your catalog: datasets, resources, storage | Endpoint web app |
 | <img src="assets/icons/federation.svg" height="34"/> **Federation** | Central registry of all EPs | Federation web app |
 | <img src="assets/icons/python-lib.svg" height="34"/> **Python library** | Do the same from code / automate | Notebook / script |
@@ -80,13 +80,14 @@ A platform to **publish, discover and share data** across institutions.
 
 ## Component interactions
 
-![w:600](assets/diagrams/component-interactions.svg)
+![w:680](assets/diagrams/component-interactions.svg)
 
-The user signs in through **AAI**; **Affinities** decides their role; with that token they publish and search in the **NDP-EP** (backed by **CKAN** and **S3**), which registers and reports to **Federation**.
+The user signs in through **AAI**, which also carries their **role**. With that token they publish and search in the **NDP-EP** (backed by **CKAN** and **S3**). The EP then registers its datasets/services in **Affinities** and reports to **Federation**.
 
-<!-- note: read it top-to-bottom as a journey (not a hub): identity -> role ->
-the EP -> federation, with CKAN/S3 as the EP's backends. All of it can run over
-a private NetBird network (final bonus). Derived from the C4 view in ../ep-diagrams. -->
+<!-- note: roles live in AAI (Keycloak), NOT in Affinities. Affinities is a
+relationship registry the EP writes into (datasets/services/endpoints); it is
+non-blocking. CKAN/S3 are the EP's backends. All of it can run over a private
+NetBird network (final bonus). Derived from the C4 view in ../ep-diagrams. -->
 
 ---
 
@@ -128,7 +129,7 @@ a private NetBird network (final bonus). Derived from the C4 view in ../ep-diagr
 
 ```
 1) AAI (Keycloak)      → identity first, everything depends on it
-2) Affinities          → groups and roles
+2) Affinities          → relationships (data · services · endpoints)
 3) Federation          → central registry
 4) NDP-EP (+ backends)  → catalog, connects to AAI and Federation
         backends: CKAN · MongoDB · MinIO (S3 storage)
@@ -155,7 +156,7 @@ docker compose up -d
 
 ---
 
-## 2) Start Affinities (groups and roles)
+## 2) Start Affinities (relationship registry)
 
 ```bash
 cd ndp-affinities
@@ -167,7 +168,7 @@ docker compose up -d
 - **Affinities web app**: `http://localhost:3000`
 - Database admin (pgAdmin): `http://localhost:5050`
 
-[📸 screenshots/12-affinities-frontend.png — Affinities web app with groups]
+[📸 screenshots/12-affinities-frontend.png — Affinities web app (relationships graph)]
 
 ---
 
@@ -233,12 +234,12 @@ In the Keycloak console, the administrator creates **Ana's** user and sets a pas
 
 ---
 
-## Grant the role (Affinities)
+## Grant the role (AAI)
 
-Ana is added to a **group** in Affinities. The group determines her **role** in the
-Endpoint.
+In **AAI** (Keycloak), the administrator gives Ana a **role** — directly or by adding
+her to a **group** that carries it. The role travels inside her token to the Endpoint.
 
-[📸 screenshots/21-affinities-group.png — Ana added to a group with the writer role]
+[📸 screenshots/21-assign-role.png — assigning the writer role/group in Keycloak]
 
 ---
 
@@ -470,7 +471,7 @@ public ports.
 ## Summary
 
 1. We **installed** NDP from scratch (Docker).
-2. Ana **logged in** (AAI) and received her **role** (Affinities).
+2. Ana **logged in** and received her **role** (both in AAI).
 3. She **published and searched** data from the Endpoint **web app**.
 4. She did the same **from code** with the Python library.
 5. The data was **federated** and is discovered elsewhere.

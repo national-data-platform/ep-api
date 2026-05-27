@@ -37,14 +37,14 @@ screenshot. Checklist:
 **Installation**
 - [ ] `10-keycloak-login.png` — NDP login (Keycloak)
 - [ ] `11-keycloak-admin.png` — Keycloak admin console (realm NDP)
-- [ ] `12-affinities-frontend.png` — Affinities web app with groups
+- [ ] `12-affinities-frontend.png` — Affinities web app (relationships graph)
 - [ ] `13-federation-ui.png` — federation web app (still empty)
 - [ ] `14-ep-home.png` — Endpoint home page (search)
 - [ ] `15-docker-ps.png` — `docker ps` with everything "Up"
 
 **Identity and permissions**
 - [ ] `20-create-user.png` — creating a user in Keycloak
-- [ ] `21-affinities-group.png` — user added to a group with the writer role
+- [ ] `21-assign-role.png` — assigning the writer role/group in Keycloak (AAI)
 
 **Endpoint (web)**
 - [ ] `30-login-and-search.png` — login + search
