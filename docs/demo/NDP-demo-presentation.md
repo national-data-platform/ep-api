@@ -150,7 +150,7 @@ cp example.env .env      # configure your deployment (see next slide)
 docker compose up -d     # add --profile mongodb to also start a local DB
 ```
 
-> 📖 Every `.env` variable is explained in **`docs/configuration.md`** (template: `example.env`).
+> 📖 `.env` variables are explained in **`docs/configuration.md`** (template: `example.env`).
 
 <!-- 📸 screenshots/14-ep-home.png — Endpoint home page (search) -->
 
@@ -161,7 +161,7 @@ docker compose up -d     # add --profile mongodb to also start a local DB
 - You run the **Endpoint** (API + web UI); its **catalog DB** and **object storage** are configured in `.env`.
 - **AAI · Affinities · Federation** are the platform's **shared services** — already running.
 
-> 📖 Every `.env` variable is documented in **`docs/configuration.md`**
+> 📖 `.env` variables are documented in **`docs/configuration.md`**
 > (template: `example.env`).
 
 <!-- note: configuration.md is the full reference; example.env is the annotated
