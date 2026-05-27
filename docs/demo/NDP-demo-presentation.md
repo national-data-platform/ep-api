@@ -80,28 +80,13 @@ A platform to **publish, discover and share data** across institutions.
 
 ## Component interactions
 
-```
-   [ User ]
-       │  1. login
-       ▼
-   ┌─────────┐   2. which group & which role?   ┌────────────┐
-   │   AAI   │◄───────────────────────────────►│ Affinities │
-   └────┬────┘                                  └────────────┘
-        │  3. token (identity + role)
-        ▼
-   ┌──────────┐    4. publish / search data
-   │  NDP-EP  │    (catalog + storage)
-   └────┬─────┘
-        │  5. registers & reports health
-        ▼
-   ┌────────────┐
-   │ Federation │   ◄── other EPs register here too
-   └────────────┘
+![w:880](assets/diagrams/component-interactions.svg)
 
-   (all of this can travel over a private NetBird network — final bonus)
-```
+A single entry point routes to each service; the **NDP-EP** is the hub — it validates tokens (AAI), uses the catalog (CKAN), registers affinities, and reports metrics to the federation.
 
-<!-- note: read the flow 1→5 as a story. It is the thread of the whole demo. -->
+<!-- note: based on the C4 "System Landscape" view in ../ep-diagrams. Read it as:
+single entry -> ep-api is the hub -> it talks to IAM, CKAN, Affinities, Federation.
+All of this can also run over a private NetBird network (final bonus). -->
 
 ---
 
