@@ -150,7 +150,9 @@ cp example.env .env      # configure your deployment (see next slide)
 docker compose up -d     # add --profile mongodb to also start a local DB
 ```
 
-[📸 screenshots/14-ep-home.png — Endpoint home page (search)]
+> 📖 Every `.env` variable is explained in **`docs/configuration.md`** (template: `example.env`).
+
+<!-- 📸 screenshots/14-ep-home.png — Endpoint home page (search) -->
 
 ---
 
@@ -202,8 +204,8 @@ docker compose up -d
 
 **What you will see:** the Keycloak admin console and the NDP login screen.
 
-[📸 screenshots/10-keycloak-login.png — NDP "Welcome back" login screen]
-[📸 screenshots/11-keycloak-admin.png — Keycloak admin console (realm NDP)]
+<!-- 📸 screenshots/10-keycloak-login.png — NDP "Welcome back" login screen -->
+<!-- 📸 screenshots/11-keycloak-admin.png — Keycloak admin console (realm NDP) -->
 
 ---
 
@@ -219,7 +221,7 @@ docker compose up -d
 - **Affinities web app**: `http://localhost:3000`
 - Database admin (pgAdmin): `http://localhost:5050`
 
-[📸 screenshots/12-affinities-frontend.png — Affinities web app (relationships graph)]
+<!-- 📸 screenshots/12-affinities-frontend.png — Affinities web app (relationships graph) -->
 
 ---
 
@@ -234,7 +236,7 @@ docker compose up -d
 - Web: `http://localhost:8020/ui/`
 - API & docs: `http://localhost:8020/docs`
 
-[📸 screenshots/13-federation-ui.png — federation web app (EP list, still empty)]
+<!-- 📸 screenshots/13-federation-ui.png — federation web app (EP list, still empty) -->
 
 ---
 
@@ -261,8 +263,7 @@ docker ps        # all containers "Up / healthy"
 
 From here on we work **from the web** (and later from code).
 
-[📸 screenshots/15-docker-ps.png — list of containers in Up state]
-
+<!-- 📸 screenshots/15-docker-ps.png — list of containers in Up state -->
 <!-- note: close Step 1: "installed in minutes; now let's use it". -->
 
 ---
@@ -276,8 +277,7 @@ From here on we work **from the web** (and later from code).
 
 In the Keycloak console, the administrator creates the **user** and sets a password.
 
-[📸 screenshots/20-create-user.png — creating a user in Keycloak]
-
+<!-- 📸 screenshots/20-create-user.png — creating a user in Keycloak -->
 > The user alone **cannot publish anything yet**: they need a **role**.
 
 ---
@@ -287,7 +287,7 @@ In the Keycloak console, the administrator creates the **user** and sets a passw
 In **AAI** (Keycloak), the administrator gives the user a **role** — directly or by
 adding them to a **group** that carries it. The role travels inside the token to the Endpoint.
 
-[📸 screenshots/21-assign-role.png — assigning the writer role/group in Keycloak]
+<!-- 📸 screenshots/21-assign-role.png — assigning the writer role/group in Keycloak -->
 
 ---
 
@@ -316,7 +316,7 @@ The user opens the Endpoint web app and logs in with their AAI user.
 
 The home page is the **search**: the heart of the Endpoint.
 
-[📸 screenshots/30-login-and-search.png — login + search page]
+<!-- 📸 screenshots/30-login-and-search.png — login + search page -->
 
 ---
 
@@ -325,7 +325,7 @@ The home page is the **search**: the heart of the Endpoint.
 From the **"+ New" → Organization** menu, the user creates the organization that
 will group their data.
 
-[📸 screenshots/31-create-organization.png — new organization form]
+<!-- 📸 screenshots/31-create-organization.png — new organization form -->
 
 ---
 
@@ -333,7 +333,7 @@ will group their data.
 
 **"+ New" → Dataset**: the user describes the dataset (title, description, tags…).
 
-[📸 screenshots/32-create-dataset.png — new dataset form]
+<!-- 📸 screenshots/32-create-dataset.png — new dataset form -->
 
 ---
 
@@ -345,7 +345,7 @@ A dataset can have resources of several kinds, all from **"+ New"**:
 - **S3** — an object in S3-style storage
 - **Kafka** — a streaming data flow
 
-[📸 screenshots/33-create-resource.png — creating a resource (S3/URL/Kafka)]
+<!-- 📸 screenshots/33-create-resource.png — creating a resource (S3/URL/Kafka) -->
 
 ---
 
@@ -354,7 +354,7 @@ A dataset can have resources of several kinds, all from **"+ New"**:
 Anyone can search by text, filter, and find the just-published dataset.
 On your own data, the **publish/delete** actions appear.
 
-[📸 screenshots/34-search-results.png — search results with the dataset]
+<!-- 📸 screenshots/34-search-results.png — search results with the dataset -->
 
 ---
 
@@ -366,8 +366,7 @@ The same web app **looks different depending on your role**:
 - ✏️ A **writer** does see **"+ New"** and **"S3 Management"** (bucket/object management).
 - 🛠️ An **admin** also sees the **Dashboard** and the **access requests**.
 
-[📸 screenshots/35-viewer-vs-writer.png — menu comparison: viewer vs writer]
-
+<!-- 📸 screenshots/35-viewer-vs-writer.png — menu comparison: viewer vs writer -->
 <!-- note: show the real contrast by opening two sessions (viewer and writer). -->
 
 ---
@@ -377,7 +376,7 @@ The same web app **looks different depending on your role**:
 **S3 Management** lets you create and manage buckets and objects.
 It is a storage administration tool: **writers/admins only**.
 
-[📸 screenshots/36-s3-management.png — S3 Management tool (buckets/objects)]
+<!-- 📸 screenshots/36-s3-management.png — S3 Management tool (buckets/objects) -->
 
 ---
 
@@ -418,8 +417,7 @@ client.create_dataset(name="measurements-2026", owner_org="my-org")
 print(client.search_datasets("measurements"))
 ```
 
-[📸 screenshots/40-notebook.png — Jupyter notebook running these steps]
-
+<!-- 📸 screenshots/40-notebook.png — Jupyter notebook running these steps -->
 <!-- note: if time allows, run it live in a notebook and show the result. -->
 
 ---
@@ -446,7 +444,7 @@ print(client.search_datasets("measurements"))
 Each Endpoint registers with **Federation**. From then on, the central registry
 knows it exists and watches its **status** and **metrics**.
 
-[📸 screenshots/50-federation-ep-registered.png — the EP appears in the federation]
+<!-- 📸 screenshots/50-federation-ep-registered.png — the EP appears in the federation -->
 
 ---
 
@@ -455,7 +453,7 @@ knows it exists and watches its **status** and **metrics**.
 The federation web app shows which Endpoints are **alive**, since when, and with
 what activity.
 
-[📸 screenshots/51-federation-health.png — EP health/metrics panel]
+<!-- 📸 screenshots/51-federation-health.png — EP health/metrics panel -->
 
 ---
 
@@ -496,7 +494,7 @@ How do they talk **without** opening ports to the world?
 - You decide **who talks to whom**; everything else is blocked.
 - **No public ports** for the services.
 
-[📸 screenshots/60-netbird-peers.png — NetBird dashboard with connected machines (peers)]
+<!-- 📸 screenshots/60-netbird-peers.png — NetBird dashboard with connected machines (peers) -->
 
 ---
 
@@ -506,8 +504,7 @@ Two machines on the network: one **reaches all the NDP services** of the other
 (EP, Federation, Affinities, AAI…) **only over the encrypted tunnel**, with no
 public ports.
 
-[📸 screenshots/61-netbird-access.png — proof of access to the services over the mesh]
-
+<!-- 📸 screenshots/61-netbird-access.png — proof of access to the services over the mesh -->
 > This is exactly the production multi-machine scenario, already validated.
 
 ---
