@@ -140,21 +140,19 @@ Run *everything* on your own machine, with no dependency on the central NDP.
 
 ## Install the NDP-EP (the common case)
 
-The NDP-EP ships as a single **Docker Hub** image — all-in-one **API + web UI**:
-`rbardaji/ndp-ep-api`. No source checkout needed.
+> ⚠️ **For system administrators.** Installation involves Docker, networking and
+> environment configuration — it should be done by someone with sysadmin skills.
 
 ```bash
-# .env points to the platform (AAI, Affinities, Federation)
-# and to a catalog database (MongoDB)
-docker run -p 8002:80 --env-file .env rbardaji/ndp-ep-api
+git clone https://github.com/national-data-platform/ep-api.git
+cd ep-api
+cp .env.example .env     # point to the platform (AAI, Affinities, Federation)
+                         # and to a catalog database (MongoDB)
+docker compose up -d     # add --profile mongodb to also start a local DB
 ```
 
-- The image bundles the **API + UI** — *not* the data backends.
-- It still needs a **catalog database** (MongoDB) and, for S3 features, **object storage**.
+- You run the **Endpoint** (API + web UI); its **catalog DB** and **object storage** are set in `.env`.
 - **AAI · Affinities · Federation** are the platform's **shared services** — already running.
-
-> Prefer Compose? `git clone` the repo and `docker compose --profile mongodb up`
-> starts the Endpoint **and** a local database together.
 
 [📸 screenshots/14-ep-home.png — Endpoint home page (search)]
 
