@@ -91,6 +91,19 @@ network (final bonus). Derived from the C4 view in ../ep-diagrams. -->
 
 ---
 
+## Component interactions — step by step
+
+1. **Sign in** — the user authenticates through **AAI** (Keycloak), which also carries their **role** (viewer / writer / admin).
+2. **Use the Endpoint** — with that token they publish and search in the **NDP-EP**, backed by **CKAN** (catalog) and **MinIO / S3** (storage).
+3. **Register relationships** — the EP registers its datasets and services in **Affinities**, a non-blocking graph of how data, services and endpoints relate.
+4. **Federate** — the EP reports to **Federation** (central registry + health & metrics).
+5. **Secure transport** — all of it can run over a private, encrypted **NetBird** network.
+
+<!-- note: roles live in AAI, NOT in Affinities. Affinities is a relationship
+registry the EP writes into; it is non-blocking (the EP works even if it is down). -->
+
+---
+
 ## Demo walkthrough
 
 > **Ana** is new. We give her access, she publishes a dataset, automates it from
