@@ -266,7 +266,7 @@ In the Keycloak console, the administrator creates the **user** and sets a passw
 
 [📸 screenshots/20-create-user.png — creating a user in Keycloak]
 
-> The user alone **cannot publish anything yet**: she needs a **role**.
+> The user alone **cannot publish anything yet**: they need a **role**.
 
 ---
 
@@ -506,10 +506,10 @@ public ports.
 
 ## Summary
 
-1. We **installed** NDP from scratch (Docker).
+1. We **installed** the NDP-EP (Docker).
 2. The user **logged in** and received a **role** (both in AAI).
-3. She **published and searched** data from the Endpoint **web app**.
-4. She did the same **from code** with the Python library.
+3. They **published and searched** data from the Endpoint **web app**.
+4. They did the same **from code** with the Python library.
 5. The data was **federated** and is discovered elsewhere.
 6. Everything can run over a **secure network** (NetBird).
 
