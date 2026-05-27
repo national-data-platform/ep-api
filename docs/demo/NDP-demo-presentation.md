@@ -18,6 +18,30 @@ class: lead
 ==============================================================================
 -->
 
+<style>
+/* Brand header/footer copied from "ndp ep - presentation.pptx":
+   - header: National Data Platform logo (top-left)
+   - footer: partner logos band (SDSC . SCI . EarthScope . UCSD . Utah . CU Boulder)
+   Applied to every slide as layered section backgrounds so content sits between
+   the two bands (padding keeps text clear of them). */
+section {
+  padding: 96px 48px 80px 48px;
+  background-image:
+    url('assets/header-logo.png'),
+    url('assets/footer-left.png'),
+    url('assets/footer-right.png');
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position:
+    left 32px top 22px,
+    left 24px bottom 14px,
+    right 24px bottom 14px;
+  background-size:
+    auto 58px,
+    auto 44px,
+    auto 44px;
+}
+</style>
+
 # National Data Platform (NDP)
 ## From zero to a federated, secure dataset
 

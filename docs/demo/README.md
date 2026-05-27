@@ -8,6 +8,8 @@ users and administrators**.
 
 - `NDP-demo-presentation.md` — the presentation in **Marp** format. It doubles as
   a self-guided tutorial: each step states what to do and what you will see.
+- `assets/` — brand header/footer images (NDP logo + partner logos) reused from
+  the official `ndp ep - presentation.pptx`. Applied to every slide via CSS.
 - `screenshots/` — drop the screenshots here (see the checklist below).
 
 ## Turning it into slides
@@ -19,10 +21,13 @@ export to **PDF**, **PPTX** (PowerPoint) or **HTML**.
 **Option B — command line (Marp CLI):**
 
 ```bash
-npx @marp-team/marp-cli NDP-demo-presentation.md -o NDP-demo-presentation.pdf
-npx @marp-team/marp-cli NDP-demo-presentation.md --pptx -o NDP-demo-presentation.pptx
+# --allow-local-files is required because the brand header/footer use local images
+npx @marp-team/marp-cli --allow-local-files NDP-demo-presentation.md -o NDP-demo-presentation.pdf
+npx @marp-team/marp-cli --allow-local-files NDP-demo-presentation.md --pptx -o NDP-demo-presentation.pptx
 npx @marp-team/marp-cli NDP-demo-presentation.md -o NDP-demo-presentation.html
 ```
+
+> Run these from inside `docs/demo/` so the `assets/...` paths resolve.
 
 ## Screenshots to capture
 
