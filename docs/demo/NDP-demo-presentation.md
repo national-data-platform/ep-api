@@ -146,15 +146,25 @@ Run *everything* on your own machine, with no dependency on the central NDP.
 ```bash
 git clone https://github.com/national-data-platform/ep-api.git
 cd ep-api
-cp .env.example .env     # point to the platform (AAI, Affinities, Federation)
-                         # and to a catalog database (MongoDB)
+cp example.env .env      # configure your deployment (see next slide)
 docker compose up -d     # add --profile mongodb to also start a local DB
 ```
 
-- You run the **Endpoint** (API + web UI); its **catalog DB** and **object storage** are set in `.env`.
+[📸 screenshots/14-ep-home.png — Endpoint home page (search)]
+
+---
+
+## What you run, what's shared
+
+- You run the **Endpoint** (API + web UI); its **catalog DB** and **object storage** are configured in `.env`.
 - **AAI · Affinities · Federation** are the platform's **shared services** — already running.
 
-[📸 screenshots/14-ep-home.png — Endpoint home page (search)]
+> 📖 Every `.env` variable is documented in **`docs/configuration.md`**
+> (template: `example.env`).
+
+<!-- note: configuration.md is the full reference; example.env is the annotated
+template to copy. -->
+
 
 ---
 
