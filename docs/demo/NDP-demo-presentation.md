@@ -65,7 +65,7 @@ A platform to **publish, discover and share data** across institutions.
 
 ---
 
-## The pieces (what we will see)
+## Platform components
 
 | Piece | What it is for | How it looks |
 |---|---|---|
@@ -78,7 +78,7 @@ A platform to **publish, discover and share data** across institutions.
 
 ---
 
-## How they relate
+## Component interactions
 
 ```
    [ User ]
@@ -105,7 +105,7 @@ A platform to **publish, discover and share data** across institutions.
 
 ---
 
-## The story we will follow
+## Demo walkthrough
 
 > **Ana** is new. We give her access, she publishes a dataset, automates it from
 > code, and that data shows up in the federation — all securely.
@@ -324,7 +324,7 @@ On her own data, the **publish/delete** actions appear.
 
 ---
 
-## Permissions, live 🔑
+## Role-based access in practice 🔑
 
 The same web app **looks different depending on your role**:
 
@@ -390,7 +390,7 @@ print(client.search_datasets("measurements"))
 
 ---
 
-## The same data, two paths
+## Web and code: a unified interface
 
 ```
    Web (click)   ─┐
@@ -425,7 +425,7 @@ what activity.
 
 ---
 
-## Why it matters
+## Federation benefits
 
 ```
         ┌────────────┐
@@ -478,11 +478,11 @@ public ports.
 
 ---
 
-# Wrap-up
+# Conclusion
 
 ---
 
-## The story at a glance
+## Summary
 
 1. We **installed** NDP from scratch (Docker).
 2. Ana **logged in** (AAI) and received her **role** (Affinities).
