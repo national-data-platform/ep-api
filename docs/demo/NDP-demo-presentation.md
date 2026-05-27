@@ -80,7 +80,7 @@ A platform to **publish, discover and share data** across institutions.
 
 ## Component interactions
 
-![w:680](assets/diagrams/component-interactions.svg)
+![w:1080](assets/diagrams/component-interactions.svg)
 
 The user signs in through **AAI**, which also carries their **role**. With that token they publish and search in the **NDP-EP** (backed by **CKAN** and **S3**). The EP then registers its datasets/services in **Affinities** and reports to **Federation**.
 
