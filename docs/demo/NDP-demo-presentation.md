@@ -104,14 +104,14 @@ registry the EP writes into; it is non-blocking (the EP works even if it is down
 
 ---
 
-## Demo walkthrough
+## Overview
 
-> **Ana** is new. We give her access, she publishes a dataset, automates it from
-> code, and that data shows up in the federation — all securely.
+> A new user gets access, publishes a dataset, automates it from code, and that
+> data shows up in the federation — all securely.
 
 **Demo acts:**
-1. Installation from scratch
-2. Identity and permissions (Ana logs in and gets her role)
+1. Installation
+2. Identity and permissions (sign in and get a role)
 3. The Endpoint in action (publish and search from the web)
 4. Automate with the Python library
 5. Federation (the data is discovered elsewhere)
@@ -119,26 +119,52 @@ registry the EP writes into; it is non-blocking (the EP works even if it is down
 
 ---
 
-# Act 1 — Installation from scratch
-### (for administrators)
-
-<!-- note: for end users this can be summarized; for admins, show it is
-"docker compose up" per component, in order. -->
+# Act 1 — Installation
 
 ---
 
-## Requirements
+## Two ways to install
 
-- A machine with **Docker** and **Docker Compose**.
-- Access to each component's repository.
-- (Recommended) a domain if you will expose services to the outside.
+**🟢 Most users — just the NDP-EP**
+Run your own **Endpoint** and connect it to the **National Data Platform**, which
+already provides identity (**AAI**), **Affinities** and **Federation**.
+→ you install **one** component.
 
-> In development, **everything fits on a single machine**. In production, each
-> component can live on its own server (that is where NetBird comes in).
+**🧪 Full stack — development / testing**
+Run *everything* on your own machine, with no dependency on the central NDP.
+→ you install **all** components.
+
+> Next slide: the common case. The rest of Act 1: the full stack.
 
 ---
 
-## Startup order
+## Install the NDP-EP (the common case)
+
+```bash
+cd ep-api
+cp .env.example .env    # point to the National Data Platform
+                        # (its AAI, Affinities and Federation)
+docker compose up -d
+```
+
+You only run the **Endpoint** (plus its catalog/storage backends). Identity,
+Affinities and Federation are the platform's **shared services** — already there.
+
+**What you will see:** your Endpoint web app at `…/ep-api/ui/`.
+
+[📸 screenshots/14-ep-home.png — Endpoint home page (search)]
+
+---
+
+# Full stack (development / testing)
+### Only if you want the whole system locally
+
+<!-- note: this whole sub-section is the dev/test path. Most users skip it and
+just run the NDP-EP from the previous slide. -->
+
+---
+
+## Startup order (full stack)
 
 ```
 1) AAI (Keycloak)      → identity first, everything depends on it
@@ -204,17 +230,14 @@ docker compose up -d
 
 ```bash
 cd ep-api
-cp .env.example .env        # point to AAI, Affinities, Federation
+cp .env.example .env        # point to your LOCAL AAI, Affinities, Federation
 docker compose up -d
 ```
 
 Starts the Endpoint alongside its backends: **CKAN**, **MongoDB** and **MinIO** (S3).
 
-**What you will see:**
-- **Endpoint web app**: `…/ep-api/ui/`
-- API documentation: `…/ep-api/docs`
-
-[📸 screenshots/14-ep-home.png — Endpoint home page (search)]
+**What you will see:** the same Endpoint web app as before, now wired to your
+local services — `…/ep-api/ui/` and API docs at `…/ep-api/docs`.
 
 ---
 
@@ -233,13 +256,13 @@ From here on we work **from the web** (and later from code).
 ---
 
 # Act 2 — Identity and permissions
-### Ana logs in and gets her role
+### A user signs in and gets a role
 
 ---
 
 ## Create the user (AAI)
 
-In the Keycloak console, the administrator creates **Ana's** user and sets a password.
+In the Keycloak console, the administrator creates the **user** and sets a password.
 
 [📸 screenshots/20-create-user.png — creating a user in Keycloak]
 
@@ -249,8 +272,8 @@ In the Keycloak console, the administrator creates **Ana's** user and sets a pas
 
 ## Grant the role (AAI)
 
-In **AAI** (Keycloak), the administrator gives Ana a **role** — directly or by adding
-her to a **group** that carries it. The role travels inside her token to the Endpoint.
+In **AAI** (Keycloak), the administrator gives the user a **role** — directly or by
+adding them to a **group** that carries it. The role travels inside the token to the Endpoint.
 
 [📸 screenshots/21-assign-role.png — assigning the writer role/group in Keycloak]
 
@@ -277,7 +300,7 @@ her to a **group** that carries it. The role travels inside her token to the End
 
 ## Log in
 
-Ana opens the Endpoint web app and logs in with her AAI user.
+The user opens the Endpoint web app and logs in with their AAI user.
 
 The home page is the **search**: the heart of the Endpoint.
 
@@ -287,8 +310,8 @@ The home page is the **search**: the heart of the Endpoint.
 
 ## Create an organization
 
-From the **"+ New" → Organization** menu, Ana creates the organization that will
-group her data.
+From the **"+ New" → Organization** menu, the user creates the organization that
+will group their data.
 
 [📸 screenshots/31-create-organization.png — new organization form]
 
@@ -296,7 +319,7 @@ group her data.
 
 ## Publish a dataset
 
-**"+ New" → Dataset**: Ana describes her dataset (title, description, tags…).
+**"+ New" → Dataset**: the user describes the dataset (title, description, tags…).
 
 [📸 screenshots/32-create-dataset.png — new dataset form]
 
@@ -316,8 +339,8 @@ A dataset can have resources of several kinds, all from **"+ New"**:
 
 ## Search and find
 
-Ana (or anyone) searches by text, filters, and finds the just-published dataset.
-On her own data, the **publish/delete** actions appear.
+Anyone can search by text, filter, and find the just-published dataset.
+On your own data, the **publish/delete** actions appear.
 
 [📸 screenshots/34-search-results.png — search results with the dataset]
 
@@ -484,7 +507,7 @@ public ports.
 ## Summary
 
 1. We **installed** NDP from scratch (Docker).
-2. Ana **logged in** and received her **role** (both in AAI).
+2. The user **logged in** and received a **role** (both in AAI).
 3. She **published and searched** data from the Endpoint **web app**.
 4. She did the same **from code** with the Python library.
 5. The data was **federated** and is discovered elsewhere.
