@@ -82,12 +82,12 @@ A platform to **publish, discover and share data** across institutions.
 
 ![w:1080](assets/diagrams/component-interactions.svg)
 
-The user signs in through **AAI**, which also carries their **role**. With that token they publish and search in the **NDP-EP** (backed by **CKAN** and **S3**). The EP then registers its datasets/services in **Affinities** and reports to **Federation**.
-
-<!-- note: roles live in AAI (Keycloak), NOT in Affinities. Affinities is a
-relationship registry the EP writes into (datasets/services/endpoints); it is
-non-blocking. CKAN/S3 are the EP's backends. All of it can run over a private
-NetBird network (final bonus). Derived from the C4 view in ../ep-diagrams. -->
+<!-- note: narrate the diagram: the user signs in through AAI, which also
+carries their ROLE (roles live in AAI/Keycloak, NOT in Affinities). With that
+token they publish and search in the NDP-EP, backed by CKAN and S3. The EP then
+registers its datasets/services in Affinities (a non-blocking relationship
+registry) and reports to Federation. All of it can run over a private NetBird
+network (final bonus). Derived from the C4 view in ../ep-diagrams. -->
 
 ---
 
