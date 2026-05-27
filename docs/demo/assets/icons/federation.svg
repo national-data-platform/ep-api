@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Federation central registry">
+  <rect x="4" y="4" width="192" height="192" rx="32" fill="#eef1f8"/>
+  <g fill="none" stroke="#1b2a6b" stroke-width="10" stroke-linecap="round">
+    <path d="M100 100 L52 56 M100 100 L148 56 M100 100 L52 150 M100 100 L148 150"/>
+  </g>
+  <g fill="#1b2a6b">
+    <circle cx="100" cy="100" r="26"/>
+    <circle cx="52" cy="56" r="15"/>
+    <circle cx="148" cy="56" r="15"/>
+    <circle cx="52" cy="150" r="15"/>
+    <circle cx="148" cy="150" r="15"/>
+  </g>
+</svg>

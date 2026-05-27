@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="NetBird secure network">
+  <rect x="4" y="4" width="192" height="192" rx="32" fill="#eef1f8"/>
+  <g fill="none" stroke="#1b2a6b" stroke-width="10" stroke-linecap="round">
+    <path d="M58 62 L100 84 L142 62 M58 138 L100 116 L142 138 M58 62 L58 138 M142 62 L142 138"/>
+  </g>
+  <g fill="#1b2a6b">
+    <circle cx="58" cy="62" r="14"/>
+    <circle cx="142" cy="62" r="14"/>
+    <circle cx="58" cy="138" r="14"/>
+    <circle cx="142" cy="138" r="14"/>
+  </g>
+  <g fill="none" stroke="#1b2a6b" stroke-width="9" stroke-linejoin="round">
+    <rect x="84" y="96" width="32" height="26" rx="5" fill="#eef1f8"/>
+    <path d="M90 96 V88 a10 10 0 0 1 20 0 V96"/>
+  </g>
+</svg>

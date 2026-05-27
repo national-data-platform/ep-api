@@ -8,14 +8,12 @@ class: lead
 ---
 
 <!--
-==============================================================================
  PRESENTATION + SELF-GUIDED TUTORIAL — National Data Platform (NDP)
  Audience: end users and administrators (not developers).
  Focus: WHAT you can do and HOW it looks.
  Render:  marp NDP-presentacion.md -o NDP-presentacion.pdf   (or .pptx, .html)
  [📸 ...] blocks mark where to drop a screenshot (folder ./capturas).
  Lines after "<!-- note: ... -->" are speaker notes for whoever presents.
-==============================================================================
 -->
 
 <style>
@@ -71,14 +69,12 @@ A platform to **publish, discover and share data** across institutions.
 
 | Piece | What it is for | How it looks |
 |---|---|---|
-| **AAI** (Keycloak) | Who you are (login, users) | Login screen |
-| **Affinities** | Which group you belong to and your **role** | Groups web app |
-| **NDP-EP** | Your catalog: datasets, resources, storage | Endpoint web app |
-| **Federation** | Central registry of all EPs | Federation web app |
-| **Python library** | Do the same from code / automate | Notebook / script |
-| **NetBird** (bonus) | Secure private network between machines | Network dashboard |
-
-[📸 screenshots/00-component-logos.png — optional: icons/logos of each piece]
+| <img src="assets/icons/aai.svg" height="34"/> **AAI** (Keycloak) | Who you are (login, users) | Login screen |
+| <img src="assets/icons/affinities.svg" height="34"/> **Affinities** | Which group you belong to and your **role** | Groups web app |
+| <img src="assets/icons/ndp-ep.svg" height="34"/> **NDP-EP** | Your catalog: datasets, resources, storage | Endpoint web app |
+| <img src="assets/icons/federation.svg" height="34"/> **Federation** | Central registry of all EPs | Federation web app |
+| <img src="assets/icons/python-lib.svg" height="34"/> **Python library** | Do the same from code / automate | Notebook / script |
+| <img src="assets/icons/netbird.svg" height="34"/> **NetBird** (bonus) | Secure private network between machines | Network dashboard |
 
 ---
 

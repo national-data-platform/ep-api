@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="NDP Endpoint catalog">
+  <rect x="4" y="4" width="192" height="192" rx="32" fill="#eef1f8"/>
+  <g fill="none" stroke="#1b2a6b" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="48" y="44" width="84" height="26" rx="8"/>
+    <rect x="48" y="82" width="84" height="26" rx="8"/>
+    <rect x="48" y="120" width="84" height="26" rx="8"/>
+    <circle cx="132" cy="128" r="22" fill="#eef1f8"/>
+    <path d="M148 144 L166 162"/>
+  </g>
+</svg>
