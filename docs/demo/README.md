@@ -1,0 +1,67 @@
+# NDP demo — presentation & self-guided tutorial
+
+End-to-end material that walks through the whole NDP system (installation, web
+usage, the Python library, federation and the secure network), aimed at **end
+users and administrators**.
+
+## Files
+
+- `NDP-demo-presentation.md` — the presentation in **Marp** format. It doubles as
+  a self-guided tutorial: each step states what to do and what you will see.
+- `screenshots/` — drop the screenshots here (see the checklist below).
+
+## Turning it into slides
+
+**Option A — VS Code (easiest):** install the **"Marp for VS Code"** extension,
+open `NDP-demo-presentation.md` and click the preview icon. From there you can
+export to **PDF**, **PPTX** (PowerPoint) or **HTML**.
+
+**Option B — command line (Marp CLI):**
+
+```bash
+npx @marp-team/marp-cli NDP-demo-presentation.md -o NDP-demo-presentation.pdf
+npx @marp-team/marp-cli NDP-demo-presentation.md --pptx -o NDP-demo-presentation.pptx
+npx @marp-team/marp-cli NDP-demo-presentation.md -o NDP-demo-presentation.html
+```
+
+## Screenshots to capture
+
+Each `[📸 screenshots/NN-name.png …]` placeholder in the presentation maps to one
+screenshot. Checklist:
+
+**Installation**
+- [ ] `10-keycloak-login.png` — NDP login (Keycloak)
+- [ ] `11-keycloak-admin.png` — Keycloak admin console (realm NDP)
+- [ ] `12-affinities-frontend.png` — Affinities web app with groups
+- [ ] `13-federation-ui.png` — federation web app (still empty)
+- [ ] `14-ep-home.png` — Endpoint home page (search)
+- [ ] `15-docker-ps.png` — `docker ps` with everything "Up"
+
+**Identity and permissions**
+- [ ] `20-create-user.png` — creating a user in Keycloak
+- [ ] `21-affinities-group.png` — user added to a group with the writer role
+
+**Endpoint (web)**
+- [ ] `30-login-and-search.png` — login + search
+- [ ] `31-create-organization.png` — new organization
+- [ ] `32-create-dataset.png` — new dataset
+- [ ] `33-create-resource.png` — new resource (S3/URL/Kafka)
+- [ ] `34-search-results.png` — results with the dataset
+- [ ] `35-viewer-vs-writer.png` — viewer vs writer menu (the key contrast)
+- [ ] `36-s3-management.png` — S3 Management tool
+
+**Python**
+- [ ] `40-notebook.png` — notebook running the library
+
+**Federation**
+- [ ] `50-federation-ep-registered.png` — the EP in the federation
+- [ ] `51-federation-health.png` — health/metrics
+
+**NetBird (bonus)**
+- [ ] `60-netbird-peers.png` — dashboard with connected peers
+- [ ] `61-netbird-access.png` — accessing services over the mesh
+
+## Notes
+
+- Presentation text (and speaker notes `<!-- note: -->`) are in **English**.
+- This material is written and refined incrementally (see issue #179).
