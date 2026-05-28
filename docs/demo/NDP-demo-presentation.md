@@ -247,16 +247,15 @@ docker compose up -d
 
 ## 4) Start the NDP-EP (+ backends)
 
+Install it exactly like the **common case** shown earlier — the only difference is
+the `.env`: point it to your **local** AAI · Affinities · Federation, and bring up
+the data backends with a Compose profile.
+
 ```bash
-cd ep-api
-cp .env.example .env        # point to your LOCAL AAI, Affinities, Federation
-docker compose up -d
+docker compose --profile full up -d    # Endpoint + MongoDB + MinIO + Kafka
 ```
 
-Starts the Endpoint alongside its backends: **CKAN**, **MongoDB** and **MinIO** (S3).
-
-**What you will see:** the same Endpoint web app as before, now wired to your
-local services — `…/ep-api/ui/` and API docs at `…/ep-api/docs`.
+**What you will see:** the Endpoint web app at `…/ep-api/ui/`, now wired to your local stack.
 
 ---
 
