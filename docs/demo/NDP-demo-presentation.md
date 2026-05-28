@@ -156,7 +156,7 @@ docker compose up -d     # the Endpoint only
 
 ---
 
-## Optional backends — Compose profiles
+## Compose profiles — core backends
 
 `docker compose --profile <name> up -d` — combine as many as you need:
 
@@ -166,9 +166,16 @@ docker compose up -d     # the Endpoint only
 | `mongodb` | MongoDB + Mongo Express (local catalog DB) |
 | `s3` | MinIO (S3-compatible object storage) |
 | `kafka` | Kafka + Zookeeper + Kafka UI (streaming) |
+
+---
+
+## Compose profiles — extras
+
+| Profile | What it starts |
+|---|---|
 | `jupyter` | JupyterLab |
 | `pelican` | Pelican federation (registry, director, origin, cache) |
-| `full` | All of the above |
+| `full` | All backends above |
 
 <!-- note: profiles let an admin run only the EP (connecting to the platform's
 shared services) or spin up local backends for development/testing. -->
