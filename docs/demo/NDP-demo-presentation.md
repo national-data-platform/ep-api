@@ -150,11 +150,28 @@ cp example.env .env      # configure your deployment (see next slide)
 docker compose up -d     # the Endpoint only
 ```
 
-**Optional local backends** — add Compose profiles to run them too:
-`--profile mongodb` (DB) · `s3` (MinIO) · `kafka` · `jupyter` · `full` (all).
+> Run only the Endpoint, or add local backends with **Compose profiles** (next slide).
 
 > 📖 `.env` variables are explained in **`docs/configuration.md`** (template: `example.env`).
 
+---
+
+## Optional backends — Compose profiles
+
+`docker compose --profile <name> up -d` — combine as many as you need:
+
+| Profile | What it starts |
+|---|---|
+| *(none)* | **NDP-EP only** (API + web UI) |
+| `mongodb` | MongoDB + Mongo Express (local catalog DB) |
+| `s3` | MinIO (S3-compatible object storage) |
+| `kafka` | Kafka + Zookeeper + Kafka UI (streaming) |
+| `jupyter` | JupyterLab |
+| `pelican` | Pelican federation (registry, director, origin, cache) |
+| `full` | All of the above |
+
+<!-- note: profiles let an admin run only the EP (connecting to the platform's
+shared services) or spin up local backends for development/testing. -->
 
 ---
 
