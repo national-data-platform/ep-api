@@ -196,8 +196,8 @@ Each component starts the same way: enter its folder and `docker compose up -d`.
 ## 1) Start AAI (identity)
 
 ```bash
-git clone https://github.com/sci-ndp/ndp-keycloak-aai.git
-cd ndp-keycloak-aai
+git clone https://github.com/sci-ndp/ndp-keycloak-aai-old.git
+cd ndp-keycloak-aai-old
 cp .env_template .env        # set admin user/password + domain
 # place fullchain.pem & privkey.pem in SSL/certificates/  (TLS)
 docker compose up -d --build
@@ -213,7 +213,9 @@ docker compose up -d --build
 ## 2) Start Affinities (relationship registry)
 
 ```bash
+git clone https://github.com/sci-ndp/ndp-affinities.git
 cd ndp-affinities
+cp .env.example .env         # optional: customize DB user/password
 docker compose up -d
 ```
 
@@ -229,7 +231,9 @@ docker compose up -d
 ## 3) Start Federation (central registry)
 
 ```bash
+git clone https://github.com/sci-ndp/ndp-federation.git
 cd ndp-federation
+cp .env.example .env         # set ADMIN_PASSWORD
 docker compose up -d
 ```
 
