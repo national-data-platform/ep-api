@@ -646,7 +646,7 @@ The returned `uid` is your `AFFINITIES_EP_UUID`.
 
 ---
 
-## Appendix — Keycloak: create the first user
+## Creating a user — Keycloak
 
 In the Keycloak admin console, realm **NDP**:
 
@@ -657,12 +657,13 @@ In the Keycloak admin console, realm **NDP**:
 
 ---
 
-## Appendix — AAI API: assign groups & roles
+## Assigning groups & roles — AAI API
 
 After the user exists in Keycloak, assign groups/roles via the **AAI API**
 (the caller must already be an admin):
 
 ```bash
+# authenticate as an admin
 TOKEN=$(curl -s -X POST "$AAI/user/login" -H 'Content-Type: application/json' \
   -d '{"username":"<admin>","password":"<pass>"}' | jq -r .access_token)
 
@@ -670,8 +671,15 @@ TOKEN=$(curl -s -X POST "$AAI/user/login" -H 'Content-Type: application/json' \
 curl -s -X POST "$AAI/group/add-user" -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"group_name":"<EP_UUID>","username":"<user>"}'
+```
 
-# upgrade the tier (bare name: viewer | writer | admin)
+---
+
+## Assigning groups & roles — AAI API (cont.)
+
+Upgrade the tier (bare name: `viewer` | `writer` | `admin`):
+
+```bash
 curl -s -X POST "$AAI/role/assign" -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"groupName":"<EP_UUID>","roleName":"writer","username":"<user>"}'
