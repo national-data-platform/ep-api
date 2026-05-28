@@ -144,7 +144,7 @@ Have these ready; the installer writes them into `.env`:
 
 - **AAI endpoint** — the AAI `…/information` URL, so logins and roles work.
 - **Catalog backend** — a MongoDB (Compose can start it) **or** a reachable **CKAN** instance with an admin **API token**.
-- **EP_UUID** — required only when using Affinities or per-EP roles (`group:<EP_UUID>:…`). Register this Endpoint in Affinities (`POST /endpoints`) and use the returned `uid` as `AFFINITIES_EP_UUID`.
+- **EP_UUID** — required only when using Affinities or per-EP roles (`group:<EP_UUID>:…`). It is the Endpoint's `uid` in Affinities (`POST /ep`, or the **Endpoints** page of the Affinities UI). See the appendix. Used as `AFFINITIES_EP_UUID`.
 - **Object storage** — optional, only for S3 features.
 
 > In the common case, the platform operators provide the AAI endpoint and, if
@@ -606,3 +606,30 @@ public ports.
 ## Questions & discussion
 
 <!-- note: open the floor for questions; keep the NetBird technical doc handy. -->
+
+---
+
+# Appendix
+
+---
+
+## Obtaining the EP_UUID
+
+The `EP_UUID` is this Endpoint's `uid` in **Affinities**. Two ways to obtain it:
+
+**Affinities web app** (`http://localhost:3000`, or your Affinities URL)
+Open the **Endpoints** page — the **UID** column shows each endpoint's `uid`.
+Create the endpoint there if it does not exist yet.
+
+**Affinities API** (`http://localhost:8000`, Swagger at `/docs`)
+
+```bash
+# list endpoints and copy your uid
+curl http://localhost:8000/ep
+
+# or register this endpoint; the response includes "uid"
+curl -X POST http://localhost:8000/ep -H 'Content-Type: application/json' \
+  -d '{"kind":"ndp-ep","url":"https://<your-ndp-ep>","metadata":{"name":"My EP"}}'
+```
+
+Use the returned `uid` as `AFFINITIES_EP_UUID` in `.env` and in `group:<uid>:…` roles.

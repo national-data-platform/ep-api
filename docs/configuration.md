@@ -218,8 +218,9 @@ platform's Affinities URL, or your local one.
 
 #### `AFFINITIES_EP_UUID`
 *Required if `AFFINITIES_ENABLED=True`.*
-This Endpoint's UUID inside Affinities. **Where:** register the Endpoint once via
-`POST /endpoints` on the Affinities API; the response's `uid` is this value. See
+This Endpoint's UUID inside Affinities. **Where:** the endpoint's `uid` in
+Affinities — list/create it via `GET`/`POST /ep` on the Affinities API, or from
+the **Endpoints** page of the Affinities web app. See
 [affinities-integration.md](affinities-integration.md).
 
 #### `AFFINITIES_TIMEOUT`
