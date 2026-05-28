@@ -163,8 +163,6 @@ docker compose up -d     # add --profile mongodb to also start a local DB
 | **Catalog database** — CKAN or MongoDB | **Affinities** — relationship registry |
 | **Object storage** — MinIO / S3 *(optional)* | **Federation** — registry & discovery |
 
-Your `.env` tells the Endpoint **how to reach** the shared services — so you run a
-small footprint and the platform does the heavy lifting.
 
 <!-- note: this is the responsibility boundary. In the common case you only run
 the EP + its data backends; identity/affinities/federation are the platform's. -->
@@ -198,9 +196,11 @@ Each component starts the same way: enter its folder and `docker compose up -d`.
 ## 1) Start AAI (identity)
 
 ```bash
-cd ndp-keycloak-aai-old
-cp .env.example .env        # set admin user/password
-docker compose up -d
+git clone https://github.com/sci-ndp/ndp-keycloak-aai.git
+cd ndp-keycloak-aai
+cp .env_template .env        # set admin user/password + domain
+# place fullchain.pem & privkey.pem in SSL/certificates/  (TLS)
+docker compose up -d --build
 ```
 
 **What you will see:** the Keycloak admin console and the NDP login screen.
