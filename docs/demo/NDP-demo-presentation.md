@@ -134,7 +134,21 @@ already provides identity (**AAI**), **Affinities** and **Federation**.
 Run all components locally, with no dependency on the central NDP.
 → install **all** components.
 
-> Next slide: the common case. The rest of Step 1: the full stack.
+> The common case is covered first; the full stack follows.
+
+---
+
+## Before you install — prerequisites
+
+Have these ready; the installer writes them into `.env`:
+
+- **AAI endpoint** — the AAI `…/information` URL, so logins and roles work.
+- **Catalog backend** — a MongoDB (Compose can start it) **or** a reachable **CKAN** instance with an admin **API token**.
+- **EP_UUID** — required only when using Affinities or per-EP roles (`group:<EP_UUID>:…`). Register this Endpoint in Affinities (`POST /endpoints`) and use the returned `uid` as `AFFINITIES_EP_UUID`.
+- **Object storage** — optional, only for S3 features.
+
+> In the common case, the platform operators provide the AAI endpoint and, if
+> applicable, the `EP_UUID`.
 
 ---
 
