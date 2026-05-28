@@ -306,6 +306,25 @@ Subsequent steps use the **web interface**, and later the Python library.
 
 ---
 
+## Bootstrap the first admin
+
+The Endpoint has **no user store** — identity and roles come from **AAI (Keycloak)**.
+The **first** admin must be set up directly in Keycloak, because granting roles from
+the Endpoint UI or the AAI API itself requires an existing admin.
+
+In Keycloak (realm **NDP**):
+1. Create the user and set a password.
+2. Assign the realm role **`ndp_admin`** (platform-wide), or **`group:<EP_UUID>:admin`** for this Endpoint only.
+
+That user can then sign in and manage everyone else from the Endpoint.
+
+> In the common case (central NDP), the admin role is assigned by the platform
+> operators in the shared AAI — request it from them.
+
+<!-- 📸 screenshots/19-keycloak-assign-ndp-admin.png — assigning the ndp_admin realm role in Keycloak -->
+
+---
+
 ## Create the user (AAI)
 
 In the Keycloak console, the administrator creates the **user** and sets a password.

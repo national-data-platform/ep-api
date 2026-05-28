@@ -43,6 +43,7 @@ screenshot. Checklist:
 - [ ] `15-docker-ps.png` — `docker ps` with everything "Up"
 
 **Identity and permissions**
+- [ ] `19-keycloak-assign-ndp-admin.png` — assigning the `ndp_admin` realm role in Keycloak (first admin)
 - [ ] `20-create-user.png` — creating a user in Keycloak
 - [ ] `21-assign-role.png` — assigning the writer role/group in Keycloak (AAI)
 
