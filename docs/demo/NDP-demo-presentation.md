@@ -615,15 +615,11 @@ public ports.
 
 ## Obtaining the EP_UUID — Affinities web app
 
-The `EP_UUID` is this Endpoint's `uid` in **Affinities**.
+In the Affinities web app (`http://localhost:3000`, or your Affinities URL):
+**Endpoints → Add Endpoint**, fill the form (**Kind** = `ndp-ep`, **URL**, optional
+**Metadata**), then **Save**. The new row's **UID** is your `AFFINITIES_EP_UUID`.
 
-**Via the Affinities web app** (`http://localhost:3000`, or your Affinities URL):
-
-1. Open the **Endpoints** page.
-2. Copy the value in the **UID** column for your endpoint.
-3. If it does not exist yet, create it there first.
-
-Use that `uid` as `AFFINITIES_EP_UUID` in `.env` (and in `group:<uid>:…` roles).
+![w:760](screenshots/A1-affinities-add-endpoint.png)
 
 ---
 

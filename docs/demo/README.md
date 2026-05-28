@@ -67,6 +67,9 @@ screenshot. Checklist:
 - [ ] `60-netbird-peers.png` — dashboard with connected peers
 - [ ] `61-netbird-access.png` — accessing services over the mesh
 
+**Appendix**
+- [ ] `A1-affinities-add-endpoint.png` — Affinities "Add Endpoint" form (obtaining the EP_UUID)
+
 ## Notes
 
 - Presentation text (and speaker notes `<!-- note: -->`) are in **English**.
