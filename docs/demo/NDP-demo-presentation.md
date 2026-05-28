@@ -150,7 +150,7 @@ cp example.env .env      # configure your deployment
 docker compose up -d     # the Endpoint only
 ```
 
-> Using **CKAN** as local catalog? You need a running CKAN (your own or accessible) and an admin **API token** for `CKAN_API_KEY`. MongoDB needs none.
+> The CKAN backend requires an existing, reachable CKAN instance and an administrator API token (`CKAN_API_KEY`). The MongoDB backend has no such prerequisite.
 
 > Run only the Endpoint, or add local backends with **Compose profiles** (next slide).
 
