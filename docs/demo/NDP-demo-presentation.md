@@ -247,9 +247,9 @@ docker compose up -d
 
 ## 4) Start the NDP-EP (+ backends)
 
-Install it exactly like the **common case** shown earlier — the only difference is
-the `.env`: point it to your **local** AAI · Affinities · Federation, and bring up
-the data backends with a Compose profile.
+Identical to the common-case install. Configure `.env` to reference the local
+AAI, Affinities and Federation instances, and start the data backends with a
+Compose profile.
 
 ```bash
 docker compose --profile full up -d    # Endpoint + MongoDB + MinIO + Kafka
