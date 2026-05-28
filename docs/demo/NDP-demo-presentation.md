@@ -619,7 +619,7 @@ In the Affinities web app (`http://localhost:3000`, or your Affinities URL):
 **Endpoints → Add Endpoint**, fill the form (**Kind** = `ndp-ep`, **URL**, optional
 **Metadata**), then **Save**. The new row's **UID** is your `AFFINITIES_EP_UUID`.
 
-![w:760](screenshots/A1-affinities-add-endpoint.png)
+![h:300](screenshots/A1-affinities-add-endpoint.png)
 
 ---
 
