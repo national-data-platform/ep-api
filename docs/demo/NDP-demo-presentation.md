@@ -146,9 +146,11 @@ Run *everything* on your own machine, with no dependency on the central NDP.
 ```bash
 git clone https://github.com/national-data-platform/ep-api.git
 cd ep-api
-cp example.env .env      # configure your deployment (see next slide)
+cp example.env .env      # configure your deployment
 docker compose up -d     # the Endpoint only
 ```
+
+> Using **CKAN** as local catalog? You need a running CKAN (your own or accessible) and an admin **API token** for `CKAN_API_KEY`. MongoDB needs none.
 
 > Run only the Endpoint, or add local backends with **Compose profiles** (next slide).
 
