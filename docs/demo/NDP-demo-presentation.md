@@ -106,8 +106,8 @@ registry the EP writes into; it is non-blocking (the EP works even if it is down
 
 ## Overview
 
-> A new user gets access, publishes a dataset, automates it from code, and that
-> data shows up in the federation — all securely.
+> A new user is granted access, publishes a dataset, performs the same tasks from
+> code, and the dataset becomes discoverable across the federation — all securely.
 
 **Steps:**
 1. Installation
@@ -125,14 +125,14 @@ registry the EP writes into; it is non-blocking (the EP works even if it is down
 
 ## Two ways to install
 
-**🟢 Most users — just the NDP-EP**
+**🟢 Most users — the NDP-EP only**
 Run your own **Endpoint** and connect it to the **National Data Platform**, which
 already provides identity (**AAI**), **Affinities** and **Federation**.
-→ you install **one** component.
+→ install **one** component.
 
 **🧪 Full stack — development / testing**
-Run *everything* on your own machine, with no dependency on the central NDP.
-→ you install **all** components.
+Run all components locally, with no dependency on the central NDP.
+→ install **all** components.
 
 > Next slide: the common case. The rest of Step 1: the full stack.
 
@@ -294,7 +294,7 @@ docker compose --profile full up -d    # Endpoint + MongoDB + MinIO + Kafka
 docker ps        # all containers "Up / healthy"
 ```
 
-From here on we work **from the web** (and later from code).
+Subsequent steps use the **web interface**, and later the Python library.
 
 <!-- 📸 screenshots/15-docker-ps.png — list of containers in Up state -->
 <!-- note: close Step 1: "installed in minutes; now let's use it". -->
@@ -347,7 +347,7 @@ adding them to a **group** that carries it. The role travels inside the token to
 
 The user opens the Endpoint web app and logs in with their AAI user.
 
-The home page is the **search**: the heart of the Endpoint.
+The home page is the **search** interface — the Endpoint's primary entry point.
 
 <!-- 📸 screenshots/30-login-and-search.png — login + search page -->
 
@@ -384,8 +384,8 @@ A dataset can have resources of several kinds, all from **"+ New"**:
 
 ## Search and find
 
-Anyone can search by text, filter, and find the just-published dataset.
-On your own data, the **publish/delete** actions appear.
+Any user can search by text and filters and find the published dataset.
+For datasets they own, **publish/delete** actions are available.
 
 <!-- 📸 screenshots/34-search-results.png — search results with the dataset -->
 
@@ -393,11 +393,11 @@ On your own data, the **publish/delete** actions appear.
 
 ## Role-based access in practice 🔑
 
-The same web app **looks different depending on your role**:
+The interface adapts to the authenticated user's role:
 
-- 👁️ A **viewer** logs in, searches and looks — **does not see** "S3 Management" or "+ New".
-- ✏️ A **writer** does see **"+ New"** and **"S3 Management"** (bucket/object management).
-- 🛠️ An **admin** also sees the **Dashboard** and the **access requests**.
+- 👁️ **Viewer** — can browse and search; **does not see** "S3 Management" or "+ New".
+- ✏️ **Writer** — additionally sees **"+ New"** and **"S3 Management"** (bucket/object management).
+- 🛠️ **Admin** — additionally sees the **Dashboard** and **access requests**.
 
 <!-- 📸 screenshots/35-viewer-vs-writer.png — menu comparison: viewer vs writer -->
 <!-- note: show the real contrast by opening two sessions (viewer and writer). -->
@@ -406,15 +406,15 @@ The same web app **looks different depending on your role**:
 
 ## Storage management (S3) — writers only
 
-**S3 Management** lets you create and manage buckets and objects.
-It is a storage administration tool: **writers/admins only**.
+**S3 Management** creates and manages buckets and objects.
+It is a storage administration tool, restricted to **writers and admins**.
 
 <!-- 📸 screenshots/36-s3-management.png — S3 Management tool (buckets/objects) -->
 
 ---
 
 # Step 4 — Automate with Python
-### The same thing, from code
+### The same operations, from code
 
 <!-- note: for the non-dev audience, frame it as "for power users:
 everything in the web can also be automated". -->
@@ -423,14 +423,14 @@ everything in the web can also be automated". -->
 
 ## The `ndp-ep` library
 
-Everything you do in the web app can also be done **from code**, ideal for
-automating or bulk-loading data.
+Every web-app operation is also available **from code** — suitable for automation
+and bulk loading.
 
 ```bash
 pip install ndp-ep
 ```
 
-> Useful for researchers and teams loading data repeatedly.
+> Intended for researchers and teams that load data programmatically.
 
 ---
 
@@ -463,7 +463,7 @@ print(client.search_datasets("measurements"))
    Python (code) ─┘
 ```
 
-> Web for day-to-day, code to automate. **Same data, same permissions.**
+> The web interface and the library target the same Endpoint: **identical data and permissions.**
 
 ---
 
@@ -474,8 +474,8 @@ print(client.search_datasets("measurements"))
 
 ## The Endpoint registers
 
-Each Endpoint registers with **Federation**. From then on, the central registry
-knows it exists and watches its **status** and **metrics**.
+Each Endpoint registers with **Federation**. The central registry then tracks its
+**status** and **metrics**.
 
 <!-- 📸 screenshots/50-federation-ep-registered.png — the EP appears in the federation -->
 
@@ -483,8 +483,8 @@ knows it exists and watches its **status** and **metrics**.
 
 ## Health and metrics
 
-The federation web app shows which Endpoints are **alive**, since when, and with
-what activity.
+The federation web app reports which Endpoints are **online**, since when, and
+their activity.
 
 <!-- 📸 screenshots/51-federation-health.png — EP health/metrics panel -->
 
@@ -494,15 +494,15 @@ what activity.
 
 ```
         ┌────────────┐
-        │ Federation │   "the map of all the data"
+        │ Federation │   registry of all endpoints
         └─────┬──────┘
    ┌──────────┼──────────┐
    ▼          ▼          ▼
 [ EP Utah ] [ EP B ]  [ EP C ]     each institution, its catalog
 ```
 
-> You search in one place and find data from **many** institutions.
-> Each one keeps control of **its** data.
+> A single search surfaces data from **many** institutions, while each retains
+> control of **its own** data.
 
 ---
 
@@ -513,10 +513,10 @@ what activity.
 
 ## The problem
 
-In production, each component lives on a **different machine**.
-How do they talk **without** opening ports to the world?
+In production, each component runs on a **different machine** and must communicate
+**without** exposing public ports.
 
-> Answer: a **private encrypted network** (mesh VPN) connecting only our machines.
+> A **private, encrypted mesh VPN** connects only authorized machines.
 
 ---
 
@@ -524,7 +524,7 @@ How do they talk **without** opening ports to the world?
 
 - Each machine gets a **stable private IP** on a virtual network.
 - Traffic goes **directly and encrypted** between machines (WireGuard).
-- You decide **who talks to whom**; everything else is blocked.
+- Access is restricted to **explicitly authorized peers**; all other traffic is blocked.
 - **No public ports** for the services.
 
 <!-- 📸 screenshots/60-netbird-peers.png — NetBird dashboard with connected machines (peers) -->
@@ -538,7 +538,7 @@ Two machines on the network: one **reaches all the NDP services** of the other
 public ports.
 
 <!-- 📸 screenshots/61-netbird-access.png — proof of access to the services over the mesh -->
-> This is exactly the production multi-machine scenario, already validated.
+> This validates the production multi-machine scenario.
 
 ---
 
@@ -548,12 +548,12 @@ public ports.
 
 ## Summary
 
-1. We **installed** the NDP-EP (Docker).
-2. The user **logged in** and received a **role** (both in AAI).
-3. They **published and searched** data from the Endpoint **web app**.
-4. They did the same **from code** with the Python library.
-5. The data was **federated** and is discovered elsewhere.
-6. Everything can run over a **secure network** (NetBird).
+1. The **NDP-EP** was installed (Docker).
+2. The user **authenticated** and received a **role** (both in AAI).
+3. Datasets were **published and searched** from the **web app**.
+4. The same operations were performed **from code** via the Python library.
+5. The data was **federated** and became discoverable across the platform.
+6. All components can run over a **secure network** (NetBird).
 
 > **Distributed data, unified discovery, governed and secure access.**
 
@@ -569,7 +569,7 @@ public ports.
 
 ---
 
-# Thank you!
-## Questions
+# Thank you
+## Questions & discussion
 
 <!-- note: open the floor for questions; keep the NetBird technical doc handy. -->
