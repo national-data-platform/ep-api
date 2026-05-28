@@ -69,6 +69,7 @@ screenshot. Checklist:
 
 **Appendix**
 - [ ] `A1-affinities-add-endpoint.png` — Affinities "Add Endpoint" form (obtaining the EP_UUID)
+- [ ] `A2-keycloak-create-user.png` — Keycloak: create user + set password (bootstrap)
 
 ## Notes
 

@@ -643,3 +643,39 @@ curl -X POST http://localhost:8000/ep -H 'Content-Type: application/json' \
 ```
 
 The returned `uid` is your `AFFINITIES_EP_UUID`.
+
+---
+
+## Appendix — Keycloak: create the first user
+
+In the Keycloak admin console, realm **NDP**:
+
+1. **Users → Add user** — set **Username** and the required profile fields (email, first/last name), then **Create**.
+2. Open the user → **Credentials → Set password** — turn **Temporary** off, then **Save**.
+
+![h:280](screenshots/A2-keycloak-create-user.png)
+
+---
+
+## Appendix — AAI API: assign groups & roles
+
+After the user exists in Keycloak, assign groups/roles via the **AAI API**
+(the caller must already be an admin):
+
+```bash
+TOKEN=$(curl -s -X POST "$AAI/user/login" -H 'Content-Type: application/json' \
+  -d '{"username":"<admin>","password":"<pass>"}' | jq -r .access_token)
+
+# join the EP group (assigned the viewer role automatically)
+curl -s -X POST "$AAI/group/add-user" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"group_name":"<EP_UUID>","username":"<user>"}'
+
+# upgrade the tier (bare name: viewer | writer | admin)
+curl -s -X POST "$AAI/role/assign" -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"groupName":"<EP_UUID>","roleName":"writer","username":"<user>"}'
+```
+
+> **First admin exception:** assign `ndp_admin` **directly in Keycloak** — no admin
+> exists yet to call this API. The user must re-login for new roles to take effect.
