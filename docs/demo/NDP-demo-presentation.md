@@ -144,7 +144,7 @@ Have these ready; the installer writes them into `.env`:
 
 - **AAI endpoint** — the AAI `…/information` URL, so logins and roles work.
 - **Catalog backend** — a MongoDB (Compose can start it) **or** a reachable **CKAN** instance with an admin **API token**.
-- **EP_UUID** — required only when using Affinities or per-EP roles (`group:<EP_UUID>:…`). It is the Endpoint's `uid` in Affinities (`POST /ep`, or the **Endpoints** page of the Affinities UI). See the appendix. Used as `AFFINITIES_EP_UUID`.
+- **EP_UUID** — required only when using Affinities or per-EP roles (`group:<EP_UUID>:…`). It is the Endpoint's `uid` in Affinities, used as `AFFINITIES_EP_UUID`. → see appendix *Obtaining the EP_UUID*.
 - **Object storage** — optional, only for S3 features.
 
 > In the common case, the platform operators provide the AAI endpoint and, if
@@ -328,7 +328,7 @@ the Endpoint UI or the AAI API itself requires an existing admin.
 
 In Keycloak (realm **NDP**):
 1. Create the user and set a password.
-2. Assign the realm role **`ndp_admin`** (platform-wide), or **`group:<EP_UUID>:admin`** for this Endpoint only.
+2. Assign the realm role **`ndp_admin`** (platform-wide), or **`group:<EP_UUID>:admin`** for this Endpoint only (`EP_UUID` → see appendix *Obtaining the EP_UUID*).
 
 That user can then sign in and manage everyone else from the Endpoint.
 
@@ -613,15 +613,23 @@ public ports.
 
 ---
 
-## Obtaining the EP_UUID
+## Obtaining the EP_UUID — Affinities web app
 
-The `EP_UUID` is this Endpoint's `uid` in **Affinities**. Two ways to obtain it:
+The `EP_UUID` is this Endpoint's `uid` in **Affinities**.
 
-**Affinities web app** (`http://localhost:3000`, or your Affinities URL)
-Open the **Endpoints** page — the **UID** column shows each endpoint's `uid`.
-Create the endpoint there if it does not exist yet.
+**Via the Affinities web app** (`http://localhost:3000`, or your Affinities URL):
 
-**Affinities API** (`http://localhost:8000`, Swagger at `/docs`)
+1. Open the **Endpoints** page.
+2. Copy the value in the **UID** column for your endpoint.
+3. If it does not exist yet, create it there first.
+
+Use that `uid` as `AFFINITIES_EP_UUID` in `.env` (and in `group:<uid>:…` roles).
+
+---
+
+## Obtaining the EP_UUID — Affinities API
+
+**Via the Affinities API** (`http://localhost:8000`, Swagger at `/docs`):
 
 ```bash
 # list endpoints and copy your uid
@@ -632,4 +640,4 @@ curl -X POST http://localhost:8000/ep -H 'Content-Type: application/json' \
   -d '{"kind":"ndp-ep","url":"https://<your-ndp-ep>","metadata":{"name":"My EP"}}'
 ```
 
-Use the returned `uid` as `AFFINITIES_EP_UUID` in `.env` and in `group:<uid>:…` roles.
+The returned `uid` is your `AFFINITIES_EP_UUID`.
