@@ -147,8 +147,11 @@ Run *everything* on your own machine, with no dependency on the central NDP.
 git clone https://github.com/national-data-platform/ep-api.git
 cd ep-api
 cp example.env .env      # configure your deployment (see next slide)
-docker compose up -d     # add --profile mongodb to also start a local DB
+docker compose up -d     # the Endpoint only
 ```
+
+**Optional local backends** — add Compose profiles to run them too:
+`--profile mongodb` (DB) · `s3` (MinIO) · `kafka` · `jupyter` · `full` (all).
 
 > 📖 `.env` variables are explained in **`docs/configuration.md`** (template: `example.env`).
 
