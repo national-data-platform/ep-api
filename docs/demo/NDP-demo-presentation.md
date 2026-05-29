@@ -400,10 +400,12 @@ each with a tier — **Viewer**, **Writer** or **Admin** — or **rejects** it.
 
 ## The three roles
 
-| Role | Can… |
+Roles come from **AAI** and are hierarchical (each tier includes the ones below):
+
+| Role | Can do |
 |---|---|
 | 👁️ **Viewer** | View and search data. **Read-only.** |
-| ✏️ **Writer** | The above **+ create/edit** datasets, resources and **S3 management**. |
+| ✏️ **Writer** | The above **+ create/edit** datasets, resources, and **S3 management**. |
 | 🛠️ **Admin** | All of the above **+ administration** (dashboard, access requests). |
 
 > With no role assigned, a user can only see public data. **Secure by default.**
