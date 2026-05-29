@@ -310,10 +310,14 @@ docker compose --profile full up -d    # Endpoint + MongoDB + MinIO + Kafka
 docker ps        # all containers "Up / healthy"
 ```
 
-Subsequent steps use the **web interface**, and later the Python library.
+The NDP-EP is now reachable two ways:
+
+- **Web UI** — `…/ep-api/ui/`
+- **HTTP API** — `…/ep-api/` (interactive docs at `…/ep-api/docs`)
 
 <!-- 📸 screenshots/15-docker-ps.png — list of containers in Up state -->
-<!-- note: close Step 1: "installed in minutes; now let's use it". -->
+<!-- note: close Step 1: "installed in minutes; now let's use it". The UI and the
+API are the same Endpoint — same data, same permissions. -->
 
 ---
 
