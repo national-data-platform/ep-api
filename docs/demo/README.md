@@ -44,7 +44,8 @@ screenshot. Checklist:
 
 **Identity and permissions**
 - [ ] `19-keycloak-assign-ndp-admin.png` — assigning the `ndp_admin` realm role in Keycloak (first admin, full stack)
-- [ ] `21-assign-role.png` — assigning the writer role/group via the AAI API
+- [ ] `22-request-access.png` — user's "Request access" form (no role yet)
+- [ ] `23-access-requests-approve.png` — admin Access Requests page approving with a tier
 
 **Endpoint (web)**
 - [ ] `30-login-and-search.png` — login + search

@@ -362,12 +362,25 @@ Depends on the deployment:
 
 ---
 
-## Grant the role (AAI)
+## Requesting access (user)
 
-In **AAI** (Keycloak), the administrator gives the user a **role** — directly or by
-adding them to a **group** that carries it. The role travels inside the token to the Endpoint.
+A new user has **no role**, so the Endpoint denies access — but offers a
+**Request access** form with an optional justification.
 
-<!-- 📸 screenshots/21-assign-role.png — assigning the writer role/group in Keycloak -->
+![h:300](screenshots/22-request-access.png)
+
+> Requires `ENABLE_ACCESS_REQUESTS=True`.
+
+---
+
+## Approving access (admin)
+
+On the **Access Requests** page, an admin reviews pending requests and **approves**
+each with a tier — **Viewer**, **Writer** or **Admin** — or **rejects** it.
+
+![h:300](screenshots/23-access-requests-approve.png)
+
+> Approval assigns the role; the user re-logs in to pick it up.
 
 ---
 
