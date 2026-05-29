@@ -415,7 +415,7 @@ Roles come from **AAI** and are hierarchical (each tier includes the ones below)
 ---
 
 # Step 3 — The Endpoint in action
-### Publish and search from the web
+### Search, publish and manage from the web
 
 ---
 
@@ -426,6 +426,24 @@ The user opens the Endpoint web app and logs in with their AAI user.
 The home page is the **search** interface — the Endpoint's primary entry point.
 
 <!-- 📸 screenshots/30-login-and-search.png — login + search page -->
+
+---
+
+## Search — the landing page
+
+The home page is **Search**, available to **everyone** (including viewers).
+Free-text search across **name, description and keywords**.
+
+<!-- 📸 screenshots/34-search-results.png — search results -->
+
+---
+
+## Search — options
+
+- **Category** — All · Datasets · Services · Organizations
+- **Catalog** — **Local** (this Endpoint) or **Global** (the federated NDP catalog)
+- **Organization** filter, and **Yours** (only items you own)
+- On your own items: **Publish** and **Delete** actions (role/ownership-gated)
 
 ---
 
@@ -455,15 +473,6 @@ A dataset can have resources of several kinds, all from **"+ New"**:
 - **Kafka** — a streaming data flow
 
 <!-- 📸 screenshots/33-create-resource.png — creating a resource (S3/URL/Kafka) -->
-
----
-
-## Search and find
-
-Any user can search by text and filters and find the published dataset.
-For datasets they own, **publish/delete** actions are available.
-
-<!-- 📸 screenshots/34-search-results.png — search results with the dataset -->
 
 ---
 
