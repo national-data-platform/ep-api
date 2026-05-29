@@ -323,23 +323,29 @@ Subsequent steps use the **web interface**, and later the Python library.
 ## Bootstrap the first admin
 
 The Endpoint has **no user store** — identity and roles come from **AAI (Keycloak)**.
+How the first admin is created depends on the deployment:
 
-The **first** admin must be set up **directly in Keycloak**, because granting roles
-from the Endpoint UI or the AAI API itself requires an existing admin.
+- **🟢 NDP infrastructure (common case)** — register your Endpoint through the NDP
+  platform's onboarding process. It provisions the stack and your admin access;
+  the platform operators manage identity.
+- **🧪 Full stack (self-hosted)** — you assign the admin role yourself in your own
+  Keycloak (next slide).
 
-> In the common case (central NDP), the admin role is assigned by the platform
-> operators in the shared AAI — request it from them.
+<!-- note: historically the platform onboarding used a federation config_id fed to
+a setup script (github.com/sci-ndp/NDP-EP); confirm the current portal/process
+with the platform operators. -->
 
 ---
 
-## Bootstrap the first admin — steps
+## Bootstrap the first admin — full stack
 
-In Keycloak (realm **NDP**):
+Self-hosted only. In your Keycloak (realm **NDP**) — granting roles from the EP UI
+or the AAI API requires an existing admin, so the first one is set here:
 
 1. Create the user and set a password.
 2. Assign the realm role **`ndp_admin`** (platform-wide), or **`group:<EP_UUID>:admin`** for this Endpoint only (`EP_UUID` → see appendix *Obtaining the EP_UUID*).
 
-That user can then sign in and manage everyone else from the Endpoint.
+That user can then sign in and manage everyone else via the AAI API / EP.
 
 <!-- 📸 screenshots/19-keycloak-assign-ndp-admin.png — assigning the ndp_admin realm role in Keycloak -->
 
