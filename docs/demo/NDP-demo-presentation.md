@@ -38,6 +38,8 @@ section {
     auto 44px,
     auto 44px;
 }
+/* full-slide screenshot slides: center the image */
+section.imgslide { text-align: center; }
 </style>
 
 # National Data Platform (NDP)
@@ -367,9 +369,13 @@ Depends on the deployment:
 A new user has **no role**, so the Endpoint denies access — but offers a
 **Request access** form with an optional justification.
 
-![h:300](screenshots/22-request-access.png)
-
 > Requires `ENABLE_ACCESS_REQUESTS=True`.
+
+---
+
+<!-- _class: imgslide -->
+
+![h:500](screenshots/22-request-access.png)
 
 ---
 
@@ -378,9 +384,13 @@ A new user has **no role**, so the Endpoint denies access — but offers a
 On the **Access Requests** page, an admin reviews pending requests and **approves**
 each with a tier — **Viewer**, **Writer** or **Admin** — or **rejects** it.
 
-![h:300](screenshots/23-access-requests-approve.png)
-
 > Approval assigns the role; the user re-logs in to pick it up.
+
+---
+
+<!-- _class: imgslide -->
+
+![h:500](screenshots/23-access-requests-approve.png)
 
 ---
 
