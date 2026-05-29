@@ -351,12 +351,14 @@ That user can then sign in and manage everyone else via the AAI API / EP.
 
 ---
 
-## Create the user (AAI)
+## Where users come from (AAI)
 
-In the Keycloak console, the administrator creates the **user** and sets a password.
+Depends on the deployment:
 
-<!-- 📸 screenshots/20-create-user.png — creating a user in Keycloak -->
-> The user alone **cannot publish anything yet**: they need a **role**.
+- **🟢 NDP infrastructure (common case)** — users are existing **nationaldataplatform.com** accounts; they sign in with their NDP identity. You do not create them.
+- **🧪 Full stack (self-hosted)** — create them in your own **Keycloak** (Users → Add user → set password). → see appendix *Creating a user — Keycloak*.
+
+> A user alone **cannot publish anything yet** — they still need a **role**.
 
 ---
 
