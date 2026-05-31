@@ -460,63 +460,139 @@ Available to **writers and admins**. Six creation flows, in two groups:
 
 A top-level **group** that owns datasets and services.
 
-- **`name`** — Unique slug used as the organization ID (lowercase letters, digits, `_`, `-`).
+- **`name`** — Unique slug used as the organization ID and in URLs (lowercase letters, digits, `_`, `-`).
+  *Example:* `atmospheric-research`
 - **`title`** — Human-readable display title shown across the UI.
-- **`description`** *(opt.)* — Free-text description of the organization.
+  *Example:* `Atmospheric Research Lab`
+- **`description`** *(opt.)* — Free-text description shown on the organization page.
+  *Example:* `Group publishing radar and atmospheric datasets for research.`
 
 ---
 
-## "+ New" — Dataset
+## "+ New" — Dataset (required)
 
 A logical container of related **resources**, owned by an organization.
 
-- **`name`** — Unique slug for the dataset (lowercase, alphanumeric, `_`, `-`).
-- **`title`** — Human-readable title.
-- **`owner_org`** — ID of the organization that owns this dataset.
-- **`notes`** *(opt.)* — Description or notes about the dataset.
-- **`tags`** *(opt.)* — List of tags for categorization.
-- **`groups`** *(opt.)* — CKAN groups the dataset belongs to.
-- **`license_id`** *(opt.)* — License identifier.
-- **`version`** *(opt.)* — Dataset version label.
-- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
-- **`resources`** *(opt.)* — Resources attached at creation time (URL, file…).
-- **`private`** *(opt., default `false`)* — Whether the dataset is private.
+- **`name`** — Unique slug for the dataset; appears in the URL (lowercase, alphanumeric, `_`, `-`).
+  *Example:* `nexrad-reflectivity-2025`
+- **`title`** — Human-readable title displayed on the dataset page.
+  *Example:* `NEXRAD reflectivity composites, 2025`
+- **`owner_org`** — ID of the organization that owns this dataset (must already exist).
+  *Example:* `atmospheric-research`
 
 ---
 
-## "+ New" — Service
+## "+ New" — Dataset (optional, 1/2)
 
-A network-accessible **service** (REST API, web app, etc.) owned by an organization.
+Describe the dataset and make it findable.
 
-- **`service_name`** — Unique service name (1–100 chars).
+- **`notes`** — Longer description / notes shown on the dataset page.
+  *Example:* `Hourly NEXRAD Level-II reflectivity composites over CONUS, 2025-01 to 2025-12.`
+- **`tags`** — Short keywords used to categorize and search.
+  *Example:* `["radar", "nexrad", "reflectivity", "2025"]`
+- **`groups`** — Catalog **groups** (collections of datasets) the dataset belongs to.
+  *Example:* `["weather", "remote-sensing"]`
+- **`license_id`** — License identifier (CKAN license slug).
+  *Example:* `cc-by`
+- **`version`** — Free-text version label.
+  *Example:* `v1.2.0`
+
+---
+
+## "+ New" — Dataset (optional, 2/2)
+
+Extra metadata, embedded resources and visibility.
+
+- **`extras`** — Free-form metadata as key/value pairs.
+  *Example:* `{"region": "CONUS", "instrument": "NEXRAD"}`
+- **`resources`** — Resources attached at creation (each `{url, name, format?, …}`).
+  *Example:* `[{"url": "https://data.example.org/radar/2025-01.nc", "name": "jan-2025", "format": "NetCDF"}]`
+- **`private`** *(default `false`)* — Whether the dataset is private (only visible to its org).
+  *Example:* `false`
+
+---
+
+## "+ New" — Service (required)
+
+A network-accessible **service** (REST API, web app, etc.) registered under the `services` org.
+
+- **`service_name`** — Unique service slug (1–100 chars).
+  *Example:* `radar-stats-api`
 - **`service_title`** — Display title (1–200 chars).
+  *Example:* `Radar Statistics API`
 - **`owner_org`** — Organization ID; **must be `services`** (all services live there).
-- **`service_url`** — URL where the service is accessible (`http(s)://…`).
-- **`service_type`** *(opt., ≤ 50 chars)* — One of:
-  - **API** — programmatic interface (REST/HTTP, GraphQL, gRPC…).
-  - **UI** — human-facing interface (web app, dashboard, viewer…).
-  - **Trigger** — event source / scheduled job (webhook, cron, producer…).
-  - …or any custom free-text value.
-- **`notes`** *(opt.)* — Description or additional notes.
-- **`health_check_url`** *(opt.)* — URL of a health endpoint (`http(s)://…`).
-- **`documentation_url`** *(opt.)* — URL to the service documentation.
-- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+  *Example:* `services`
+- **`service_url`** — URL where the service is reachable (`http(s)://…`).
+  *Example:* `https://api.atmospheric-research.org/radar/stats`
 
 ---
 
-## "+ New" — URL resource
+## "+ New" — Service — `service_type` *(optional)*
 
-A **link to a file or service** (CSV, JSON, NetCDF, stream, …).
+What kind of service this is — used by the UI to label and filter.
+The UI offers three canonical options plus a free-text fallback (≤ 50 chars).
 
-- **`resource_name`** — Unique slug (lowercase, alphanumeric, `_`, `-`).
+- **API** — programmatic interface (REST/HTTP, GraphQL, gRPC…) called by code.
+  *Example:* `API`
+- **UI** — human-facing interface (web app, dashboard, viewer…) opened in a browser.
+  *Example:* `UI`
+- **Trigger** — event source / scheduled job (webhook, cron, producer…) that runs on its own.
+  *Example:* `Trigger`
+- *…or any custom free-text value when none of the above applies.*
+
+---
+
+## "+ New" — Service (other optional)
+
+Round out the service entry.
+
+- **`notes`** — Description or additional notes.
+  *Example:* `RESTful API exposing aggregated reflectivity statistics from the NEXRAD datasets.`
+- **`health_check_url`** — URL of a health endpoint (`http(s)://…`) used for liveness checks.
+  *Example:* `https://api.atmospheric-research.org/radar/stats/health`
+- **`documentation_url`** — URL to the service documentation.
+  *Example:* `https://docs.atmospheric-research.org/radar-stats`
+- **`extras`** — Free-form metadata as key/value pairs.
+  *Example:* `{"version": "2.1.0", "environment": "production"}`
+
+---
+
+## "+ New" — URL resource (required)
+
+A **link to a file or service** registered as a resource of a dataset.
+
+- **`resource_name`** — Unique slug for the resource (lowercase, alphanumeric, `_`, `-`).
+  *Example:* `radar-jan-2025`
 - **`resource_title`** — Display title.
-- **`owner_org`** — Organization ID that owns the resource.
-- **`resource_url`** — URL of the resource (`http(s)://…`).
-- **`file_type`** *(opt.)* — One of `stream`, `CSV`, `TXT`, `JSON`, `NetCDF`, or a custom value.
-- **`notes`** *(opt.)* — Additional notes about the resource.
-- **`mapping`** *(opt.)* — Field mapping (which fields to expose and how to rename them).
-- **`processing`** *(opt., type-specific)* — e.g. CSV `delimiter` / `header_line`, JSON `data_key`, NetCDF `group`…
-- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+  *Example:* `Radar reflectivity — January 2025`
+- **`owner_org`** — Organization that owns the resource.
+  *Example:* `atmospheric-research`
+- **`resource_url`** — URL of the file or service (must start with `http(s)://`).
+  *Example:* `https://data.example.org/nexrad/2025-01.nc`
+
+---
+
+## "+ New" — URL resource (`file_type` & processing)
+
+Help the catalog interpret the content of the URL.
+
+- **`file_type`** — `stream`, `CSV`, `TXT`, `JSON`, `NetCDF`, or a custom value.
+  *Example:* `CSV`
+- **`processing`** *(type-specific)* — how to read the file:
+  - **CSV:** `{"delimiter": ",", "header_line": 1, "start_line": 2}`
+  - **JSON:** `{"data_key": "results"}`
+  - **NetCDF:** `{"group": "/radar"}`
+
+---
+
+## "+ New" — URL resource (other optional)
+
+- **`mapping`** — Field mapping: which fields to expose and how to rename them.
+  *Example:* `{"refl": "reflectivity_dBZ", "ts": "timestamp"}`
+- **`notes`** — Additional notes about the resource.
+  *Example:* `Hourly NetCDF files; missing values flagged with -9999.`
+- **`extras`** — Free-form metadata as key/value pairs.
+  *Example:* `{"region": "CONUS", "cadence": "1h"}`
 
 ---
 
@@ -525,28 +601,51 @@ A **link to a file or service** (CSV, JSON, NetCDF, stream, …).
 An **object in S3-compatible storage** registered as a resource.
 
 - **`resource_name`** — Unique slug (lowercase, alphanumeric, `_`, `-`).
+  *Example:* `radar-archive-2025`
 - **`resource_title`** — Display title.
-- **`owner_org`** — Organization ID that owns the resource.
+  *Example:* `NEXRAD radar archive, 2025`
+- **`owner_org`** — Organization ID.
+  *Example:* `atmospheric-research`
 - **`resource_s3`** — S3 URL of the object (`s3://bucket/path`, or `http(s)://…`).
-- **`notes`** — Notes about the resource (required; may be empty).
+  *Example:* `s3://nexrad-archive/2025/`
+- **`notes`** *(required; may be empty)* — Notes about the resource.
+  *Example:* `Annual archive of NEXRAD Level-II composites, partitioned by month.`
 - **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+  *Example:* `{"format": "NetCDF", "size_GB": 480}`
 
 ---
 
-## "+ New" — Kafka topic
+## "+ New" — Kafka topic (required)
 
 A **streaming data flow** registered as a system dataset.
 
-- **`dataset_name`** — Unique slug for the dataset entry (lowercase, alphanumeric, `_`, `-`).
+- **`dataset_name`** — Unique slug for the dataset entry.
+  *Example:* `nexrad-live`
 - **`dataset_title`** — Display title.
-- **`owner_org`** — Organization ID that owns the dataset.
+  *Example:* `NEXRAD radar — live stream`
+- **`owner_org`** — Organization that owns the dataset.
+  *Example:* `atmospheric-research`
+- **`dataset_description`** — Description of the stream.
+  *Example:* `Live JSON feed of NEXRAD radar volume scans, ~5 min cadence.`
+
+---
+
+## "+ New" — Kafka topic (broker & options)
+
+Point at the broker and shape the messages.
+
 - **`kafka_topic`** — Kafka topic name.
+  *Example:* `nexrad.live`
 - **`kafka_host`** — Kafka broker host.
+  *Example:* `kafka.atmospheric-research.org`
 - **`kafka_port`** — Broker port (1–65535).
-- **`dataset_description`** — Description of the stream / dataset.
-- **`mapping`** *(opt.)* — Field mapping (select and rename fields to send).
-- **`processing`** *(opt.)* — Processing config (`data_key`, `info_key`, …).
-- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+  *Example:* `9092`
+- **`mapping`** *(opt.)* — Field mapping (select/rename fields to send).
+  *Example:* `{"refl": "reflectivity_dBZ", "ts": "timestamp"}`
+- **`processing`** *(opt.)* — Processing config.
+  *Example:* `{"data_key": "data", "info_key": "metadata"}`
+- **`extras`** *(opt.)* — Free-form metadata.
+  *Example:* `{"avg_msgs_per_min": 12, "schema": "https://schemas.example.org/radar.json"}`
 
 <!-- 📸 screenshots/33-create-resource.png — example: a "+ New" creation form -->
 
