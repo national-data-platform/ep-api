@@ -456,21 +456,99 @@ Available to **writers and admins**. Six creation flows, in two groups:
 
 ---
 
-## "+ New" — Organization · Dataset · Service
+## "+ New" — Organization
 
-- **Organization** — `name` (slug), `title`; *description (opt.)*.
-- **Dataset** — `name`, `title`, `owner_org`; *notes, tags, groups, license_id, version, extras, resources (opt.)*.
-- **Service** — `service_name`, `service_title`, `owner_org`, `service_url`; *service_type, notes, health_check_url, documentation_url, extras (opt.)*.
+A top-level **group** that owns datasets and services.
+
+- **`name`** — Unique slug used as the organization ID (lowercase letters, digits, `_`, `-`).
+- **`title`** — Human-readable display title shown across the UI.
+- **`description`** *(opt.)* — Free-text description of the organization.
 
 ---
 
-## "+ New" — URL · S3 · Kafka
+## "+ New" — Dataset
 
-- **URL resource** — `resource_name`, `resource_title`, `owner_org`, `resource_url`; *file_type (CSV / TXT / JSON / NetCDF …) plus type-specific processing config (opt.)*.
-- **S3 resource** — `resource_name`, `resource_title`, `owner_org`, `resource_s3`, `notes`; *extras (opt.)*.
-- **Kafka topic** — `dataset_name`, `dataset_title`, `owner_org`, `kafka_topic`, `kafka_host`, `kafka_port`, `dataset_description`; *mapping, processing, extras (opt.)*.
+A logical container of related **resources**, owned by an organization.
 
-<!-- 📸 screenshots/33-create-resource.png — example: new resource form -->
+- **`name`** — Unique slug for the dataset (lowercase, alphanumeric, `_`, `-`).
+- **`title`** — Human-readable title.
+- **`owner_org`** — ID of the organization that owns this dataset.
+- **`notes`** *(opt.)* — Description or notes about the dataset.
+- **`tags`** *(opt.)* — List of tags for categorization.
+- **`groups`** *(opt.)* — CKAN groups the dataset belongs to.
+- **`license_id`** *(opt.)* — License identifier.
+- **`version`** *(opt.)* — Dataset version label.
+- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+- **`resources`** *(opt.)* — Resources attached at creation time (URL, file…).
+- **`private`** *(opt., default `false`)* — Whether the dataset is private.
+
+---
+
+## "+ New" — Service
+
+A network-accessible **service** (REST API, web app, etc.) owned by an organization.
+
+- **`service_name`** — Unique service name (1–100 chars).
+- **`service_title`** — Display title (1–200 chars).
+- **`owner_org`** — Organization ID; **must be `services`** (all services live there).
+- **`service_url`** — URL where the service is accessible (`http(s)://…`).
+- **`service_type`** *(opt., ≤ 50 chars)* — One of:
+  - **API** — programmatic interface (REST/HTTP, GraphQL, gRPC…).
+  - **UI** — human-facing interface (web app, dashboard, viewer…).
+  - **Trigger** — event source / scheduled job (webhook, cron, producer…).
+  - …or any custom free-text value.
+- **`notes`** *(opt.)* — Description or additional notes.
+- **`health_check_url`** *(opt.)* — URL of a health endpoint (`http(s)://…`).
+- **`documentation_url`** *(opt.)* — URL to the service documentation.
+- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+
+---
+
+## "+ New" — URL resource
+
+A **link to a file or service** (CSV, JSON, NetCDF, stream, …).
+
+- **`resource_name`** — Unique slug (lowercase, alphanumeric, `_`, `-`).
+- **`resource_title`** — Display title.
+- **`owner_org`** — Organization ID that owns the resource.
+- **`resource_url`** — URL of the resource (`http(s)://…`).
+- **`file_type`** *(opt.)* — One of `stream`, `CSV`, `TXT`, `JSON`, `NetCDF`, or a custom value.
+- **`notes`** *(opt.)* — Additional notes about the resource.
+- **`mapping`** *(opt.)* — Field mapping (which fields to expose and how to rename them).
+- **`processing`** *(opt., type-specific)* — e.g. CSV `delimiter` / `header_line`, JSON `data_key`, NetCDF `group`…
+- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+
+---
+
+## "+ New" — S3 resource
+
+An **object in S3-compatible storage** registered as a resource.
+
+- **`resource_name`** — Unique slug (lowercase, alphanumeric, `_`, `-`).
+- **`resource_title`** — Display title.
+- **`owner_org`** — Organization ID that owns the resource.
+- **`resource_s3`** — S3 URL of the object (`s3://bucket/path`, or `http(s)://…`).
+- **`notes`** — Notes about the resource (required; may be empty).
+- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+
+---
+
+## "+ New" — Kafka topic
+
+A **streaming data flow** registered as a system dataset.
+
+- **`dataset_name`** — Unique slug for the dataset entry (lowercase, alphanumeric, `_`, `-`).
+- **`dataset_title`** — Display title.
+- **`owner_org`** — Organization ID that owns the dataset.
+- **`kafka_topic`** — Kafka topic name.
+- **`kafka_host`** — Kafka broker host.
+- **`kafka_port`** — Broker port (1–65535).
+- **`dataset_description`** — Description of the stream / dataset.
+- **`mapping`** *(opt.)* — Field mapping (select and rename fields to send).
+- **`processing`** *(opt.)* — Processing config (`data_key`, `info_key`, …).
+- **`extras`** *(opt.)* — Free-form metadata as key/value pairs.
+
+<!-- 📸 screenshots/33-create-resource.png — example: a "+ New" creation form -->
 
 ---
 
