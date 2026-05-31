@@ -18,6 +18,7 @@ import {
   resourcesAPI,
   generalDatasetAPI
 } from '../services/api';
+import DatasetMetadata from '../components/DatasetMetadata';
 
 const MODES = [
   { id: 'both', label: 'All' },
@@ -1102,28 +1103,7 @@ const ResultCard = ({
         </div>
       )}
 
-      {expanded && hasExtras && (
-        <div
-          style={{
-            marginTop: '0.75rem',
-            padding: '0.75rem',
-            background: '#f8fafc',
-            borderRadius: '8px',
-            border: '1px solid #e2e8f0'
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem' }}>
-            {Object.entries(item.extras).map(([key, value]) => (
-              <div key={key} style={{ fontSize: '0.85rem' }}>
-                <span style={{ color: '#64748b', fontWeight: 500 }}>{key}: </span>
-                <span style={{ color: '#0f172a', wordBreak: 'break-word' }}>
-                  {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {expanded && hasExtras && <DatasetMetadata extras={item.extras} />}
 
       {pendingAction && (
         <ActionConfirmPanel
