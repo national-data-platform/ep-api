@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-05-31
+
+### Added
+- **Search results now show a dataset's spatial extent on a map.** When a result card is expanded, the `spatial` GeoJSON geometry is drawn on an OpenStreetMap basemap (via Leaflet) and the view is fitted to its bounding box, so the geographic area a dataset covers is visible at a glance instead of being shown as a raw coordinate string.
+
+### Changed
+- **The expanded metadata section of a search result is easier to read.** CKAN `extras` fields now use human-friendly labels (e.g. `data_vintage` → "Data vintage"), harvest provenance (`harvest_*`) is grouped into its own subsection, and long opaque values such as UUIDs are shown in a monospace font. All fields previously shown are still surfaced; when a `spatial` value is not parseable geometry it falls back to plain text.
+
+### Backwards compatibility
+- UI-only change. No API behavior, request/response shapes, or routes change.
+
 ## [0.31.0] - 2026-05-26
 
 ### Changed
