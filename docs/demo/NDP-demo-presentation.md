@@ -663,19 +663,6 @@ Shape the messages.
 
 ---
 
-## Role-based access in practice 🔑
-
-The interface adapts to the authenticated user's role:
-
-- 👁️ **Viewer** — can browse and search; **does not see** "S3 Management" or "+ New".
-- ✏️ **Writer** — additionally sees **"+ New"** and **"S3 Management"** (bucket/object management).
-- 🛠️ **Admin** — additionally sees the **Dashboard** and **access requests**.
-
-<!-- 📸 screenshots/35-viewer-vs-writer.png — menu comparison: viewer vs writer -->
-<!-- note: show the real contrast by opening two sessions (viewer and writer). -->
-
----
-
 ## Storage management (S3) — writers only
 
 **S3 Management** creates and manages buckets and objects.

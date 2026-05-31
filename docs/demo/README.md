@@ -51,7 +51,6 @@ screenshot. Checklist:
 - [ ] `30-search-ui.png` — Search page with options (category, catalog, filters)
 - [ ] `33-create-resource.png` — example of a "+ New" creation form
 - [ ] `34-search-results.png` — results with the dataset
-- [ ] `35-viewer-vs-writer.png` — viewer vs writer menu (the key contrast)
 - [ ] `36-s3-management.png` — S3 Management tool
 
 **Python**
