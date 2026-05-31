@@ -51,6 +51,7 @@ screenshot. Checklist:
 - [ ] `31-create-organization.png` — new organization
 - [ ] `32-create-dataset.png` — new dataset
 - [ ] `33-create-resource.png` — new resource (S3/URL/Kafka)
+- [ ] `30-search-ui.png` — Search page with options (category, catalog, filters)
 - [ ] `34-search-results.png` — results with the dataset
 - [ ] `35-viewer-vs-writer.png` — viewer vs writer menu (the key contrast)
 - [ ] `36-s3-management.png` — S3 Management tool

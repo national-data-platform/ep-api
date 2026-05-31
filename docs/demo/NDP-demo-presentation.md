@@ -424,8 +424,6 @@ Roles come from **AAI** and are hierarchical (each tier includes the ones below)
 The home page is **Search**, available to **everyone** (including viewers).
 Free-text search across **name, description and keywords**.
 
-<!-- 📸 screenshots/34-search-results.png — search results -->
-
 ---
 
 ## Search — options
@@ -434,6 +432,12 @@ Free-text search across **name, description and keywords**.
 - **Catalog** — **Local** (this Endpoint) or **Global** (the federated NDP catalog)
 - **Organization** filter, and **Yours** (only items you own)
 - On your own items: **Publish** and **Delete** actions (role/ownership-gated)
+
+---
+
+<!-- _class: imgslide -->
+
+![h:500](screenshots/30-search-ui.png)
 
 ---
 
