@@ -441,32 +441,36 @@ Free-text search across **name, description and keywords**.
 
 ---
 
-## Create an organization
+## The "+ New" menu
 
-From the **"+ New" → Organization** menu, the user creates the organization that
-will group their data.
+Available to **writers and admins**. Six creation flows, in two groups:
 
-<!-- 📸 screenshots/31-create-organization.png — new organization form -->
-
----
-
-## Publish a dataset
-
-**"+ New" → Dataset**: the user describes the dataset (title, description, tags…).
-
-<!-- 📸 screenshots/32-create-dataset.png — new dataset form -->
+| Kind | What it is |
+|---|---|
+| **Organization** | Top-level group that owns datasets and services |
+| **Dataset** | Logical container of related resources, owned by an organization |
+| **Service** | Network-accessible service (REST API, app, etc.) owned by an organization |
+| **URL resource** | Link to a file or service (CSV, JSON, NetCDF, …) |
+| **S3 resource** | Object in S3-compatible storage |
+| **Kafka topic** | Streaming data flow |
 
 ---
 
-## Add a resource
+## "+ New" — Organization · Dataset · Service
 
-A dataset can have resources of several kinds, all from **"+ New"**:
+- **Organization** — `name` (slug), `title`; *description (opt.)*.
+- **Dataset** — `name`, `title`, `owner_org`; *notes, tags, groups, license_id, version, extras, resources (opt.)*.
+- **Service** — `service_name`, `service_title`, `owner_org`, `service_url`; *service_type, notes, health_check_url, documentation_url, extras (opt.)*.
 
-- **URL** — a link to a file or service
-- **S3** — an object in S3-style storage
-- **Kafka** — a streaming data flow
+---
 
-<!-- 📸 screenshots/33-create-resource.png — creating a resource (S3/URL/Kafka) -->
+## "+ New" — URL · S3 · Kafka
+
+- **URL resource** — `resource_name`, `resource_title`, `owner_org`, `resource_url`; *file_type (CSV / TXT / JSON / NetCDF …) plus type-specific processing config (opt.)*.
+- **S3 resource** — `resource_name`, `resource_title`, `owner_org`, `resource_s3`, `notes`; *extras (opt.)*.
+- **Kafka topic** — `dataset_name`, `dataset_title`, `owner_org`, `kafka_topic`, `kafka_host`, `kafka_port`, `dataset_description`; *mapping, processing, extras (opt.)*.
+
+<!-- 📸 screenshots/33-create-resource.png — example: new resource form -->
 
 ---
 
