@@ -48,7 +48,6 @@ screenshot. Checklist:
 - [ ] `23-access-requests-approve.png` — admin Access Requests page approving with a tier
 
 **Endpoint (web)**
-- [ ] `30-login-and-search.png` — login + search
 - [ ] `31-create-organization.png` — new organization
 - [ ] `32-create-dataset.png` — new dataset
 - [ ] `33-create-resource.png` — new resource (S3/URL/Kafka)

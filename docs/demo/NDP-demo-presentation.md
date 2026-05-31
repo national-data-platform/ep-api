@@ -419,16 +419,6 @@ Roles come from **AAI** and are hierarchical (each tier includes the ones below)
 
 ---
 
-## Log in
-
-The user opens the Endpoint web app and logs in with their AAI user.
-
-The home page is the **search** interface — the Endpoint's primary entry point.
-
-<!-- 📸 screenshots/30-login-and-search.png — login + search page -->
-
----
-
 ## Search — the landing page
 
 The home page is **Search**, available to **everyone** (including viewers).
