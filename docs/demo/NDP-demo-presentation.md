@@ -596,7 +596,7 @@ Help the catalog interpret the content of the URL.
 
 ---
 
-## "+ New" — S3 resource
+## "+ New" — S3 resource (identification)
 
 An **object in S3-compatible storage** registered as a resource.
 
@@ -604,8 +604,13 @@ An **object in S3-compatible storage** registered as a resource.
   *Example:* `radar-archive-2025`
 - **`resource_title`** — Display title.
   *Example:* `NEXRAD radar archive, 2025`
-- **`owner_org`** — Organization ID.
+- **`owner_org`** — Organization ID that owns the resource.
   *Example:* `atmospheric-research`
+
+---
+
+## "+ New" — S3 resource (S3 details)
+
 - **`resource_s3`** — S3 URL of the object (`s3://bucket/path`, or `http(s)://…`).
   *Example:* `s3://nexrad-archive/2025/`
 - **`notes`** *(required; may be empty)* — Notes about the resource.
@@ -630,9 +635,9 @@ A **streaming data flow** registered as a system dataset.
 
 ---
 
-## "+ New" — Kafka topic (broker & options)
+## "+ New" — Kafka topic (broker)
 
-Point at the broker and shape the messages.
+Point at the broker and the topic.
 
 - **`kafka_topic`** — Kafka topic name.
   *Example:* `nexrad.live`
@@ -640,6 +645,13 @@ Point at the broker and shape the messages.
   *Example:* `kafka.atmospheric-research.org`
 - **`kafka_port`** — Broker port (1–65535).
   *Example:* `9092`
+
+---
+
+## "+ New" — Kafka topic (options)
+
+Shape the messages.
+
 - **`mapping`** *(opt.)* — Field mapping (select/rename fields to send).
   *Example:* `{"refl": "reflectivity_dBZ", "ts": "timestamp"}`
 - **`processing`** *(opt.)* — Processing config.
