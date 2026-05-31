@@ -665,10 +665,40 @@ Shape the messages.
 
 ## Storage management (S3) — writers only
 
-**S3 Management** creates and manages buckets and objects.
-It is a storage administration tool, restricted to **writers and admins**.
+Manage **buckets** and **objects** in S3-compatible storage from the UI.
+
+**Requires:**
+- `S3_ENABLED=True` in `.env`, plus `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` (and optionally `S3_SECURE`, `S3_REGION`).
+- **Writer or admin** role — the menu entry is hidden otherwise; the API returns `403` to read-only users.
 
 <!-- 📸 screenshots/36-s3-management.png — S3 Management tool (buckets/objects) -->
+
+---
+
+## S3 Management — buckets
+
+A list view (Bucket name · Created · Actions) with a filter to find buckets quickly.
+
+- **Create** a bucket (name + region).
+- **List** all buckets with creation dates.
+- **Search / filter** by name.
+- **View** bucket information and metadata.
+- **Delete** a bucket (must be empty — no objects).
+- **Refresh** the list.
+
+---
+
+## S3 Management — objects
+
+Select a bucket → manage its objects (Name · Size · Last modified · Type).
+
+- **Upload** files via drag-and-drop or the file picker.
+- **List** objects in the bucket.
+- **Search** by prefix / path.
+- **Download** an object to your computer.
+- **View** detailed object **metadata**.
+- **Generate a presigned URL** — a temporary, authenticated link for secure sharing.
+- **Delete** individual objects.
 
 ---
 
