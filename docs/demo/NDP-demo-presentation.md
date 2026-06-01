@@ -807,22 +807,6 @@ Which features this Endpoint exposes — booleans, plus a few details when enabl
 
 ---
 
-## Federation benefits
-
-```
-        ┌────────────┐
-        │ Federation │   registry of all endpoints
-        └─────┬──────┘
-   ┌──────────┼──────────┐
-   ▼          ▼          ▼
-[ EP Utah ] [ EP B ]  [ EP C ]     each institution, its catalog
-```
-
-> A single search surfaces data from **many** institutions, while each retains
-> control of **its own** data.
-
----
-
 # 🔒 Bonus — NetBird
 ### The secure network that ties it all together
 
