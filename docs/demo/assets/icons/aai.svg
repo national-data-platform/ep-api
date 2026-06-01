@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="AAI identity">
+  <rect x="4" y="4" width="192" height="192" rx="32" fill="#eef1f8"/>
+  <g fill="none" stroke="#1b2a6b" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M100 36 L150 56 V104 C150 138 128 158 100 168 C72 158 50 138 50 104 V56 Z"/>
+    <circle cx="100" cy="92" r="15"/>
+    <path d="M100 107 V128"/>
+  </g>
+</svg>

@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 510" width="1280" height="510" font-family="-apple-system, 'Segoe UI', Roboto, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa3b8"/>
+    </marker>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#1b2a6b" flood-opacity="0.16"/>
+    </filter>
+    <filter id="shadowHub" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#c8401f" flood-opacity="0.26"/>
+    </filter>
+    <style>
+      .title { font-weight: 800; }
+      .sub   { fill: #66708a; font-size: 13.5px; font-weight: 500; }
+      .lbl   { fill: #586079; font-size: 14px; font-style: italic;
+               paint-order: stroke; stroke: #ffffff; stroke-width: 5px; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <!-- ===== edges ===== -->
+  <g fill="none" stroke="#aab3c6" stroke-width="2.6" marker-end="url(#arrow)">
+    <path d="M120 133 H186"/>                               <!-- user -> AAI -->
+    <path d="M410 133 H536"/>                               <!-- AAI -> NDP-EP -->
+    <path d="M640 190 C 520 250, 360 270, 232 316"/>        <!-- EP -> CKAN -->
+    <path d="M662 190 C 655 240, 648 270, 642 316"/>        <!-- EP -> Affinities -->
+    <path d="M686 190 C 820 250, 940 270, 1050 316"/>       <!-- EP -> Federation -->
+  </g>
+  <g class="lbl">
+    <text x="124" y="122">log in</text>
+    <text x="473" y="124" text-anchor="middle">token (identity + role)</text>
+    <text x="447" y="250" text-anchor="middle">catalog + storage</text>
+    <text x="640" y="250" text-anchor="middle">registers data &amp; services</text>
+    <text x="860" y="250" text-anchor="middle">register · report metrics</text>
+  </g>
+
+  <!-- ===== Data User ===== -->
+  <circle cx="88" cy="133" r="28" fill="#1b2a6b" filter="url(#shadow)"/>
+  <g fill="#ffffff" transform="translate(88,133)">
+    <circle cx="0" cy="-7" r="8"/>
+    <path d="M-13 12 a13 11 0 0 1 26 0 z"/>
+  </g>
+  <text x="88" y="190" text-anchor="middle" fill="#1b2a6b" class="title" font-size="15">Data User</text>
+
+  <!-- ===== AAI (identity AND roles) ===== -->
+  <g filter="url(#shadow)"><rect x="186" y="86" width="224" height="96" rx="16" fill="#ffffff" stroke="#2f6fb3" stroke-width="2.4"/></g>
+  <g transform="translate(226,134)">
+    <circle r="22" fill="#2f6fb3"/>
+    <g fill="#ffffff"><rect x="-11" y="-2" width="22" height="15" rx="3"/></g>
+    <path d="M-7 -2 V-8 a7 7 0 0 1 14 0 V-2" fill="none" stroke="#ffffff" stroke-width="3"/>
+  </g>
+  <text x="260" y="128" fill="#0b4884" class="title" font-size="17">AAI · Identity</text>
+  <text x="260" y="150" class="sub">Keycloak · tokens + roles</text>
+
+  <!-- ===== NDP-EP ===== -->
+  <g filter="url(#shadowHub)"><rect x="536" y="78" width="252" height="112" rx="16" fill="#fff3ee" stroke="#e0552f" stroke-width="2.8"/></g>
+  <g transform="translate(576,134)">
+    <circle r="23" fill="#e0552f"/>
+    <g fill="#ffffff"><rect x="-12" y="-13" width="24" height="7" rx="2.3"/><rect x="-12" y="-3.5" width="24" height="7" rx="2.3"/><rect x="-12" y="6" width="24" height="7" rx="2.3"/></g>
+  </g>
+  <text x="612" y="122" fill="#c8401f" class="title" font-size="18">NDP-EP</text>
+  <text x="612" y="144" fill="#c8401f" font-size="13.5" font-weight="600">Endpoint · REST API</text>
+  <text x="612" y="164" fill="#a9583f" font-size="12.5">datasets · search · storage</text>
+
+  <!-- ===== CKAN / S3 ===== -->
+  <g filter="url(#shadow)"><rect x="80" y="316" width="300" height="96" rx="16" fill="#ffffff" stroke="#2f6fb3" stroke-width="2.4"/></g>
+  <g transform="translate(126,364)">
+    <circle r="22" fill="#2f6fb3"/>
+    <g fill="none" stroke="#ffffff" stroke-width="2.8">
+      <ellipse cx="0" cy="-9" rx="12" ry="5"/>
+      <path d="M-12 -9 V9 a12 5 0 0 0 24 0 V-9"/>
+      <path d="M-12 0 a12 5 0 0 0 24 0"/>
+    </g>
+  </g>
+  <text x="160" y="358" fill="#0b4884" class="title" font-size="17">CKAN · MinIO (S3)</text>
+  <text x="160" y="381" class="sub">catalog &amp; object storage</text>
+
+  <!-- ===== Affinities ===== -->
+  <g filter="url(#shadow)"><rect x="490" y="316" width="300" height="96" rx="16" fill="#ffffff" stroke="#2f6fb3" stroke-width="2.4"/></g>
+  <g transform="translate(536,364)">
+    <circle r="22" fill="#2f6fb3"/>
+    <g stroke="#ffffff" stroke-width="2.6"><path d="M-9 -7 L9 -7 M-7 -5 L0 9 M7 -5 L0 9"/></g>
+    <g fill="#ffffff"><circle cx="-9" cy="-7" r="4.3"/><circle cx="9" cy="-7" r="4.3"/><circle cx="0" cy="9" r="4.3"/></g>
+  </g>
+  <text x="570" y="358" fill="#0b4884" class="title" font-size="17">Affinities</text>
+  <text x="570" y="381" class="sub">relationships graph</text>
+
+  <!-- ===== Federation ===== -->
+  <g filter="url(#shadow)"><rect x="900" y="316" width="300" height="96" rx="16" fill="#ffffff" stroke="#2f6fb3" stroke-width="2.4"/></g>
+  <g transform="translate(946,364)">
+    <circle r="22" fill="#2f6fb3"/>
+    <g stroke="#ffffff" stroke-width="2.6"><path d="M0 0 L-11 -9 M0 0 L11 -9 M0 0 L-11 9 M0 0 L11 9"/></g>
+    <g fill="#ffffff"><circle cx="0" cy="0" r="5.2"/><circle cx="-11" cy="-9" r="3.4"/><circle cx="11" cy="-9" r="3.4"/><circle cx="-11" cy="9" r="3.4"/><circle cx="11" cy="9" r="3.4"/></g>
+  </g>
+  <text x="980" y="358" fill="#0b4884" class="title" font-size="17">Federation</text>
+  <text x="980" y="381" class="sub">endpoint registry · health</text>
+
+  <!-- ===== NetBird footnote ===== -->
+  <g transform="translate(80,448)">
+    <rect x="0" y="0" width="1120" height="40" rx="12" fill="#f6f8fc" stroke="#cdd6e8" stroke-width="2" stroke-dasharray="2 7" stroke-linecap="round"/>
+    <g transform="translate(28,20)">
+      <circle r="13" fill="#1b2a6b"/>
+      <g><rect x="-6" y="-1" width="12" height="8" rx="2" fill="#ffffff"/><path d="M-4 -1 V-4 a4 4 0 0 1 8 0 V-1" stroke="#ffffff" stroke-width="2" fill="none"/></g>
+    </g>
+    <text x="54" y="25" fill="#1b2a6b" font-size="14" font-weight="700">All of this can run over a private, encrypted NetBird network</text>
+  </g>
+</svg>

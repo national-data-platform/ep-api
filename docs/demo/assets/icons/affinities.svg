@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Affinities groups and roles">
+  <rect x="4" y="4" width="192" height="192" rx="32" fill="#eef1f8"/>
+  <g fill="none" stroke="#1b2a6b" stroke-width="10" stroke-linecap="round">
+    <path d="M70 72 L130 72 M74 96 L100 132 M126 96 L100 132"/>
+  </g>
+  <g fill="#1b2a6b">
+    <circle cx="70" cy="72" r="22"/>
+    <circle cx="130" cy="72" r="22"/>
+    <circle cx="100" cy="138" r="22"/>
+  </g>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Python library / code">
+  <rect x="4" y="4" width="192" height="192" rx="32" fill="#eef1f8"/>
+  <g fill="none" stroke="#1b2a6b" stroke-width="12" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M74 66 L42 100 L74 134"/>
+    <path d="M126 66 L158 100 L126 134"/>
+    <path d="M110 56 L90 144"/>
+  </g>
+</svg>
