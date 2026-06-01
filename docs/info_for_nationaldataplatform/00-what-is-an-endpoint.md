@@ -2,10 +2,12 @@
 
 An **NDP Endpoint** (often shortened to **NDP-EP**, or just **EP**) is an
 institution's own data-publishing service that plugs into the National Data
-Platform. The platform itself is **federated**: instead of every institution
-uploading its data to one central place, each institution can run an Endpoint
-that exposes its own catalog and storage, and the central NDP **discovers and
-federates** them so they appear together when a user searches.
+Platform. The platform is **federated by design**: instead of every institution
+uploading its data to one central place, each institution can run its own
+Endpoint that holds its own catalog and storage. An Endpoint's writers can
+selectively **publish** datasets and services upstream (through Pre-CKAN) so
+they also appear in the central NDP catalog — but the Endpoint itself remains
+independent.
 
 ## What a single Endpoint provides
 
@@ -22,9 +24,10 @@ An Endpoint is a small, self-contained service that offers:
   **S3 Management** UI for writers and admins.
 - **Identity, roles, and access requests** that reuse the user's NDP login
   (CILogon-backed), so users do not create yet another account.
-- **Automatic federation** with the central NDP: the Endpoint periodically
-  reports its presence, version, and catalog activity so the platform can
-  surface its data alongside other institutions'.
+- **Operational link to NDP**: the Endpoint periodically reports its presence
+  and operational metrics (status, version, host load, catalog counts) to the
+  platform. **Publishing data upstream** to the central catalog is a separate
+  per-item action initiated by writers (through Pre-CKAN).
 
 ## Where the Endpoint fits in the platform
 
@@ -44,7 +47,9 @@ An Endpoint is a small, self-contained service that offers:
 ```
 
 Each Endpoint keeps full control of **its own data and policies**. The central
-NDP holds the federated view (who exposes what), not the contents themselves.
+NDP catalog holds the items that EPs have chosen to publish upstream; the
+platform's operational registry simply knows which EPs exist (through their
+periodic status reports).
 
 ## Who needs an Endpoint?
 
@@ -59,7 +64,8 @@ NDP holds the federated view (who exposes what), not the contents themselves.
 - Not a place where you create users — identities come from NDP's central
   authentication (CILogon → institutional login).
 - Not a copy of the central NDP catalog — the EP holds **your institution's**
-  catalog; the federation makes both visible together.
+  catalog; items only reach the central catalog when a writer chooses to
+  publish them upstream.
 - Not a replacement for the workspaces / JupyterHub experience — those are
   central NDP services and the EP integrates with them rather than duplicating
   them.

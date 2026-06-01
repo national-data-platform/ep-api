@@ -4,18 +4,18 @@ If you are a researcher, educator or student on NDP, you do not need to install
 anything to use an Endpoint: you reach it through your normal NDP login and use
 its web interface or its API.
 
-## How you arrive at an Endpoint
+## Where you reach an Endpoint
 
-There are two common routes:
+An Endpoint is **its own destination**: you reach it directly at its URL —
+typically `https://<your-institution>/ep-api/ui/`, given to you by your
+institution or by whoever shared a dataset hosted on it.
 
-1. **From the central NDP catalog.** When you search at
-   [nationaldataplatform.org](https://nationaldataplatform.org/), the federation
-   surfaces datasets and services exposed by every Endpoint. Following a result
-   from a particular institution takes you to that institution's Endpoint web
-   app.
-2. **Directly at your institution's Endpoint URL.** If your institution runs an
-   Endpoint, your IT or data team will give you a URL like
-   `https://<your-institution>/ep-api/ui/`. You can bookmark it.
+Endpoints are **independent of the central NDP catalog**. The catalog at
+[nationaldataplatform.org](https://nationaldataplatform.org/) only contains
+items that an Endpoint's writers have **explicitly published upstream**, going
+through **Pre-CKAN** (staging) and into the central catalog. Datasets that
+live only on an Endpoint are not visible from the central catalog unless
+someone publishes them there.
 
 ## Signing in
 
