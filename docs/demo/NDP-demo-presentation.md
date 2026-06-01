@@ -828,7 +828,11 @@ In production, each component runs on a **different machine** and must communica
 - Access is restricted to **explicitly authorized peers**; all other traffic is blocked.
 - **No public ports** for the services.
 
-<!-- 📸 screenshots/60-netbird-peers.png — NetBird dashboard with connected machines (peers) -->
+---
+
+<!-- _class: imgslide -->
+
+![h:500](screenshots/60-netbird-peers.png)
 
 ---
 
@@ -838,8 +842,13 @@ Two machines on the network: one **reaches all the NDP services** of the other
 (EP, Federation, Affinities, AAI…) **only over the encrypted tunnel**, with no
 public ports.
 
-<!-- 📸 screenshots/61-netbird-access.png — proof of access to the services over the mesh -->
 > This validates the production multi-machine scenario.
+
+---
+
+<!-- _class: imgslide -->
+
+![h:500](screenshots/61-netbird-access.png)
 
 ---
 
