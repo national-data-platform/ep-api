@@ -831,10 +831,6 @@ public ports.
 
 ---
 
-# Conclusion
-
----
-
 ## Summary
 
 1. The **NDP-EP** was installed (Docker).
