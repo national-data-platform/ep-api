@@ -60,10 +60,6 @@ screenshot. Checklist:
 - [ ] `50-federation-ep-registered.png` — the EP in the federation
 - [ ] `51-federation-health.png` — health/metrics
 
-**NetBird (bonus)**
-- [ ] `60-netbird-peers.png` — dashboard with connected peers
-- [ ] `61-netbird-access.png` — accessing services over the mesh
-
 **Appendix**
 - [ ] `A1-affinities-add-endpoint.png` — Affinities "Add Endpoint" form (obtaining the EP_UUID)
 - [ ] `A2-keycloak-create-user.png` — Keycloak: create user + set password (bootstrap)

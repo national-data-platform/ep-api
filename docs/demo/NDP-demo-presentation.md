@@ -807,48 +807,15 @@ Which features this Endpoint exposes — booleans, plus a few details when enabl
 
 ---
 
-# 🔒 Bonus — NetBird
-### The secure network that ties it all together
+## 🔒 Bonus — NetBird
 
----
+**[NetBird](https://netbird.io)** — open-source mesh VPN built on **WireGuard**.
 
-## The problem
+- Each machine joins a private virtual network and gets a **stable private IP**.
+- Traffic flows **directly and encrypted** between authorized peers; access is restricted by policy.
+- **No public ports** are exposed for the services themselves.
 
-In production, each component runs on a **different machine** and must communicate
-**without** exposing public ports.
-
-> A **private, encrypted mesh VPN** connects only authorized machines.
-
----
-
-## The solution: NetBird
-
-- Each machine gets a **stable private IP** on a virtual network.
-- Traffic goes **directly and encrypted** between machines (WireGuard).
-- Access is restricted to **explicitly authorized peers**; all other traffic is blocked.
-- **No public ports** for the services.
-
----
-
-<!-- _class: imgslide -->
-
-![h:500](screenshots/60-netbird-peers.png)
-
----
-
-## Demonstrated
-
-Two machines on the network: one **reaches all the NDP services** of the other
-(EP, Federation, Affinities, AAI…) **only over the encrypted tunnel**, with no
-public ports.
-
-> This validates the production multi-machine scenario.
-
----
-
-<!-- _class: imgslide -->
-
-![h:500](screenshots/61-netbird-access.png)
+**Why it matters for NDP:** when the Endpoint and the platform components run on different machines, NetBird connects them over a single private overlay — no per-service firewall opening.
 
 ---
 
