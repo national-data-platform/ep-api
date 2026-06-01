@@ -875,13 +875,6 @@ public ports.
 
 ---
 
-# Thank you
-## Questions & discussion
-
-<!-- note: open the floor for questions; keep the NetBird technical doc handy. -->
-
----
-
 # Appendix
 
 ---
