@@ -779,6 +779,34 @@ their activity.
 
 ---
 
+## What the Endpoint reports
+
+Every `METRICS_INTERVAL_SECONDS` (default **55 min**) — and only when `IS_PUBLIC=True` — the Endpoint posts a JSON payload to `METRICS_ENDPOINT`:
+
+**Identity & version**
+- `organization`, `ep_name`, `version` (EP API version), `public_ip`, `timestamp`.
+
+**Catalog activity**
+- `num_datasets`, `num_services`, `services` (list of service titles).
+
+**Host load**
+- `cpu` (%), `memory` (`used/total GB`), `disk` (`used/total GB`).
+
+---
+
+## What the Endpoint reports — infrastructure flags
+
+Which features this Endpoint exposes — booleans, plus a few details when enabled.
+
+- `jupyterlab_enabled` *(if true: `jupyterlab_url`)*
+- `kafka_enabled` *(if true: `kafka_host`, `kafka_port`)*
+- `s3_enabled`
+- `pre_ckan_enabled`
+
+> No tokens, user data or dataset content are sent — only counts, infrastructure flags and host load. Federation drops the report if it cannot reach the endpoint, so the EP keeps working when the federation is down.
+
+---
+
 ## Federation benefits
 
 ```
