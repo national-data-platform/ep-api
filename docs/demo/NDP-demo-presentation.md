@@ -819,19 +819,6 @@ Which features this Endpoint exposes — booleans, plus a few details when enabl
 
 ---
 
-## Summary
-
-1. The **NDP-EP** was installed (Docker).
-2. The user **authenticated** and received a **role** (both in AAI).
-3. Datasets were **published and searched** from the **web app**.
-4. The same operations were performed **from code** via the Python library.
-5. The data was **federated** and became discoverable across the platform.
-6. All components can run over a **secure network** (NetBird).
-
-> **Distributed data, unified discovery, governed and secure access.**
-
----
-
 ## Resources
 
 - **Endpoint (web):** `…/ep-api/ui/` · **API:** `…/ep-api/docs`
