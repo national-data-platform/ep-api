@@ -1,0 +1,71 @@
+name: Build & publish demo deck
+
+# Renders docs/demo/NDP-demo-presentation.md with Marp and publishes the slides
+# as a GitHub Pages site (HTML, navigable in the browser) plus a PDF that is
+# accessible from the published site at /NDP-demo-presentation.pdf.
+
+on:
+  push:
+    branches: [main, feature/179-demo-documentation]
+    paths:
+      - 'docs/demo/**'
+      - '.github/workflows/demo-deck.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Marp CLI
+        run: npm install -g @marp-team/marp-cli@latest
+
+      - name: Prepare site/ (copy local assets so relative URLs work)
+        run: |
+          mkdir -p site
+          cp -r docs/demo/assets      site/assets
+          # Screenshots may not all be present yet; copy what's there.
+          if [ -d docs/demo/screenshots ]; then
+            cp -r docs/demo/screenshots site/screenshots
+          fi
+
+      - name: Render HTML (slides)
+        run: |
+          marp --allow-local-files --html \
+            --output site/index.html \
+            docs/demo/NDP-demo-presentation.md
+
+      - name: Render PDF (also published next to the HTML)
+        run: |
+          marp --allow-local-files --pdf \
+            --output site/NDP-demo-presentation.pdf \
+            docs/demo/NDP-demo-presentation.md
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
