@@ -961,3 +961,13 @@ curl -s -X POST "$AAI/role/assign" -H "Authorization: Bearer $TOKEN" \
 
 > **First admin exception:** assign `ndp_admin` **directly in Keycloak** — no admin
 > exists yet to call this API. The user must re-login for new roles to take effect.
+
+---
+
+## Tokens stored at NDP-managed onboarding
+
+When the Endpoint is installed via the **nationaldataplatform.com** registration
+(NDP infrastructure case), the onboarding process also **stores the access tokens
+for the various catalogs** (CKAN sysadmin token, Pre-CKAN API key, etc.) on the
+host — typically in each component's `.env` and a summary `user_info.env` — so
+the Endpoint can read and write to them without manual token setup.
