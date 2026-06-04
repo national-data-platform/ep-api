@@ -261,9 +261,9 @@ The `docker-compose.yml` uses **profiles** to let you choose which services to s
 | `kafka` | Kafka + Zookeeper + Kafka UI |
 | `s3` | MinIO (S3-compatible storage) |
 | `jupyter` | JupyterLab |
-| `pelican` | Pelican Federation (Registry, Director, Origin, Cache) |
+| `pelican` | Pelican Federation (Registry, Director, Origin, Cache) — needs extra setup, see warning below |
 | `frontend` | NDP-EP Frontend Web UI |
-| `full` | All services |
+| `full` | All services (includes Pelican — see warning below) |
 
 **Usage Examples:**
 
@@ -277,9 +277,13 @@ docker compose --profile mongodb up
 # API + MongoDB + Kafka
 docker compose --profile mongodb --profile kafka up
 
-# API + all services
-docker compose --profile full up
+# Recommended local stack: catalog + storage + streaming + notebooks (no Pelican)
+docker compose --profile mongodb --profile s3 --profile kafka --profile jupyter up
 ```
+
+**Recommended for most deployments:** start only the profiles you actually need (e.g. `--profile mongodb --profile s3`). This keeps the stack lean and avoids services that require extra setup.
+
+> ⚠️ **About `--profile full` and `--profile pelican`:** the `full` profile also starts the Pelican federation services (registry, director, origin, cache). Those require additional TLS/federation configuration that is **not** included out of the box, so on a fresh local machine they will enter a **restart loop**. This is expected and does not mean the rest of the stack is broken — Pelican is **not needed** for a typical deployment. Only enable the `pelican` profile once you have completed the Pelican federation setup.
 
 **Note:** When using external services (e.g., your own CKAN or Kafka), just run `docker compose up` and configure the external URLs in your `.env` file.
 

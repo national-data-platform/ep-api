@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-06-04
+
+### Fixed
+- **The container health check no longer reports `unhealthy` when `ROOT_PATH` is set.** The check was hardcoded to `http://localhost/health` (through nginx), but when `ROOT_PATH` is configured nginx serves the API under `${ROOT_PATH}/`, so that path returned `404` and the container stayed permanently `unhealthy` even though the API was working. Both the `docker-compose.yml` and `Dockerfile.allinone` health checks now probe uvicorn directly at `http://localhost:8000/health`, which is independent of nginx and of `ROOT_PATH`.
+- **`example.env` no longer ships a broken `METRICS_ENDPOINT` value.** The placeholder text `NDP_FEDERATION_METRICS_ENDPOINT default to federation/test` is replaced with the real default collector URL, so copying `example.env` verbatim yields a working configuration.
+
+### Changed
+- **Quick Start documentation steers new deployments away from `--profile full`.** The README now recommends starting only the profiles you need and documents that the `full`/`pelican` profiles start the Pelican federation services, which require additional TLS/federation setup and will restart-loop on a fresh local machine. This prevents a working installation from looking broken.
+- **`example.env` clarifies the CKAN fields when using the MongoDB backend.** `CKAN_URL`/`CKAN_API_KEY` should stay empty with `LOCAL_CATALOG_BACKEND=mongodb`, and the note explains that `CKAN_LOCAL_ENABLED` is the master switch for local catalog writes for any backend, not a "use CKAN" flag.
+
+### Backwards compatibility
+- Documentation and example-configuration only. No API behavior, request/response shapes, or routes change.
+
 ## [0.32.0] - 2026-05-31
 
 ### Added
