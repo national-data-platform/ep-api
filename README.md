@@ -247,8 +247,11 @@ S3_REGION=us-east-1
 
 2. **Run the container**:
 ```bash
-docker run -p 8001:8000 --env-file .env rbardaji/ndp-ep-api
+docker run -p 8001:80 --env-file .env rbardaji/ndp-ep-api
 ```
+The `rbardaji/ndp-ep-api` image is the all-in-one build (API + web UI behind
+nginx) and listens on container port **80**. The command above maps it to host
+port `8001`, so the API is reachable at `http://localhost:8001`.
 
 ### 3. Run with Docker Compose (Optional Services)
 
@@ -302,10 +305,14 @@ docker compose --profile mongodb --profile s3 --profile kafka --profile jupyter 
 
 ### 4. Verify Installation
 
-Once the container is running, verify everything is working:
+Once the container is running, verify everything is working (replace `8001`
+with `8002` if you started the stack with `docker compose`, whose default
+host port is `8002`):
 
 - **API Documentation**: http://localhost:8001/docs
-- **Health Check**: http://localhost:8001/status/
+- **Web UI**: http://localhost:8001/ui/
+- **Health Check (liveness)**: http://localhost:8001/health
+- **Status**: http://localhost:8001/status/
 - **Interactive API Explorer**: Available at the docs URL
 
 ### 5. Common Configuration Scenarios

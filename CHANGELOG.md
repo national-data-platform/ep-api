@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.2] - 2026-06-05
+
+### Fixed
+- **The README `docker run` command no longer leaves the API unreachable.** It mapped the host port to container port `8000`, but the published `rbardaji/ndp-ep-api` all-in-one image serves the app through nginx on container port **80**, so nothing answered and every verification URL failed even though the container was healthy. The command now maps to `:80`, with a note explaining the all-in-one image and its port.
+
+### Changed
+- **The "Verify Installation" section is clearer and more complete.** It now lists the Web UI (`/ui/`) and the liveness endpoint (`/health`) alongside the docs and status URLs, and notes that the `docker compose` default host port is `8002` (vs `8001` for the `docker run` example).
+
+### Backwards compatibility
+- Documentation only. No API behavior, request/response shapes, or routes change.
+
 ## [0.32.1] - 2026-06-04
 
 ### Fixed
