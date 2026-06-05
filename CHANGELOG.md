@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Quick Start documentation steers new deployments away from `--profile full`.** The README now recommends starting only the profiles you need and documents that the `full`/`pelican` profiles start the Pelican federation services, which require additional TLS/federation setup and will restart-loop on a fresh local machine. This prevents a working installation from looking broken.
 - **`example.env` clarifies the CKAN fields when using the MongoDB backend.** `CKAN_URL`/`CKAN_API_KEY` should stay empty with `LOCAL_CATALOG_BACKEND=mongodb`, and the note explains that `CKAN_LOCAL_ENABLED` is the master switch for local catalog writes for any backend, not a "use CKAN" flag.
+- **README documents how to update to a new version.** Added a note that `docker compose up` reuses a previously built image and must be rebuilt (`build --no-cache` / `up -d --build`) after pulling new code, plus how to confirm the running version (and how to spot a stale pre-nginx image from the `docker ps` `COMMAND` column).
 
 ### Backwards compatibility
 - Documentation and example-configuration only. No API behavior, request/response shapes, or routes change.

@@ -287,6 +287,19 @@ docker compose --profile mongodb --profile s3 --profile kafka --profile jupyter 
 
 **Note:** When using external services (e.g., your own CKAN or Kafka), just run `docker compose up` and configure the external URLs in your `.env` file.
 
+> 🔄 **Updating to a new version:** `docker compose up` reuses an already-built
+> image and will **not** pick up new code on its own. After `git pull` (or any
+> change to the source), rebuild the image explicitly, otherwise you keep running
+> the old one:
+> ```bash
+> docker compose build --no-cache api
+> docker compose up -d            # or: docker compose up -d --build
+> ```
+> To confirm which version is actually running, check the `version` field at
+> `http://localhost:<port>/docs` (or in the metrics line of `docker logs ndp-ep-api`).
+> If the `COMMAND` column of `docker ps` for `ndp-ep-api` shows `uvicorn …` instead
+> of `/app/entrypoint.sh`, you are on a stale pre-nginx image and need to rebuild.
+
 ### 4. Verify Installation
 
 Once the container is running, verify everything is working:
