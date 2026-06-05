@@ -312,8 +312,11 @@ host port is `8002`):
 - **API Documentation**: http://localhost:8001/docs
 - **Web UI**: http://localhost:8001/ui/
 - **Health Check (liveness)**: http://localhost:8001/health
-- **Status**: http://localhost:8001/status/
 - **Interactive API Explorer**: Available at the docs URL
+
+> The `/status/` endpoint also reports detailed service status, but it requires
+> an authentication token and returns `401` without one, so it is not part of
+> the quick unauthenticated verification above.
 
 ### 5. Common Configuration Scenarios
 
