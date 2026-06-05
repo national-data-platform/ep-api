@@ -81,8 +81,11 @@ RUN mkdir -p /var/log/supervisor /var/log/nginx
 EXPOSE 80
 
 # Health check
+# Probe uvicorn directly on :8000 so the check is independent of nginx and of
+# ROOT_PATH (nginx serves the API under ${ROOT_PATH}/, but the uvicorn /health
+# route is always at /health regardless of root_path).
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
-    CMD curl -f http://localhost/health || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh

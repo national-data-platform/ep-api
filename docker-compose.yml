@@ -17,7 +17,10 @@ services:
       - ndp-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      # Probe uvicorn directly on :8000 so the check is independent of nginx
+      # and of ROOT_PATH (nginx serves the API under ${ROOT_PATH}/, but the
+      # uvicorn /health route is always at /health regardless of root_path).
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
