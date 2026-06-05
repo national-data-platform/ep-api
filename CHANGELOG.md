@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.3] - 2026-06-05
+
+### Fixed
+- **The "Verify Installation" steps no longer point to an endpoint that returns `401`.** `/status/` requires an authentication token and returns `401` without one, so following the verification list produced a misleading failure on a fresh install. The quick verification now lists only the unauthenticated URLs that return success (`/docs`, `/ui/`, `/health`), with a note that `/status/` exists but requires a token.
+
+### Backwards compatibility
+- Documentation only. No API behavior, request/response shapes, or routes change.
+
 ## [0.32.2] - 2026-06-05
 
 ### Fixed
