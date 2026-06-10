@@ -729,6 +729,7 @@ pip install ndp-ep
 from ndp_ep import APIClient
 
 # 1. Connect to the Endpoint with your token
+# (https assumes a real domain + TLS cert; on a bare IP/localhost use http://)
 client = APIClient(base_url="https://my-endpoint/ep-api", token="…")
 
 # 2. List organizations

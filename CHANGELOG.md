@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.4] - 2026-06-05
+
+### Added
+- **README: "Local / IP-based deployment (no domain, no TLS)" section.** Consolidates the rules for evaluating the Endpoint on a bare IP/`localhost` without a domain or certificate: use `http://` not `https://`, use the host's real IP (not internal overlay/pod addresses), the correct ports, profiles without Pelican, rebuilding after updates, and the Kafka/streaming reachability caveat (the Endpoint returns the configured `KAFKA_HOST`/`KAFKA_PORT` verbatim, so clients outside the Docker network need externally reachable values, not internal names like `kafka:9093`).
+
+### Changed
+- **Python client and demo-slide examples clarify `http` vs `https`.** The `https://…` `base_url` examples in the automation guide and the demo presentation now note that `https` assumes a real domain with a TLS certificate, and that a bare IP/`localhost` deployment should use `http://`.
+
+### Backwards compatibility
+- Documentation only. No API behavior, request/response shapes, or routes change.
+
 ## [0.32.3] - 2026-06-05
 
 ### Fixed

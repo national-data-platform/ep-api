@@ -366,6 +366,41 @@ PRE_CKAN_API_KEY=your-ndp-preckan-api-key
 PRE_CKAN_ORGANIZATION=ep-your-assigned-org-id
 ```
 
+### 6. Local / IP-based deployment (no domain, no TLS)
+
+If you are evaluating the Endpoint on a plain VM or workstation reached by its
+**IP address** (or `localhost`) and you do **not** have a domain name or a TLS
+certificate, follow these rules — most first-run problems come from assuming a
+domain/HTTPS setup that isn't there:
+
+- **Use `http://`, not `https://`.** A bare IP address cannot present a valid
+  TLS certificate, so `https://<ip>` fails. This applies to the browser URLs
+  **and** to the `base_url`/`API_URL` you pass to the Python client, the
+  streaming client, etc. The `https://my-endpoint…` examples elsewhere in the
+  docs and slides assume a real domain with a certificate.
+- **Use the host's real IP or `localhost`** — not an internal overlay/pod
+  address (e.g. `10.244.x.x`), which is not reachable from your machine.
+- **Pick the right port.** `docker run -p 8001:80` → `http://<host>:8001`;
+  `docker compose` publishes the API on host port **8002** by default →
+  `http://<host>:8002`. The container always serves on port 80 internally.
+- **Start only the profiles you need** (e.g. `--profile mongodb --profile s3`).
+  Avoid `--profile full` / `--profile pelican`: the Pelican services need extra
+  TLS/federation setup and will restart-loop on a fresh machine.
+- **Rebuild after updating code** (`docker compose build --no-cache api`, or
+  `docker pull rbardaji/ndp-ep-api:latest`) — `docker compose up` reuses the
+  old image otherwise.
+- **Kafka / streaming reachability.** The Endpoint hands streaming clients the
+  `KAFKA_HOST`/`KAFKA_PORT` you configured, **verbatim** (via
+  `GET /status/kafka-details`). If your client runs **outside** the Docker
+  network (for example, a notebook on your laptop), those values must be the
+  **externally reachable** address — the host's IP/hostname and the
+  externally-published Kafka port — **not** an internal Docker service name
+  (`kafka`) or an internal-only port. Internal names like `kafka:9093` only
+  resolve between containers on the same Docker network.
+
+Verify with the `http://` URLs from [Verify Installation](#4-verify-installation)
+(`/docs`, `/ui/`, `/health`).
+
 ## 🔒 Group-Based Access Control
 
 The API supports optional group-based access control to restrict write operations (POST, PUT, DELETE) to users belonging to specific groups.
