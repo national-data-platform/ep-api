@@ -41,6 +41,12 @@ client.get_token(username="me@my-institution.edu", password="…")
 client honours the Endpoint's role checks — what your token can do from code is
 exactly what your account can do from the web.
 
+> **`http` vs `https`:** the `https://…` examples above assume the Endpoint is
+> served on a real domain with a valid TLS certificate. If you reach it by a
+> bare **IP address** (or `localhost`) without a certificate, use `http://`
+> instead (e.g. `base_url="http://<host-ip>:8002"`) — `https://<ip>` will fail
+> because an IP cannot present a valid certificate.
+
 ## Common operations
 
 ```python
