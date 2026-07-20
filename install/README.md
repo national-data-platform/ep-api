@@ -11,6 +11,31 @@ Federation. The registration supplies the organization, the access group, and
 whether streaming and a staging catalog are in play; the installer applies
 those on top of the documented defaults and brings the stack up.
 
+## Registering
+
+Without a configuration id, the installer offers to register the Endpoint for
+you. Registration is what creates this Endpoint's **Keycloak client and
+group**, so it is also what makes identity-provider sign-in possible without
+an administrator having to set anything up by hand. It also fetches a
+staging-catalog token and registers the Endpoint in Affinities.
+
+It needs your NDP access token, from your user panel on the platform. The user
+id the Federation records as the group's administrator is read from that
+token, so it always matches whoever registered.
+
+Registration happens **before** anything is installed: the configuration it
+returns then drives the rest of the install, exactly as an id passed on the
+command line would. Registering afterwards would mean reconfiguring what had
+just been built.
+
+Keep the id it prints — `--config-id <id>` reproduces the same Endpoint
+without registering again.
+
+`--federation-url` defaults to production, where registering creates a real
+Keycloak client. The installer says so before asking you to confirm.
+
+## Installing
+
 Run it with no arguments and it asks:
 
 ```bash

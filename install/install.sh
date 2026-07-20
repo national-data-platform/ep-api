@@ -298,6 +298,128 @@ PY
 }
 
 # --------------------------------------------------------------
+# Registering with the Federation
+# --------------------------------------------------------------
+register_with_federation() {
+  # POST /ep/simple does more than record a row: it creates this Endpoint's
+  # Keycloak client and group, fetches a staging-catalog token and registers
+  # the Endpoint in Affinities. That is why registering is offered before
+  # anything is installed — the configuration it returns then drives the rest
+  # of the install exactly as a configuration id passed on the command line
+  # would.
+  local token userid poc ckan_user ckan_pass staging jhub streaming rexec public_ep
+  local response http_code body
+
+  echo
+  echo "${BLUE}Registering with ${federation_url%/}${NC}"
+  if [[ "$federation_url" == "$FEDERATION_URL_DEFAULT" ]]; then
+    warn "This is the production Federation. Registering here creates a real"
+    warn "Keycloak client and group. Use --federation-url to point elsewhere."
+  fi
+
+  ask_secret token "Your NDP access token (not shown)"
+  [[ -n "$token" ]] || fail "A token is required to register. Get one from your NDP user panel."
+
+  # The Federation assigns the group's admin from this id, and it is the
+  # subject of the very token being presented, so asking for it would only
+  # invite a mismatch.
+  userid="$(python3 - "$token" <<'PY'
+import base64, json, sys
+try:
+    payload = sys.argv[1].split(".")[1]
+    payload += "=" * (-len(payload) % 4)
+    print(json.loads(base64.urlsafe_b64decode(payload)).get("sub", ""))
+except Exception:
+    print("")
+PY
+)"
+  [[ -n "$userid" ]] || fail "Could not read a user id from that token — is it a complete access token?"
+  ok "Registering as user $userid"
+
+  ask organization "Organization name" "${organization:-My-Organization}"
+  ask ep_name      "Endpoint name"     "${ep_name:-my_endpoint}"
+  ask poc          "Contact email"     ""
+  [[ -n "$poc" ]] || fail "A contact email is required to register."
+
+  echo
+  echo "  These become the administrator account of this Endpoint's catalog."
+  ask ckan_user "Catalog admin username" "ckan_admin"
+  ask_secret ckan_pass "Catalog admin password (not shown)"
+  [[ -n "$ckan_pass" ]] || fail "A catalog admin password is required."
+
+  echo
+  ask_yes_no public_ep "Should this Endpoint be publicly listed?" "yes"
+  ask_yes_no staging   "Publish through a staging catalog first?" "no"
+  ask_yes_no jhub      "Enable JupyterHub?" "no"
+  ask_yes_no streaming "Enable data streaming (Kafka)?" "no"
+  ask_yes_no rexec     "Enable remote execution?" "no"
+
+  local payload
+  payload="$(python3 - <<PY
+import json
+print(json.dumps({
+    "ckan_name": "$ckan_user",
+    "ckan_password": """$ckan_pass""",
+    "enable_staging": $([[ "$staging" == "yes" ]] && echo true || echo false),
+    "poc": "$poc",
+    "organization": """$organization""",
+    "jhub": $([[ "$jhub" == "yes" ]] && echo true || echo false),
+    "streaming": $([[ "$streaming" == "yes" ]] && echo true || echo false),
+    "rexec": $([[ "$rexec" == "yes" ]] && echo true || echo false),
+    "ep_name": """$ep_name""",
+    "userid": "$userid",
+    "public": $([[ "$public_ep" == "yes" ]] && echo true || echo false),
+}))
+PY
+)"
+
+  echo
+  echo "  About to register '${ep_name}' for '${organization}' at ${federation_url%/}."
+  local proceed
+  ask_yes_no proceed "Continue?" "yes"
+  [[ "$proceed" == "yes" ]] || fail "Aborted; nothing was registered."
+
+  response="$(mktemp)"
+  http_code="$(curl -s -o "$response" -w '%{http_code}' -m 60 \
+    -X POST "${federation_url%/}/ep/simple" \
+    -H "Authorization: Bearer $token" \
+    -H "Content-Type: application/json" \
+    -d "$payload" || echo 000)"
+
+  body="$(cat "$response")"
+  rm -f "$response"
+
+  case "$http_code" in
+    201) ;;
+    000) fail "Could not reach the Federation at ${federation_url%/}." ;;
+    400) fail "The Federation rejected the registration: ${body}
+       An Endpoint with this name may already exist." ;;
+    401) fail "The Federation rejected the token. Check it has not expired." ;;
+    422) fail "The Federation rejected the values: ${body}" ;;
+    *)   fail "The Federation answered HTTP $http_code: ${body}" ;;
+  esac
+
+  config_id="$(python3 - "$body" <<'PY'
+import json, sys
+try:
+    print(json.loads(sys.argv[1]).get("document_id", ""))
+except Exception:
+    print("")
+PY
+)"
+  [[ -n "$config_id" ]] || fail "The Federation accepted the registration but returned no id: ${body}"
+
+  ok "Registered. Configuration id: $config_id"
+  # The catalog admin just chosen is reused when this installer provisions
+  # CKAN, so the two agree rather than drifting apart.
+  ckan_sysadmin="$ckan_user"
+  ckan_password="$ckan_pass"
+  echo
+  info "Keep this id — re-running the installer with --config-id $config_id"
+  info "reproduces this Endpoint without registering again."
+}
+
+# --------------------------------------------------------------
 # Ask, when there is nobody to ask but the person running this.
 # --------------------------------------------------------------
 # A Federation registration answers most of these. Without one, and on a
@@ -318,10 +440,20 @@ if [[ -z "$config_id" ]] && interactive; then
   ask config_id "Federation configuration id, if you have one (blank to skip)" ""
 
   if [[ -z "$config_id" ]]; then
-    warn "Without a registration this Endpoint will not be listed in the Federation."
-    already_warned="true"
-    ask organization "Organization name" "My-Organization"
-    ask ep_name      "Endpoint name"     "my_endpoint"
+    echo
+    echo "  Registering creates the configuration in the Federation and, with it,"
+    echo "  this Endpoint's Keycloak client and group — which is what makes"
+    echo "  identity-provider sign-in possible without an administrator."
+    ask_yes_no want_register "Register this Endpoint with the Federation now?" "yes"
+
+    if [[ "$want_register" == "yes" ]]; then
+      register_with_federation
+    else
+      warn "Without a registration this Endpoint will not be listed in the Federation."
+      already_warned="true"
+      ask organization "Organization name" "My-Organization"
+      ask ep_name      "Endpoint name"     "my_endpoint"
+    fi
   fi
 
   echo
