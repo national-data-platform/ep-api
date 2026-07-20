@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-07-20
+
+### Added
+- **Sign in through the identity provider.** The UI login screen can now send the user to the identity provider's own login page, where the federated providers configured on the realm (CILogon, EarthScope, ORCID) are offered. This matters because users arriving with institutional credentials have no password in the realm, so the username/password form never worked for them — their only way in was to sign in on nationaldataplatform.org, find their access token and paste it by hand.
+- Off by default behind `OIDC_ENABLED`, and configured with `OIDC_ISSUER` and `OIDC_CLIENT_ID`. The Authorization Code flow with PKCE is used against a **public** client, so no client secret has to be shipped with the Endpoint. `OIDC_SCOPE` is optional and defaults to `openid profile email`.
+- Nothing about a particular identity provider is baked into the build: the endpoints are read from the realm's OpenID discovery document, and the button wording comes from `OIDC_BUTTON_LABEL` / `OIDC_HELP_TEXT`, whose defaults are provider-neutral. Moving from a local Keycloak to production is a change of `OIDC_ISSUER`.
+- The callback is handled at `<ROOT_PATH>/ui/auth/callback`, which must be registered as a valid redirect URI on the client. The client must also issue the `sub` claim — `AUTH_API_URL` looks the user up by it. `OIDC_ISSUER` and `AUTH_API_URL` must point at the same identity provider. See `example.env` and [docs/configuration.md](docs/configuration.md) for the full requirements.
+
+### Changed
+- When the identity provider authenticates the user but the Endpoint cannot validate the resulting token, the UI now says so explicitly instead of reporting "Invalid token", which read as mistyped credentials even though the sign-in had succeeded.
+
+### Backwards compatibility
+- The access token and username/password sign-in methods are unchanged and remain available.
+- `OIDC_ENABLED` defaults to `False`, so existing deployments behave exactly as before until they opt in. A deployment that switches it on without both `OIDC_ISSUER` and `OIDC_CLIENT_ID` shows no button rather than one that fails on click.
+- PKCE needs `crypto.subtle`, which browsers expose only in secure contexts. On a plain-http or bare-IP deployment the button is shown disabled with an explanation rather than silently downgrading to the weaker `plain` challenge method; the other two sign-in methods still work there.
+
 ## [0.32.4] - 2026-06-05
 
 ### Added
