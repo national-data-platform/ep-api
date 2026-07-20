@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, AlertCircle, Eye, EyeOff, User, Send, CheckCircle } from 'lucide-react';
+import { Lock, AlertCircle, Eye, EyeOff, User, Send, CheckCircle, LogIn } from 'lucide-react';
 import { accessRequestsAPI, authAPI } from '../services/api';
+import {
+  isOidcEnabled,
+  isOidcSupported,
+  isOidcCallback,
+  beginOidcLogin,
+  completeOidcLogin,
+} from '../services/oidc';
 
 /**
  * AuthGuard component that requires authentication before accessing the app
@@ -19,6 +26,9 @@ const AuthGuard = ({ children, onAuthenticated }) => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
+
+  // Identity-provider sign-in state
+  const [redirectingToIdp, setRedirectingToIdp] = useState(false);
 
   // Access-request flow state. The token is held in component state only —
   // it is never persisted because the user is not allowed into the app.
@@ -42,6 +52,29 @@ const AuthGuard = ({ children, onAuthenticated }) => {
    */
   useEffect(() => {
     const checkExistingAuth = async () => {
+      // Coming back from the identity provider takes priority over anything
+      // already in storage: the user explicitly asked to sign in again.
+      if (isOidcCallback()) {
+        try {
+          const userInfo = await completeOidcLogin();
+          console.log('Identity provider sign-in successful:', userInfo);
+
+          setIsAuthenticated(true);
+          onAuthenticated && onAuthenticated();
+        } catch (signInError) {
+          console.error('Identity provider sign-in failed:', signInError);
+          // A 403 means the provider authenticated the user but this
+          // Endpoint denied entry — offer the access-request flow.
+          if (signInError.deniedToken) {
+            setDeniedToken(signInError.deniedToken);
+          }
+          setError(signInError.message || 'Sign-in failed. Please try again.');
+        }
+
+        setLoading(false);
+        return;
+      }
+
       const existingToken = localStorage.getItem('authToken');
 
       if (existingToken && existingToken.trim()) {
@@ -225,6 +258,25 @@ const AuthGuard = ({ children, onAuthenticated }) => {
   const switchAuthMode = (mode) => {
     setAuthMode(mode);
     setError(null);
+  };
+
+  /**
+   * Send the user to the identity provider's own login page, where the
+   * federated providers configured on the realm are offered.
+   */
+  const handleIdpSignIn = async () => {
+    try {
+      setError(null);
+      clearRequestState();
+      setRedirectingToIdp(true);
+
+      await beginOidcLogin();
+      // On success the browser navigates away; nothing below runs.
+    } catch (err) {
+      console.error('Could not start identity provider sign-in:', err);
+      setError(err.message || 'Could not reach the identity provider.');
+      setRedirectingToIdp(false);
+    }
   };
 
   /**
@@ -510,6 +562,105 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                 <strong>Request submitted.</strong> An administrator will review
                 your access request. You can close this page — you will be
                 notified through your organization once the decision is made.
+              </div>
+            </div>
+          )}
+
+          {/* Identity provider sign-in. Only rendered when the deployment
+              configures one; otherwise the screen is unchanged. */}
+          {!requestSubmitted && isOidcEnabled() && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <button
+                type="button"
+                onClick={handleIdpSignIn}
+                disabled={redirectingToIdp || !isOidcSupported()}
+                title={
+                  isOidcSupported()
+                    ? 'Sign in through the National Data Platform'
+                    : 'Requires a secure (https) connection'
+                }
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: !isOidcSupported()
+                    ? '#e2e8f0'
+                    : redirectingToIdp
+                      ? '#9ca3af'
+                      : '#2563eb',
+                  color: !isOidcSupported() ? '#94a3b8' : 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor:
+                    redirectingToIdp || !isOidcSupported()
+                      ? 'not-allowed'
+                      : 'pointer',
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseOver={(e) => {
+                  if (!redirectingToIdp && isOidcSupported()) {
+                    e.currentTarget.style.backgroundColor = '#1d4ed8';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (!redirectingToIdp && isOidcSupported()) {
+                    e.currentTarget.style.backgroundColor = '#2563eb';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {redirectingToIdp ? (
+                  <>
+                    <div className="loading-spinner" style={{ width: '16px', height: '16px' }} />
+                    Redirecting...
+                  </>
+                ) : (
+                  <>
+                    <LogIn size={18} />
+                    Sign in with National Data Platform
+                  </>
+                )}
+              </button>
+
+              {isOidcSupported() ? (
+                <p style={{
+                  margin: '0.5rem 0 0',
+                  fontSize: '0.75rem',
+                  color: '#64748b',
+                  textAlign: 'center',
+                  lineHeight: 1.4
+                }}>
+                  Use your institutional credentials, EarthScope or ORCID.
+                </p>
+              ) : (
+                <p style={{
+                  margin: '0.5rem 0 0',
+                  fontSize: '0.75rem',
+                  color: '#b45309',
+                  textAlign: 'center',
+                  lineHeight: 1.4
+                }}>
+                  Unavailable over an insecure connection. Use an access token
+                  or your username and password below.
+                </p>
+              )}
+
+              {/* Divider */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                marginTop: '1.25rem'
+              }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#e2e8f0' }} />
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>or</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#e2e8f0' }} />
               </div>
             </div>
           )}

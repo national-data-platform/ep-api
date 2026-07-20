@@ -3,10 +3,16 @@
 # Generate runtime config for the React UI. AFFINITIES_EP_UUID lets the
 # UI highlight the user's group that ties them to this endpoint without
 # having to look the value up against the deployment env manually.
+# OIDC_ISSUER/OIDC_CLIENT_ID enable the "sign in through the identity
+# provider" button; when either is empty the button is not rendered and the
+# login screen keeps its previous behaviour.
 cat > /app/ui/build/config.js <<EOF
 window.__EP_CONFIG__ = {
   rootPath: "${ROOT_PATH}",
-  affinitiesEpUuid: "${AFFINITIES_EP_UUID}"
+  affinitiesEpUuid: "${AFFINITIES_EP_UUID}",
+  oidcIssuer: "${OIDC_ISSUER}",
+  oidcClientId: "${OIDC_CLIENT_ID}",
+  oidcScope: "${OIDC_SCOPE}"
 };
 EOF
 
