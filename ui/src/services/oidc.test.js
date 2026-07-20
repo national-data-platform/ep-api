@@ -4,6 +4,7 @@ import {
   isOidcCallback,
   getRedirectUri,
   beginOidcLogin,
+  getOidcLabels,
 } from './oidc';
 
 // ./api reads window.__EP_CONFIG__ and constructs an axios client at import
@@ -26,39 +27,95 @@ describe('oidc configuration gate', () => {
     delete window.__EP_CONFIG__;
   });
 
-  // The central guarantee of this feature: a deployment that does not
-  // configure an identity provider must behave exactly as it did before.
+  // The central guarantee of this feature: a deployment that does not ask for
+  // identity-provider sign-in must behave exactly as it did before.
   it('is disabled when no configuration is present', () => {
     delete window.__EP_CONFIG__;
     expect(isOidcEnabled()).toBe(false);
   });
 
-  it('is disabled when the configuration is empty', () => {
-    setConfig({ oidcIssuer: '', oidcClientId: '' });
-    expect(isOidcEnabled()).toBe(false);
-  });
-
-  it('is disabled when only the issuer is set', () => {
-    setConfig({ oidcIssuer: 'https://idp.example.org/realms/NDP' });
-    expect(isOidcEnabled()).toBe(false);
-  });
-
-  it('is disabled when only the client id is set', () => {
-    setConfig({ oidcClientId: 'ndp-ep-ui' });
-    expect(isOidcEnabled()).toBe(false);
-  });
-
-  it('is disabled when values are only whitespace', () => {
-    setConfig({ oidcIssuer: '   ', oidcClientId: '  ' });
-    expect(isOidcEnabled()).toBe(false);
-  });
-
-  it('is enabled when both issuer and client id are set', () => {
+  it('is disabled by default even when issuer and client id are set', () => {
     setConfig({
       oidcIssuer: 'https://idp.example.org/realms/NDP',
       oidcClientId: 'ndp-ep-ui',
     });
+    expect(isOidcEnabled()).toBe(false);
+  });
+
+  it('is disabled when explicitly switched off', () => {
+    setConfig({
+      oidcEnabled: 'False',
+      oidcIssuer: 'https://idp.example.org/realms/NDP',
+      oidcClientId: 'ndp-ep-ui',
+    });
+    expect(isOidcEnabled()).toBe(false);
+  });
+
+  // Half-configured deployments must show nothing rather than a button that
+  // fails the moment it is clicked.
+  it('stays disabled when switched on but the issuer is missing', () => {
+    setConfig({ oidcEnabled: 'True', oidcClientId: 'ndp-ep-ui' });
+    expect(isOidcEnabled()).toBe(false);
+  });
+
+  it('stays disabled when switched on but the client id is missing', () => {
+    setConfig({
+      oidcEnabled: 'True',
+      oidcIssuer: 'https://idp.example.org/realms/NDP',
+    });
+    expect(isOidcEnabled()).toBe(false);
+  });
+
+  it('stays disabled when the values are only whitespace', () => {
+    setConfig({ oidcEnabled: 'True', oidcIssuer: '   ', oidcClientId: '  ' });
+    expect(isOidcEnabled()).toBe(false);
+  });
+
+  it('is enabled when switched on and fully configured', () => {
+    setConfig({
+      oidcEnabled: 'True',
+      oidcIssuer: 'https://idp.example.org/realms/NDP',
+      oidcClientId: 'ndp-ep-ui',
+    });
     expect(isOidcEnabled()).toBe(true);
+  });
+
+  // `.env` elsewhere in this project uses Python-style True/False, so the
+  // usual spellings must all be understood.
+  it.each(['True', 'true', 'TRUE', '1', 'yes', 'on'])(
+    'accepts %s as switched on',
+    (value) => {
+      setConfig({
+        oidcEnabled: value,
+        oidcIssuer: 'https://idp.example.org/realms/NDP',
+        oidcClientId: 'ndp-ep-ui',
+      });
+      expect(isOidcEnabled()).toBe(true);
+    }
+  );
+});
+
+describe('deployment-supplied wording', () => {
+  afterEach(() => {
+    delete window.__EP_CONFIG__;
+  });
+
+  // Nothing about a particular identity provider may be baked into the build.
+  it('falls back to provider-neutral wording', () => {
+    delete window.__EP_CONFIG__;
+    const { buttonLabel, helpText } = getOidcLabels();
+    expect(buttonLabel).toBe('Sign in with your identity provider');
+    expect(helpText).toBe('');
+  });
+
+  it('uses the label and help text the deployment supplies', () => {
+    setConfig({
+      oidcButtonLabel: 'Sign in with National Data Platform',
+      oidcHelpText: 'Use your institutional credentials, EarthScope or ORCID.',
+    });
+    const { buttonLabel, helpText } = getOidcLabels();
+    expect(buttonLabel).toBe('Sign in with National Data Platform');
+    expect(helpText).toBe('Use your institutional credentials, EarthScope or ORCID.');
   });
 });
 
@@ -113,6 +170,7 @@ describe('starting the sign-in', () => {
   // downgrade to the weaker `plain` challenge method.
   it('refuses over an insecure connection instead of downgrading PKCE', async () => {
     setConfig({
+      oidcEnabled: 'True',
       oidcIssuer: 'https://idp.example.org/realms/NDP',
       oidcClientId: 'ndp-ep-ui',
     });

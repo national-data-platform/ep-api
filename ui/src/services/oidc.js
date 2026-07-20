@@ -24,26 +24,62 @@ const STORAGE_STATE = 'oidcState';
 const CALLBACK_PATH = '/ui/auth/callback';
 
 /**
+ * Parse a boolean environment value. Values arrive as strings from the
+ * container environment, so the Python-style ``True`` used elsewhere in
+ * ``.env`` is accepted alongside the usual spellings.
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+const parseBoolean = (value) =>
+  ['true', '1', 'yes', 'on'].includes(String(value ?? '').trim().toLowerCase());
+
+/**
  * Read the OIDC settings injected at container start into config.js.
  *
- * @returns {{issuer: string, clientId: string, scope: string}}
+ * Nothing here is hardcoded to a particular identity provider: the issuer
+ * carries the realm URL, the endpoints are read from its discovery document,
+ * and the wording is deployment-supplied so it can describe whichever
+ * providers that realm actually offers.
+ *
+ * @returns {{enabled: boolean, issuer: string, clientId: string,
+ *            scope: string, buttonLabel: string, helpText: string}}
  */
 const getConfig = () => ({
+  enabled: parseBoolean(window.__EP_CONFIG__?.oidcEnabled),
   issuer: (window.__EP_CONFIG__?.oidcIssuer ?? '').trim().replace(/\/+$/, ''),
   clientId: (window.__EP_CONFIG__?.oidcClientId ?? '').trim(),
   scope: (window.__EP_CONFIG__?.oidcScope ?? '').trim() || 'openid profile email',
+  buttonLabel:
+    (window.__EP_CONFIG__?.oidcButtonLabel ?? '').trim() ||
+    'Sign in with your identity provider',
+  helpText: (window.__EP_CONFIG__?.oidcHelpText ?? '').trim(),
 });
 
 /**
- * Whether the deployment has configured an identity provider. Deployments that
- * leave OIDC_ISSUER or OIDC_CLIENT_ID empty keep the previous behaviour and
- * never see the button.
+ * Whether the deployment offers identity-provider sign-in.
+ *
+ * Off unless OIDC_ENABLED is switched on *and* the two values the flow cannot
+ * work without are present, so a half-configured deployment shows nothing
+ * rather than a button that fails on click.
  *
  * @returns {boolean}
  */
 export const isOidcEnabled = () => {
-  const { issuer, clientId } = getConfig();
-  return Boolean(issuer && clientId);
+  const { enabled, issuer, clientId } = getConfig();
+  return Boolean(enabled && issuer && clientId);
+};
+
+/**
+ * Deployment-supplied wording for the button and the line under it. The help
+ * text is empty by default: only the deployment knows which providers its
+ * realm offers.
+ *
+ * @returns {{buttonLabel: string, helpText: string}}
+ */
+export const getOidcLabels = () => {
+  const { buttonLabel, helpText } = getConfig();
+  return { buttonLabel, helpText };
 };
 
 /**

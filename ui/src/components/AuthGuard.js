@@ -7,6 +7,7 @@ import {
   isOidcCallback,
   beginOidcLogin,
   completeOidcLogin,
+  getOidcLabels,
 } from '../services/oidc';
 
 /**
@@ -576,7 +577,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                 disabled={redirectingToIdp || !isOidcSupported()}
                 title={
                   isOidcSupported()
-                    ? 'Sign in through the National Data Platform'
+                    ? getOidcLabels().buttonLabel
                     : 'Requires a secure (https) connection'
                 }
                 style={{
@@ -623,21 +624,23 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                 ) : (
                   <>
                     <LogIn size={18} />
-                    Sign in with National Data Platform
+                    {getOidcLabels().buttonLabel}
                   </>
                 )}
               </button>
 
               {isOidcSupported() ? (
-                <p style={{
-                  margin: '0.5rem 0 0',
-                  fontSize: '0.75rem',
-                  color: '#64748b',
-                  textAlign: 'center',
-                  lineHeight: 1.4
-                }}>
-                  Use your institutional credentials, EarthScope or ORCID.
-                </p>
+                getOidcLabels().helpText && (
+                  <p style={{
+                    margin: '0.5rem 0 0',
+                    fontSize: '0.75rem',
+                    color: '#64748b',
+                    textAlign: 'center',
+                    lineHeight: 1.4
+                  }}>
+                    {getOidcLabels().helpText}
+                  </p>
+                )
               ) : (
                 <p style={{
                   margin: '0.5rem 0 0',

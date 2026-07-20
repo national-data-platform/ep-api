@@ -92,6 +92,86 @@ AAI administrator.
 
 ---
 
+## Identity provider sign-in (optional, off by default)
+
+By default the UI login screen offers two ways in: paste an access token, or
+type a username and password. Both assume the user holds a credential that
+lives in the realm itself.
+
+Users who arrive through a **federated provider** configured on the realm —
+CILogon (institutional credentials), EarthScope, ORCID — do not. They have no
+password in the realm, so the username/password form cannot work for them, and
+their only route in is to sign in on the platform's own site, find their access
+token and paste it by hand.
+
+Turning this on adds a **third** button that sends the user to the identity
+provider's own login page, where those providers appear. It uses the OAuth
+Authorization Code flow with PKCE against a **public** client, so no client
+secret is shipped with the Endpoint.
+
+The other two methods are unchanged and remain available either way.
+
+#### `OIDC_ENABLED`
+*Optional · default: `False`.*
+Master switch. While `False`, the login screen behaves exactly as before and
+none of the values below are read. **Where:** you decide.
+
+#### `OIDC_ISSUER`
+*Required when `OIDC_ENABLED=True`.*
+The realm URL, e.g. `https://idp.nationaldataplatform.org/realms/NDP`. The
+authorization, token and userinfo endpoints are read from this realm's OpenID
+discovery document, so no provider-specific URL is hardcoded — moving from a
+local Keycloak to production is just a change of this value.
+**Where:** your AAI/Keycloak administrator.
+
+#### `OIDC_CLIENT_ID`
+*Required when `OIDC_ENABLED=True`.*
+The client registered for **this** Endpoint (see the requirements below).
+**Where:** your AAI/Keycloak administrator.
+
+#### `OIDC_SCOPE`
+*Optional · default: `openid profile email`.*
+
+#### `OIDC_BUTTON_LABEL` / `OIDC_HELP_TEXT`
+*Optional · defaults: `Sign in with your identity provider` / empty.*
+Wording for the button and the line under it. The defaults are
+provider-neutral on purpose: only the deployment knows which providers its
+realm offers. Naming providers the realm does **not** have is worse than
+saying nothing, so `OIDC_HELP_TEXT` shows no second line while empty.
+
+### What your identity provider administrator must register
+
+1. **A public client with PKCE (S256).** Public rather than confidential so
+   that no client secret has to be distributed with the Endpoint, which is
+   self-hosted by many institutions.
+2. **This deployment's callback URL** as a valid redirect URI on that client:
+   `<scheme>://<host>[:<port>]<ROOT_PATH>/ui/auth/callback` — for example
+   `https://my-endpoint.example.org/ep-api/ui/auth/callback`. The Endpoint
+   derives this from the browser's address and `ROOT_PATH`, so you never
+   configure it, but it must match what is registered.
+3. **The `sub` claim in access tokens.** `AUTH_API_URL` looks the user up by
+   `sub`. Since Keycloak 24 that claim comes from the built-in `basic` client
+   scope, and a realm imported from an older export may not have `basic` among
+   its default scopes — in which case a freshly created client silently mints
+   tokens without `sub`. Assign the scope to the client explicitly.
+
+### Two things that commonly go wrong
+
+**`OIDC_ISSUER` and `AUTH_API_URL` must point at the same identity provider.**
+The token is minted by one and validated by the other. If they disagree, the
+user's `sub` will not exist on the validating side and sign-in fails at the
+last step — after a successful login, which makes it look like a credentials
+problem when it is not.
+
+**The UI must be served over https.** Browsers only expose the crypto API that
+PKCE needs in secure contexts. On a plain-http or bare-IP deployment the button
+is shown **disabled** with an explanation rather than silently falling back to
+the weaker `plain` challenge method; the other two sign-in methods still work
+there. `localhost` counts as a secure context, so an SSH tunnel is enough for
+testing.
+
+---
+
 ## Local catalog (where this EP stores its data)
 
 #### `LOCAL_CATALOG_BACKEND`
