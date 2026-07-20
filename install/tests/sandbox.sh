@@ -88,8 +88,17 @@ fi
 
 echo "==> Running: install.sh ${installer_args[*]}"
 echo "---------------------------------------------------------------"
+
+# Give the installer a terminal when the caller has one and has not asked for
+# an unattended run, otherwise its prompts can never be exercised here — which
+# would leave the interactive path testable only against a real machine.
+exec_flags=(-i)
+if [[ -t 0 ]] && [[ ! " ${installer_args[*]} " =~ " --yes " ]]; then
+  exec_flags+=(-t)
+fi
+
 set +e
-docker exec "$CONTAINER" bash /opt/ep-api/install/install.sh "${installer_args[@]}"
+docker exec "${exec_flags[@]}" "$CONTAINER" bash /opt/ep-api/install/install.sh "${installer_args[@]}"
 status=$?
 set -e
 echo "---------------------------------------------------------------"
