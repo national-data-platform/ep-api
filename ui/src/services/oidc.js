@@ -262,6 +262,23 @@ export const completeOidcLogin = async () => {
     return userInfo;
   } catch (error) {
     clearCallbackUrl();
-    throw error;
+
+    // A 403 is a real authorization decision: keep it as-is so the caller can
+    // offer the access-request form.
+    if (error.deniedToken) {
+      throw error;
+    }
+
+    // Anything else happened *after* the provider already authenticated the
+    // user, so the shared "Invalid token" wording would wrongly suggest they
+    // mistyped their credentials. Say what actually failed instead.
+    const failure = new Error(
+      'You signed in successfully, but this Endpoint could not validate the ' +
+        'resulting token. This is a configuration problem on the Endpoint, ' +
+        'not a problem with your credentials. ' +
+        `(${error.message || 'unknown error'})`
+    );
+    failure.cause = error;
+    throw failure;
   }
 };
