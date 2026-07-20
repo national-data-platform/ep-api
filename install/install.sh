@@ -139,6 +139,85 @@ docker info >/dev/null 2>&1 || fail "Cannot talk to the Docker daemon. Is it run
 ok "curl, python3, docker and compose are available"
 
 # --------------------------------------------------------------
+# Asking
+# --------------------------------------------------------------
+# Prompts are only used on a terminal. Under --yes, in CI or in the sandbox
+# (docker exec without a tty) every answer falls back to its default, so
+# automation never hangs waiting for input that will not come.
+interactive() { [[ -t 0 && "$assume_yes" != "true" ]]; }
+
+ask() {
+  # ask VARIABLE "Question" "default"
+  local __var="$1" __question="$2" __default="${3:-}" __reply=""
+  if interactive; then
+    read -r -p "  $__question${__default:+ [$__default]}: " __reply
+  fi
+  printf -v "$__var" '%s' "${__reply:-$__default}"
+}
+
+ask_secret() {
+  local __var="$1" __question="$2" __reply=""
+  if interactive; then
+    read -r -s -p "  $__question: " __reply
+    echo
+  fi
+  printf -v "$__var" '%s' "$__reply"
+}
+
+ask_yes_no() {
+  # ask_yes_no VARIABLE "Question" yes|no
+  local __var="$1" __question="$2" __default="$3" __reply=""
+  if interactive; then
+    local hint="[y/N]"
+    [[ "$__default" == "yes" ]] && hint="[Y/n]"
+    read -r -p "  $__question $hint: " __reply
+  fi
+  __reply="${__reply:-$__default}"
+  case "$__reply" in
+    [Yy]*) printf -v "$__var" '%s' "yes" ;;
+    *)     printf -v "$__var" '%s' "no" ;;
+  esac
+}
+
+choose() {
+  # choose VARIABLE "Question" default_index "option one" "option two" ...
+  local __var="$1" __question="$2" __default="$3"; shift 3
+  local __options=("$@") __reply=""
+  if interactive; then
+    echo "  $__question"
+    local index=1
+    for option in "${__options[@]}"; do
+      printf "    %d) %s\n" "$index" "$option"
+      index=$((index + 1))
+    done
+    read -r -p "  Choice [$__default]: " __reply
+  fi
+  __reply="${__reply:-$__default}"
+  [[ "$__reply" =~ ^[0-9]+$ ]] && [[ "$__reply" -ge 1 ]] && [[ "$__reply" -le ${#__options[@]} ]] \
+    || __reply="$__default"
+  printf -v "$__var" '%s' "$__reply"
+}
+
+port_free() {
+  if (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; then
+    exec 3>&- 2>/dev/null || true
+    return 1
+  fi
+  return 0
+}
+
+first_free_port() {
+  # first_free_port STARTING_AT — so suggested defaults do not collide with
+  # whatever the machine is already running.
+  local candidate="$1"
+  for _ in $(seq 1 50); do
+    port_free "$candidate" && { echo "$candidate"; return; }
+    candidate=$((candidate + 1))
+  done
+  echo "$1"
+}
+
+# --------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------
 STATE_FILE="$REPO_ROOT/.env.install-state"
@@ -217,6 +296,81 @@ with open(path, "w") as handle:
     json.dump(data, handle)
 PY
 }
+
+# --------------------------------------------------------------
+# Ask, when there is nobody to ask but the person running this.
+# --------------------------------------------------------------
+# A Federation registration answers most of these. Without one, and on a
+# terminal, ask rather than silently installing a demo nobody asked for.
+organization=""
+ep_name=""
+auth_api_url=""
+oidc_issuer=""
+oidc_client_id=""
+want_oidc="no"
+
+if [[ -z "$config_id" ]] && interactive; then
+  echo
+  echo "${BLUE}No --config-id given. A few questions, then nothing is written until you confirm.${NC}"
+  echo "${BLUE}Press Enter to accept the value in brackets.${NC}"
+  echo
+
+  ask config_id "Federation configuration id, if you have one (blank to skip)" ""
+
+  if [[ -z "$config_id" ]]; then
+    warn "Without a registration this Endpoint will not be listed in the Federation."
+    already_warned="true"
+    ask organization "Organization name" "My-Organization"
+    ask ep_name      "Endpoint name"     "my_endpoint"
+  fi
+
+  echo
+  choose backend_choice "Where should this Endpoint store its catalog?" 1 \
+    "MongoDB, installed alongside the Endpoint (simplest)" \
+    "CKAN, installed by this script (takes several minutes)" \
+    "CKAN, one I already have"
+  case "$backend_choice" in
+    1) backend="mongodb" ;;
+    2) backend="ckan"; ckan_url="" ;;
+    3) backend="ckan"
+       ask ckan_url       "CKAN URL" ""
+       ask_secret ckan_api_key "CKAN API key (not shown)"
+       ask ckan_sysadmin  "CKAN username that key belongs to (blank to skip verifying it)" ""
+       ;;
+  esac
+
+  echo
+  ep_api_port="$(first_free_port "$ep_api_port")"
+  ask ep_api_port "Port to publish the Endpoint on" "$ep_api_port"
+
+  if [[ "$backend" == "ckan" && -z "$ckan_url" ]]; then
+    # Suggested from what is actually free, since CKAN's defaults collide with
+    # anything already using 8443, 81 or 5000.
+    ckan_ssl_port="$(first_free_port "$ckan_ssl_port")"
+    ckan_http_port="$(first_free_port "$ckan_http_port")"
+    ckan_app_port="$(first_free_port "$ckan_app_port")"
+    ask ckan_ssl_port  "CKAN https port"       "$ckan_ssl_port"
+    ask ckan_http_port "CKAN http port"        "$ckan_http_port"
+    ask ckan_app_port  "CKAN application port" "$ckan_app_port"
+    ask ckan_sysadmin  "CKAN sysadmin to create" "ckan_admin"
+  fi
+
+  echo
+  ask auth_api_url "Authentication service (AAI) URL" \
+    "https://idp.nationaldataplatform.org/temp/information"
+
+  echo
+  ask_yes_no want_oidc "Offer sign-in through the identity provider?" "no"
+  if [[ "$want_oidc" == "yes" ]]; then
+    ask oidc_issuer    "Identity provider realm URL" \
+      "https://idp.nationaldataplatform.org/realms/NDP"
+    ask oidc_client_id "Client id registered for this Endpoint" ""
+    if [[ -z "$oidc_client_id" ]]; then
+      warn "No client id: sign-in will stay off. See docs/configuration.md."
+      want_oidc="no"
+    fi
+  fi
+fi
 
 # example.env is written as a demo that shows every setting, so its defaults
 # have the optional integrations switched on. Inheriting those would produce an
@@ -319,7 +473,7 @@ PY
     info "Registration includes client id '$fed_client_id' for realm '$fed_realm'."
     info "Identity-provider sign-in is left off; see docs/configuration.md to enable it."
   fi
-else
+elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."
   warn "The Endpoint will not be listed in the Federation."
 fi
@@ -327,6 +481,18 @@ fi
 # --------------------------------------------------------------
 step "Selecting the local catalog backend"
 # --------------------------------------------------------------
+# Answers given at the prompt. A Federation registration, where there is one,
+# has already set organization and name, so these only fill in what it did not.
+[[ -n "$organization" ]]  && put ORGANIZATION "$organization"
+[[ -n "$ep_name" ]]       && put EP_NAME "$ep_name"
+[[ -n "$auth_api_url" ]]  && put AUTH_API_URL "$auth_api_url"
+
+if [[ "$want_oidc" == "yes" && -n "$oidc_client_id" ]]; then
+  put OIDC_ENABLED "True"
+  put OIDC_ISSUER "$oidc_issuer"
+  put OIDC_CLIENT_ID "$oidc_client_id"
+fi
+
 put LOCAL_CATALOG_BACKEND "$backend"
 
 profiles=()
@@ -354,6 +520,19 @@ else
   [[ -n "$ckan_password" ]]  || ckan_password="$(state_get CKAN_PASSWORD)"
   [[ -n "$ckan_password" ]]  || ckan_password="$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')"
   [[ -n "$ckan_site_url" ]]  || ckan_site_url="https://$(host_ip):${ckan_ssl_port}"
+
+  # Last chance to stop before anything is downloaded, built or written.
+  if interactive; then
+    echo
+    echo "${BLUE}About to install CKAN:${NC}"
+    echo "    into      $ckan_dir"
+    echo "    reachable at $ckan_site_url"
+    echo "    sysadmin  $ckan_sysadmin"
+    echo "    ports     https $ckan_ssl_port, http $ckan_http_port, app $ckan_app_port"
+    echo "  This pulls and builds several images and takes a few minutes."
+    ask_yes_no proceed "Continue?" "yes"
+    [[ "$proceed" == "yes" ]] || fail "Aborted; nothing was changed."
+  fi
 
   saved_key="$(state_get CKAN_API_KEY)"
   saved_url="$(state_get CKAN_URL)"

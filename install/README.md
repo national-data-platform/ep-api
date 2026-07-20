@@ -11,11 +11,38 @@ Federation. The registration supplies the organization, the access group, and
 whether streaming and a staging catalog are in play; the installer applies
 those on top of the documented defaults and brings the stack up.
 
-To try an Endpoint without registering one:
+Run it with no arguments and it asks:
 
 ```bash
-./install/install.sh --backend mongodb
+./install/install.sh
 ```
+
+```
+  Federation configuration id, if you have one (blank to skip):
+  Organization name [My-Organization]:
+  Endpoint name [my_endpoint]:
+
+  Where should this Endpoint store its catalog?
+    1) MongoDB, installed alongside the Endpoint (simplest)
+    2) CKAN, installed by this script (takes several minutes)
+    3) CKAN, one I already have
+  Choice [1]:
+
+  Port to publish the Endpoint on [8003]:
+  Authentication service (AAI) URL [https://idp.nationaldataplatform.org/temp/information]:
+  Offer sign-in through the identity provider? [y/N]:
+```
+
+Enter accepts the value in brackets. Suggested ports are picked from what is
+actually free on the machine, so the defaults do not collide with whatever is
+already running. Nothing is written or downloaded until the answers are
+confirmed, and `--dry-run` shows the resulting configuration without touching
+anything.
+
+Every question can be answered with a flag instead, which is what makes the
+same script usable unattended. Prompts are skipped entirely when there is no
+terminal (CI, the sandbox) or when `--yes` is given, so automation never hangs
+waiting for input.
 
 ## Options
 
