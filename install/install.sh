@@ -38,6 +38,9 @@ ckan_repo="$CKAN_REPO_DEFAULT"
 ckan_sysadmin=""
 ckan_password=""
 ckan_site_url=""
+ckan_ssl_port="8443"
+ckan_http_port="81"
+ckan_app_port="5000"
 ep_api_port="8002"
 dry_run="false"
 start="true"
@@ -74,7 +77,10 @@ have:
   --ckan-repo <url>       Default: $CKAN_REPO_DEFAULT
   --ckan-sysadmin <name>  Sysadmin account to create. Default: ckan_admin
   --ckan-password <pass>  Its password. Default: a generated one
-  --ckan-site-url <url>   How the Endpoint reaches CKAN. Default: https://<host-ip>:8443
+  --ckan-site-url <url>   How the Endpoint reaches CKAN. Default: https://<host-ip>:<ssl-port>
+  --ckan-ssl-port <port>  CKAN's https port on the host. Default: 8443
+  --ckan-http-port <port> CKAN's http port on the host. Default: 81
+  --ckan-app-port <port>  CKAN's application port on the host. Default: 5000
   --dry-run               Render .env and run the checks, start nothing
   --no-start              Write everything, do not bring the stack up
   --yes                   Do not prompt before overwriting an existing .env
@@ -98,6 +104,9 @@ while [[ $# -gt 0 ]]; do
     --ckan-sysadmin)   ckan_sysadmin="${2:-}"; shift 2 ;;
     --ckan-password)   ckan_password="${2:-}"; shift 2 ;;
     --ckan-site-url)   ckan_site_url="${2:-}"; shift 2 ;;
+    --ckan-ssl-port)   ckan_ssl_port="${2:-}"; shift 2 ;;
+    --ckan-http-port)  ckan_http_port="${2:-}"; shift 2 ;;
+    --ckan-app-port)   ckan_app_port="${2:-}"; shift 2 ;;
     --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
@@ -344,7 +353,7 @@ else
   [[ -n "$ckan_sysadmin" ]]  || ckan_sysadmin="ckan_admin"
   [[ -n "$ckan_password" ]]  || ckan_password="$(state_get CKAN_PASSWORD)"
   [[ -n "$ckan_password" ]]  || ckan_password="$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')"
-  [[ -n "$ckan_site_url" ]]  || ckan_site_url="https://$(host_ip):8443"
+  [[ -n "$ckan_site_url" ]]  || ckan_site_url="https://$(host_ip):${ckan_ssl_port}"
 
   saved_key="$(state_get CKAN_API_KEY)"
   saved_url="$(state_get CKAN_URL)"
@@ -377,7 +386,24 @@ else
     set_env_kv "$ckan_dir/.env" CKAN_SYSADMIN_NAME "$ckan_sysadmin"
     set_env_kv "$ckan_dir/.env" CKAN_SYSADMIN_PASSWORD "$ckan_password"
     set_env_kv "$ckan_dir/.env" CKAN_SITE_URL "$ckan_site_url"
+    set_env_kv "$ckan_dir/.env" NGINX_SSLPORT_HOST "$ckan_ssl_port"
+    set_env_kv "$ckan_dir/.env" NGINX_PORT_HOST "$ckan_http_port"
+    set_env_kv "$ckan_dir/.env" CKAN_PORT_HOST "$ckan_app_port"
     ok "Configured CKAN for $ckan_site_url (sysadmin: $ckan_sysadmin)"
+
+    # Compose reports a port clash only after pulling and building, which on
+    # CKAN is several minutes of work before the failure appears. Checking
+    # first turns that into an immediate, actionable message.
+    for entry in "https:$ckan_ssl_port" "http:$ckan_http_port" "app:$ckan_app_port"; do
+      label="${entry%%:*}"; port="${entry##*:}"
+      if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+        exec 3>&- 2>/dev/null || true
+        holder="$(docker ps --format '{{.Names}}\t{{.Ports}}' | awk -v p=":$port->" '$0 ~ p {print $1; exit}')"
+        fail "Port $port (CKAN $label) is already in use${holder:+ by container '$holder'}.
+       Choose another with --ckan-${label/https/ssl}-port, or stop what is using it."
+      fi
+    done
+    ok "Ports $ckan_ssl_port, $ckan_http_port and $ckan_app_port are free"
 
     info "Building and starting CKAN — this takes several minutes the first time"
     (cd "$ckan_dir" && "${COMPOSE[@]}" up -d --build) \
@@ -440,9 +466,19 @@ step "Rendering .env from example.env"
 # --------------------------------------------------------------
 env_path="$REPO_ROOT/.env"
 
-if [[ -f "$env_path" && "$assume_yes" != "true" && "$dry_run" != "true" ]]; then
-  read -r -p "$env_path already exists. Overwrite? [y/N] " reply
-  [[ "$reply" =~ ^[Yy]$ ]] || fail "Aborted; nothing was changed."
+if [[ -f "$env_path" && "$dry_run" != "true" ]]; then
+  # Always keep a copy, including with --yes. A .env holds credentials that
+  # exist nowhere else — it is git-ignored, so an overwrite is unrecoverable
+  # unless something saved it first. Automation must not be able to destroy it.
+  backup="$env_path.backup.$(date +%Y%m%d-%H%M%S)"
+  cp -p "$env_path" "$backup"
+  chmod 600 "$backup"
+  warn "Existing .env saved to $(basename "$backup")"
+
+  if [[ "$assume_yes" != "true" ]]; then
+    read -r -p "$env_path already exists. Overwrite? [y/N] " reply
+    [[ "$reply" =~ ^[Yy]$ ]] || fail "Aborted; nothing was changed (backup kept at $backup)."
+  fi
 fi
 
 target="$env_path"
@@ -522,6 +558,13 @@ if [[ "$start" != "true" ]]; then
   info "--no-start given; bring it up yourself with:"
   echo "    cd $REPO_ROOT && EP_API_PORT=$ep_api_port ${COMPOSE[*]} ${profiles[*]/#/--profile } up -d"
   exit 0
+fi
+
+if (exec 3<>"/dev/tcp/127.0.0.1/$ep_api_port") 2>/dev/null; then
+  exec 3>&- 2>/dev/null || true
+  holder="$(docker ps --format '{{.Names}}\t{{.Ports}}' | awk -v p=":$ep_api_port->" '$0 ~ p {print $1; exit}')"
+  fail "Port $ep_api_port is already in use${holder:+ by container '$holder'}.
+       Choose another with --ep-api-port, or stop what is using it."
 fi
 
 profile_args=()
