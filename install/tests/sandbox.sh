@@ -69,7 +69,7 @@ for attempt in $(seq 1 40); do
 done
 
 echo "==> Installing what a bare host would need"
-docker exec "$CONTAINER" apk add --no-cache bash curl python3 docker-cli-compose >/dev/null 2>&1 \
+docker exec "$CONTAINER" apk add --no-cache bash curl python3 git iproute2 docker-cli-compose >/dev/null 2>&1 \
   || { echo "Could not install sandbox prerequisites" >&2; exit 1; }
 
 echo "==> Copying the working tree in"

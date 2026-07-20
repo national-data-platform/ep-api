@@ -26,11 +26,18 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FEDERATION_URL_DEFAULT="https://federation.ndp.utah.edu"
 
+CKAN_REPO_DEFAULT="https://github.com/sci-ndp/pop-ckan-docker.git"
+
 config_id=""
 federation_url="$FEDERATION_URL_DEFAULT"
 backend="mongodb"
 ckan_url=""
 ckan_api_key=""
+ckan_dir=""
+ckan_repo="$CKAN_REPO_DEFAULT"
+ckan_sysadmin=""
+ckan_password=""
+ckan_site_url=""
 ep_api_port="8002"
 dry_run="false"
 start="true"
@@ -57,9 +64,17 @@ Options:
   --config-id <id>        Federation configuration id for this Endpoint.
   --federation-url <url>  Default: $FEDERATION_URL_DEFAULT
   --backend <name>        Local catalog backend: mongodb | ckan. Default: mongodb
-  --ckan-url <url>        Existing CKAN to use when --backend ckan
-  --ckan-api-key <key>    API key for that CKAN
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
+
+With --backend ckan, a CKAN is installed unless you point at one you already
+have:
+  --ckan-url <url>        Use this existing CKAN instead of installing one
+  --ckan-api-key <key>    API key for that CKAN (required with --ckan-url)
+  --ckan-dir <path>       Where to install CKAN. Default: <repo>/../ndp-ckan
+  --ckan-repo <url>       Default: $CKAN_REPO_DEFAULT
+  --ckan-sysadmin <name>  Sysadmin account to create. Default: ckan_admin
+  --ckan-password <pass>  Its password. Default: a generated one
+  --ckan-site-url <url>   How the Endpoint reaches CKAN. Default: https://<host-ip>:8443
   --dry-run               Render .env and run the checks, start nothing
   --no-start              Write everything, do not bring the stack up
   --yes                   Do not prompt before overwriting an existing .env
@@ -78,6 +93,11 @@ while [[ $# -gt 0 ]]; do
     --backend)         backend="${2:-}"; shift 2 ;;
     --ckan-url)        ckan_url="${2:-}"; shift 2 ;;
     --ckan-api-key)    ckan_api_key="${2:-}"; shift 2 ;;
+    --ckan-dir)        ckan_dir="${2:-}"; shift 2 ;;
+    --ckan-repo)       ckan_repo="${2:-}"; shift 2 ;;
+    --ckan-sysadmin)   ckan_sysadmin="${2:-}"; shift 2 ;;
+    --ckan-password)   ckan_password="${2:-}"; shift 2 ;;
+    --ckan-site-url)   ckan_site_url="${2:-}"; shift 2 ;;
     --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
@@ -108,6 +128,66 @@ fi
 docker info >/dev/null 2>&1 || fail "Cannot talk to the Docker daemon. Is it running, and is this user allowed to use it?"
 [[ -f "$REPO_ROOT/example.env" ]] || fail "example.env not found at $REPO_ROOT — run this from a checkout of the repository."
 ok "curl, python3, docker and compose are available"
+
+# --------------------------------------------------------------
+# Helpers
+# --------------------------------------------------------------
+STATE_FILE="$REPO_ROOT/.env.install-state"
+
+state_get() {
+  [[ -f "$STATE_FILE" ]] || return 0
+  grep -E "^$1=" "$STATE_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- || true
+}
+
+state_set() {
+  touch "$STATE_FILE"
+  chmod 600 "$STATE_FILE"
+  # Rewritten rather than appended so re-running does not accumulate stale
+  # duplicates of the same key.
+  python3 - "$STATE_FILE" "$1" "$2" <<'PY'
+import sys
+path, key, value = sys.argv[1], sys.argv[2], sys.argv[3]
+lines = []
+try:
+    with open(path) as handle:
+        lines = [line.rstrip("\n") for line in handle if not line.startswith(key + "=")]
+except FileNotFoundError:
+    pass
+lines.append(f"{key}={value}")
+with open(path, "w") as handle:
+    handle.write("\n".join(lines) + "\n")
+PY
+}
+
+set_env_kv() {
+  # set_env_kv FILE KEY VALUE — set a key in a KEY=VALUE file, appending it if
+  # absent. Used on CKAN's own .env: a blind sed would silently do nothing if
+  # that project renamed or dropped the key, which is exactly how the previous
+  # installer broke.
+  python3 - "$1" "$2" "$3" <<'PY'
+import re, sys
+path, key, value = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path) as handle:
+    lines = handle.read().splitlines()
+pattern = re.compile(rf"^#?\s*{re.escape(key)}=")
+for index, line in enumerate(lines):
+    if pattern.match(line):
+        lines[index] = f"{key}={value}"
+        break
+else:
+    lines.append(f"{key}={value}")
+with open(path, "w") as handle:
+    handle.write("\n".join(lines) + "\n")
+PY
+}
+
+host_ip() {
+  # The address the Endpoint container will use to reach CKAN, which is
+  # published on the host rather than shared through a Docker network.
+  ip route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}' \
+    || hostname -i 2>/dev/null | awk '{print $1}' \
+    || echo "127.0.0.1"
+}
 
 # --------------------------------------------------------------
 # Collect the values that will override the documented defaults.
@@ -247,13 +327,107 @@ if [[ "$backend" == "mongodb" ]]; then
   put CKAN_LOCAL_ENABLED "False"
   put MONGODB_CONNECTION_STRING "mongodb://mongodb:27017"
   ok "Using the bundled MongoDB (compose profile 'mongodb')"
-else
-  [[ -n "$ckan_url" ]]     || fail "--backend ckan requires --ckan-url (this installer does not provision CKAN yet)."
-  [[ -n "$ckan_api_key" ]] || fail "--backend ckan requires --ckan-api-key."
+elif [[ -n "$ckan_url" ]]; then
+  # Pointing at a CKAN that already exists.
+  [[ -n "$ckan_api_key" ]] || fail "--ckan-url requires --ckan-api-key."
   put CKAN_LOCAL_ENABLED "True"
   put CKAN_URL "$ckan_url"
   put CKAN_API_KEY "$ckan_api_key"
-  ok "Using the CKAN at $ckan_url"
+  ok "Using the existing CKAN at $ckan_url"
+else
+  # Installing CKAN. It is a separate project with its own compose stack, so
+  # it is cloned alongside this repository rather than into it.
+  command -v git >/dev/null 2>&1 || fail "git is required to install CKAN."
+
+  [[ -n "$ckan_dir" ]]       || ckan_dir="$(dirname "$REPO_ROOT")/ndp-ckan"
+  [[ -n "$ckan_sysadmin" ]]  || ckan_sysadmin="$(state_get CKAN_SYSADMIN)"
+  [[ -n "$ckan_sysadmin" ]]  || ckan_sysadmin="ckan_admin"
+  [[ -n "$ckan_password" ]]  || ckan_password="$(state_get CKAN_PASSWORD)"
+  [[ -n "$ckan_password" ]]  || ckan_password="$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')"
+  [[ -n "$ckan_site_url" ]]  || ckan_site_url="https://$(host_ip):8443"
+
+  saved_key="$(state_get CKAN_API_KEY)"
+  saved_url="$(state_get CKAN_URL)"
+
+  if [[ "$dry_run" == "true" && -z "$saved_key" ]]; then
+    warn "--dry-run: CKAN would be installed at $ckan_dir and its token minted."
+    warn "Nothing is installed; the rendered CKAN_API_KEY below is a placeholder."
+    ckan_api_key="(minted during a real install)"
+  elif [[ -n "$saved_key" && -n "$saved_url" ]] && curl -sk -o /dev/null -m 10 "$saved_url"; then
+    ok "CKAN already installed and reachable at $saved_url — reusing its API key"
+    ckan_site_url="$saved_url"
+    ckan_api_key="$saved_key"
+  else
+    step "Installing CKAN"
+
+    if [[ ! -d "$ckan_dir/.git" ]]; then
+      info "Cloning $ckan_repo into $ckan_dir"
+      git clone --depth 1 "$ckan_repo" "$ckan_dir" \
+        || fail "Could not clone the CKAN repository."
+    else
+      info "CKAN checkout already present at $ckan_dir"
+    fi
+
+    [[ -f "$ckan_dir/.env" ]] || {
+      [[ -f "$ckan_dir/.env.example" ]] \
+        || fail "$ckan_dir has no .env.example — the CKAN project's layout has changed."
+      cp "$ckan_dir/.env.example" "$ckan_dir/.env"
+    }
+
+    set_env_kv "$ckan_dir/.env" CKAN_SYSADMIN_NAME "$ckan_sysadmin"
+    set_env_kv "$ckan_dir/.env" CKAN_SYSADMIN_PASSWORD "$ckan_password"
+    set_env_kv "$ckan_dir/.env" CKAN_SITE_URL "$ckan_site_url"
+    ok "Configured CKAN for $ckan_site_url (sysadmin: $ckan_sysadmin)"
+
+    info "Building and starting CKAN — this takes several minutes the first time"
+    (cd "$ckan_dir" && "${COMPOSE[@]}" up -d --build) \
+      || fail "CKAN failed to start. Inspect it with: cd $ckan_dir && ${COMPOSE[*]} logs"
+
+    step "Waiting for CKAN to become ready"
+    ckan_cid=""
+    for attempt in $(seq 1 120); do
+      ckan_cid="$(cd "$ckan_dir" && "${COMPOSE[@]}" ps -q ckan 2>/dev/null | head -n1)"
+      if [[ -n "$ckan_cid" ]]; then
+        health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$ckan_cid" 2>/dev/null || echo starting)"
+        [[ "$health" == "healthy" || "$health" == "running" ]] && break
+      fi
+      [[ $attempt -eq 120 ]] && fail "CKAN did not become ready. Inspect: cd $ckan_dir && ${COMPOSE[*]} logs ckan"
+      sleep 5
+    done
+    ok "CKAN is up"
+
+    step "Minting a CKAN API token"
+    ckan_ini="$(docker exec "$ckan_cid" bash -c '
+      for path in /srv/app/ckan.ini /etc/ckan/ckan.ini /etc/ckan/default/ckan.ini; do
+        [ -f "$path" ] && { echo "$path"; exit 0; }
+      done
+      exit 1' 2>/dev/null)" \
+      || fail "Could not locate ckan.ini inside the CKAN container."
+
+    # CKAN prints the token amid other output; the token itself is a JWT.
+    ckan_api_key="$(docker exec "$ckan_cid" \
+      bash -c "ckan -c '$ckan_ini' user token add '$ckan_sysadmin' ep_installer" 2>/dev/null \
+      | tr -cd '\11\12\15\40-\176' | grep -Eo 'eyJ[0-9a-zA-Z._-]{30,}' | head -n1)"
+
+    if [[ -z "$ckan_api_key" ]]; then
+      warn "Could not read a token from CKAN. Its output was:"
+      docker exec "$ckan_cid" bash -c "ckan -c '$ckan_ini' user token add '$ckan_sysadmin' ep_installer" >&2 || true
+      fail "CKAN did not return an API token."
+    fi
+
+    state_set CKAN_API_KEY "$ckan_api_key"
+    state_set CKAN_URL "$ckan_site_url"
+    state_set CKAN_SYSADMIN "$ckan_sysadmin"
+    state_set CKAN_PASSWORD "$ckan_password"
+    ok "Token minted and saved to $(basename "$STATE_FILE") so re-running does not create another"
+  fi
+
+  put CKAN_LOCAL_ENABLED "True"
+  put CKAN_URL "$ckan_site_url"
+  put CKAN_API_KEY "$ckan_api_key"
+  # CKAN is served over https with a self-signed certificate.
+  put CKAN_VERIFY_SSL "False"
+  ckan_url="$ckan_site_url"
 fi
 
 if [[ "${fed_streaming:-false}" == "true" ]]; then
@@ -300,15 +474,35 @@ if [[ -n "$auth_url" ]]; then
   esac
 fi
 
-if [[ "$backend" == "ckan" ]]; then
-  code="$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
-    -H "Authorization: $ckan_api_key" "${ckan_url%/}/api/3/action/site_read" || echo 000)"
+if [[ "$backend" == "ckan" && "$dry_run" != "true" ]]; then
+  # -k throughout: a freshly installed CKAN serves https with a self-signed
+  # certificate, which is why CKAN_VERIFY_SSL is False above.
+
+  # Reachability first, so an unreachable CKAN is not reported as a bad key.
+  code="$(curl -sk -o /dev/null -w '%{http_code}' -m 20 \
+    "${ckan_url%/}/api/3/action/status_show" || echo 000)"
   case "$code" in
-    200) ok "CKAN reachable and the API key is accepted" ;;
-    403|401) fail "CKAN at $ckan_url rejected the API key (HTTP $code). Fix the key before installing." ;;
+    200) ok "CKAN reachable at $ckan_url" ;;
     000) fail "Could not reach CKAN at $ckan_url." ;;
-    *)   warn "CKAN at $ckan_url answered HTTP $code for site_read." ;;
+    *)   fail "CKAN at $ckan_url answered HTTP $code — it does not look like a working CKAN API." ;;
   esac
+
+  # Then the key itself. api_token_list is used because it actually
+  # discriminates: it answers 200 for a valid token and 403 for a missing or
+  # invalid one. Most read actions answer 200 to anonymous callers, so they
+  # would pass with any string at all and prove nothing.
+  if [[ -n "$ckan_sysadmin" ]]; then
+    code="$(curl -sk -o /dev/null -w '%{http_code}' -m 20 \
+      -H "Authorization: $ckan_api_key" \
+      "${ckan_url%/}/api/3/action/api_token_list?user=${ckan_sysadmin}" || echo 000)"
+    case "$code" in
+      200)     ok "CKAN accepted the API key" ;;
+      401|403) fail "CKAN at $ckan_url rejected the API key (HTTP $code)." ;;
+      *)       warn "Could not confirm the CKAN API key (HTTP $code)." ;;
+    esac
+  else
+    warn "CKAN key not verified: pass --ckan-sysadmin <name> to check it against this CKAN."
+  fi
 fi
 
 if [[ "$dry_run" == "true" ]]; then

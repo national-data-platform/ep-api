@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **An installer that ships with the code it installs** (`install/`). Driven by a Federation registration: `./install/install.sh --config-id <id>`. It renders `.env` from `example.env` rather than keeping its own list of settings, selects optional services through compose profiles, and verifies the authentication service and CKAN before writing anything.
+- `--backend ckan` installs CKAN, waits for it, creates a sysadmin and mints an API token, storing it in `.env.install-state` so re-running reuses it instead of minting another. Point at an existing CKAN with `--ckan-url` and `--ckan-api-key` instead.
+- `install/tests/sandbox.sh` runs the installer inside a throwaway Docker-in-Docker container, so each run starts from a clean machine and the host's Docker state is untouched.
+- A test that fails when the installer sets a variable `example.env` does not document. It caught `IS_PUBLIC`, which the API reads and `docs/configuration.md` documents but `example.env` omitted, so no generated deployment had ever set it.
+
+### Changed
+- `docker-compose.yml` publishes the API on `${EP_API_PORT:-8002}`. The port was previously a literal that the old installer rewrote with `sed`; the pattern had stopped matching, and `sed -i` exits 0 when it matches nothing, so the override silently did nothing.
+
+### Removed
+- The two stale installers at the repository root (`install.sh`, `setup.sh`). Neither had been updated since January, both had fallen behind `example.env` by eleven variables, and `setup.sh` had diverged from its counterpart in `sci-ndp/NDP-EP` by more than 1700 lines.
+
 ## [0.33.0] - 2026-07-20
 
 ### Added

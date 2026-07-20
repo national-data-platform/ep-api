@@ -24,13 +24,48 @@ To try an Endpoint without registering one:
 | `--config-id <id>` | Federation configuration id |
 | `--federation-url <url>` | defaults to `https://federation.ndp.utah.edu` |
 | `--backend mongodb\|ckan` | local catalog backend, default `mongodb` |
-| `--ckan-url`, `--ckan-api-key` | required with `--backend ckan` |
 | `--ep-api-port <port>` | host port for the API, default `8002` |
 | `--dry-run` | render the configuration and run the checks, start nothing |
 | `--no-start` | write everything, bring nothing up |
 | `--yes` | do not prompt before overwriting an existing `.env` |
 
-`--dry-run` is the quickest way to see what a registration would produce.
+`--dry-run` is the quickest way to see what a registration would produce. It
+never installs anything, including CKAN.
+
+### CKAN
+
+```bash
+./install/install.sh --config-id <id> --backend ckan
+```
+
+installs CKAN, waits for it to come up, creates a sysadmin and mints an API
+token for the Endpoint to use. CKAN is a separate project with its own compose
+stack, so it is cloned **next to** this repository (`../ndp-ckan` by default),
+not into it.
+
+| Option | |
+|---|---|
+| `--ckan-url`, `--ckan-api-key` | use a CKAN that already exists instead of installing one |
+| `--ckan-dir <path>` | where to install it, default `../ndp-ckan` |
+| `--ckan-repo <url>` | default `https://github.com/sci-ndp/pop-ckan-docker.git` |
+| `--ckan-sysadmin <name>` | account to create, default `ckan_admin` |
+| `--ckan-password <pass>` | its password, default generated |
+| `--ckan-site-url <url>` | how the Endpoint reaches CKAN, default `https://<host-ip>:8443` |
+
+The minted token, the CKAN URL and the sysadmin credentials are written to
+`.env.install-state` (mode 600, ignored by git). Re-running the installer
+reuses them instead of minting another token, so it is safe to run repeatedly.
+
+CKAN is served over https with a self-signed certificate, so the installer
+sets `CKAN_VERIFY_SSL=False` and uses `curl -k` for its checks.
+
+Reachability and the key are checked separately, so an unreachable CKAN is not
+reported as a bad key. The key is checked with `api_token_list`, which answers
+403 without a valid token — most CKAN read actions answer 200 to anonymous
+callers, so checking against one of those would pass with any string at all
+and prove nothing. Checking the key needs a username, so with `--ckan-url`
+pass `--ckan-sysadmin <name>` to enable it; without it the installer says the
+key went unverified rather than implying it passed.
 
 ## How it works, and why
 
@@ -93,10 +128,6 @@ are what gets tested.
 
 ## Not done yet
 
-- **CKAN is not provisioned.** `--backend ckan` connects to a CKAN that
-  already exists and verifies the API key before writing anything. Installing
-  CKAN and minting its token — which the previous installer did with
-  `ckan user token add` — has not been brought over.
 - **Kafka and JupyterHub are not provisioned.** A registration that asks for
   streaming or JupyterHub configures the Endpoint for them but does not stand
   them up.
