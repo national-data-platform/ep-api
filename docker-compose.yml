@@ -8,7 +8,10 @@ services:
       dockerfile: Dockerfile.allinone
     container_name: ndp-ep-api
     ports:
-      - "8002:80"
+      # Overridable so an installer never has to rewrite this file. A previous
+      # installer patched this line with a literal sed that stopped matching
+      # when it changed, and failed silently.
+      - "${EP_API_PORT:-8002}:80"
     env_file:
       - .env
     extra_hosts:
