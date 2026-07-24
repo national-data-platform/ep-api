@@ -40,10 +40,11 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     """
     token = token_data.credentials
 
-    # Handle test token
+    # Handle local test token. This bypasses the external identity provider
+    # but still returns the same role shape normal authorization expects.
     if token == swagger_settings.test_token:
         return {
-            "roles": ["admin", "user"],
+            "roles": ["ndp_admin"],
             "groups": [],
             "sub": "test_user",
             "username": "Test User",

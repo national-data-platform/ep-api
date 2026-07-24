@@ -427,17 +427,20 @@ export const accessRequestsAPI = {
 
 /**
  * Return true if the given user_info payload grants admin access to the
- * access-request management page. Admins are: holders of the `ndp_admin`
- * realm role OR holders of any role ending in `_admin` (which covers the
- * endpoint-scoped `{UUID}_admin` role).
+ * access-request management page. Prefer the backend's effective_role,
+ * and keep role-name checks as a fallback for older API responses.
  */
 export const isAccessRequestAdmin = (userInfo) => {
+  if (userInfo?.effective_role === 'admin') return true;
+
   const roles = userInfo?.roles;
   if (!Array.isArray(roles)) return false;
   return roles.some((role) => {
     if (typeof role !== 'string') return false;
     const lower = role.trim().toLowerCase();
-    return lower === 'ndp_admin' || lower.endsWith('_admin');
+    return lower === 'ndp_admin'
+      || lower.endsWith('_admin')
+      || (lower.startsWith('group:') && lower.endsWith(':admin'));
   });
 };
 
