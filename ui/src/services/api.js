@@ -425,21 +425,9 @@ export const accessRequestsAPI = {
     }),
 };
 
-/**
- * Return true if the given user_info payload grants admin access to the
- * access-request management page. Admins are: holders of the `ndp_admin`
- * realm role OR holders of any role ending in `_admin` (which covers the
- * endpoint-scoped `{UUID}_admin` role).
- */
-export const isAccessRequestAdmin = (userInfo) => {
-  const roles = userInfo?.roles;
-  if (!Array.isArray(roles)) return false;
-  return roles.some((role) => {
-    if (typeof role !== 'string') return false;
-    const lower = role.trim().toLowerCase();
-    return lower === 'ndp_admin' || lower.endsWith('_admin');
-  });
-};
+// Admin detection lives in ./roles so it can be unit tested without importing
+// the axios client. Re-exported here to keep the existing import path working.
+export { isAccessRequestAdmin } from './roles';
 
 // Authentication API - Enhanced with proper user info validation
 export const authAPI = {

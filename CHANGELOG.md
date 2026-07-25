@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.2] - 2026-07-25
+
+### Fixed
+- **Endpoint administrators can now reach the UI management areas.** The admin dashboard and the access-request review page were shown only to holders of the platform-wide `ndp_admin` role. A user who administers *this* endpoint holds `group:{endpoint-uuid}:admin`, which the UI's client-side check missed — it matched only `ndp_admin` or names ending in `_admin`, and the canonical role ends in `:admin`. The UI now trusts the backend's `effective_role` (which already resolves every admin role form) to decide admin status, so endpoint administrators see the areas their role grants. The admin helper moved to `ui/src/services/roles.js` and is unit-tested.
+
+### Backwards compatibility
+- UI only. No API behavior, routes, or request/response shapes change. The backend already reported `effective_role`; the fallback that matches role strings is kept for older backends and now also recognizes the `:admin` form.
+
 ## [0.33.1] - 2026-07-25
 
 ### Fixed
