@@ -500,14 +500,66 @@ PY
       continue
     fi
 
+    # Pull the human-readable reason out of the JSON body, falling back to the
+    # raw body when it is not the shape we expect.
+    local reason
+    reason="$(python3 - "$body" <<'PY'
+import json, sys
+try:
+    d = json.loads(sys.argv[1])
+    print(d.get("message") or d.get("detail") or d.get("error") or sys.argv[1])
+except Exception:
+    print(sys.argv[1])
+PY
+)"
+
     case "$http_code" in
       201) break ;;
-      000) fail "Could not reach the Federation at ${federation_url%/}." ;;
-      400) fail "The Federation rejected the registration: ${body}
-       An Endpoint with this name may already exist." ;;
-      401) fail "The Federation rejected the token. Check it has not expired." ;;
-      422) fail "The Federation rejected the values: ${body}" ;;
-      *)   fail "The Federation answered HTTP $http_code: ${body}" ;;
+      000)
+        fail "Could not reach the Federation at ${federation_url%/}.
+       Check the URL and your network, then try again."
+        ;;
+      400)
+        fail "The Federation rejected the registration:
+         ${reason}
+       An Endpoint with this name may already exist."
+        ;;
+      401)
+        fail "The Federation did not accept your access token.
+       It may have expired — get a fresh one from your user section at
+       https://nationaldataplatform.org/ and run the installer again."
+        ;;
+      422)
+        fail "The Federation rejected some of the values:
+         ${reason}"
+        ;;
+      502|503|504)
+        # The Federation reached a downstream service (Affinities, Keycloak,
+        # CKAN) that is down. This is not the operator's fault, and the
+        # Federation does not roll back, so a partial registration may exist.
+        local service="a required service"
+        case "$reason" in
+          *[Aa]ffinities*) service="the Affinities service" ;;
+          *[Kk]eycloak*)   service="the identity provider (Keycloak)" ;;
+          *[Cc][Kk][Aa][Nn]*) service="the CKAN service" ;;
+        esac
+        fail "Your details were accepted, but the Federation could not finish:
+       ${service} it depends on is currently unavailable (HTTP ${http_code}).
+
+       This is NOT a problem with your token or your answers — it is a
+       temporary outage on the platform side. Reported reason:
+         ${reason}
+
+       The Federation may have partially registered '${ep_name}' before
+       failing, so retrying with the same name could report that it already
+       exists. When the service is back, register again with a different
+       Endpoint name, or ask the platform administrator to clear the partial
+       registration for '${ep_name}'."
+        ;;
+      *)
+        fail "The Federation answered HTTP ${http_code}:
+         ${reason}"
+        ;;
     esac
   done
 
