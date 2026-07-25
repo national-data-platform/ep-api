@@ -702,6 +702,7 @@ emit("fed_org", cfg.get("organization") or "")
 emit("fed_ep_name", cfg.get("ep_name") or "")
 emit("fed_group", cfg.get("group_name") or "")
 emit("fed_streaming", "true" if truthy(cfg.get("streaming")) else "false")
+emit("fed_staging", "true" if truthy(cfg.get("enable_staging")) else "false")
 emit("fed_jhub", "true" if truthy(cfg.get("jhub")) else "false")
 emit("fed_jupyter_url", cfg.get("jupyter_url") or "")
 emit("fed_pre_ckan_url", cfg.get("pre_ckan_url") or "")
@@ -735,7 +736,10 @@ PY
     put USE_JUPYTERLAB "False"
   fi
 
-  if [[ -n "$fed_pre_ckan_url" && -n "$fed_pre_ckan_key" ]]; then
+  # The Federation always returns pre-CKAN credentials, so enabling on their
+  # presence alone would ignore the registration's staging choice. Honor
+  # enable_staging: only turn the staging catalog on when it was requested.
+  if [[ "$fed_staging" == "true" && -n "$fed_pre_ckan_url" && -n "$fed_pre_ckan_key" ]]; then
     put PRE_CKAN_ENABLED "True"
     put PRE_CKAN_URL "$fed_pre_ckan_url"
     put PRE_CKAN_API_KEY "$fed_pre_ckan_key"
