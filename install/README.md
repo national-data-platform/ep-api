@@ -47,10 +47,11 @@ Run it with no arguments and it asks:
   Organization name [My-Organization]:
   Endpoint name [my_endpoint]:
 
-  Where should this Endpoint store its catalog?
-    1) MongoDB, installed alongside the Endpoint (simplest)
-    2) CKAN, installed by this script (takes several minutes)
-    3) CKAN, one I already have
+  Which local catalog should this Endpoint use?
+    1) MongoDB, installed alongside the Endpoint
+    2) MongoDB, one I already have
+    3) CKAN, installed by this script (takes several minutes)
+    4) CKAN, one I already have
   Choice [1]:
 
   Port to publish the Endpoint on [8003]:
@@ -83,6 +84,19 @@ waiting for input.
 
 `--dry-run` is the quickest way to see what a registration would produce. It
 never installs anything, including CKAN.
+
+### MongoDB
+
+The default backend. The installer starts a MongoDB alongside the Endpoint,
+unless you point at one you already run:
+
+```bash
+./install/install.sh --backend mongodb --mongodb-url mongodb://your-host:27017
+```
+
+With `--mongodb-url` the bundled MongoDB is not started; the Endpoint uses the
+one you give. The connection string must be reachable from inside the Endpoint
+container — a MongoDB on the host is `mongodb://host.docker.internal:27017`.
 
 ### CKAN
 

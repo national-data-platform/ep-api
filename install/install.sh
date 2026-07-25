@@ -31,6 +31,7 @@ CKAN_REPO_DEFAULT="https://github.com/sci-ndp/pop-ckan-docker.git"
 config_id=""
 federation_url="$FEDERATION_URL_DEFAULT"
 backend="mongodb"
+mongodb_url=""
 ckan_url=""
 ckan_api_key=""
 ckan_dir=""
@@ -91,6 +92,10 @@ Options:
   --backend <name>        Local catalog backend: mongodb | ckan. Default: mongodb
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
 
+With --backend mongodb, the bundled MongoDB is started unless you point at one
+you already have:
+  --mongodb-url <url>     Use this existing MongoDB instead of starting one
+
 With --backend ckan, a CKAN is installed unless you point at one you already
 have:
   --ckan-url <url>        Use this existing CKAN instead of installing one
@@ -119,6 +124,7 @@ while [[ $# -gt 0 ]]; do
     --config-id)       config_id="${2:-}"; shift 2 ;;
     --federation-url)  federation_url="${2:-}"; shift 2 ;;
     --backend)         backend="${2:-}"; shift 2 ;;
+    --mongodb-url)     mongodb_url="${2:-}"; shift 2 ;;
     --ckan-url)        ckan_url="${2:-}"; shift 2 ;;
     --ckan-api-key)    ckan_api_key="${2:-}"; shift 2 ;;
     --ckan-dir)        ckan_dir="${2:-}"; shift 2 ;;
@@ -535,12 +541,20 @@ if [[ -z "$config_id" ]] && interactive; then
     "datasets published to it are stored."
   choose backend_choice "Which local catalog should this Endpoint use?" 1 \
     "MongoDB, installed alongside the Endpoint" \
+    "MongoDB, one I already have" \
     "CKAN, installed by this script (takes several minutes)" \
     "CKAN, one I already have"
   case "$backend_choice" in
-    1) backend="mongodb" ;;
-    2) backend="ckan"; ckan_url="" ;;
-    3) backend="ckan"
+    1) backend="mongodb"; mongodb_url="" ;;
+    2) backend="mongodb"
+       section "Existing MongoDB" \
+         "Connect to a MongoDB you already run, instead of installing one." \
+         "Give its connection string, reachable from the Endpoint container."
+       ask mongodb_url "MongoDB connection string" \
+         "mongodb://host.docker.internal:27017"
+       ;;
+    3) backend="ckan"; ckan_url="" ;;
+    4) backend="ckan"
        section "Existing CKAN" \
          "Connect to a CKAN you already run. The key is verified before" \
          "anything is written."
@@ -740,7 +754,12 @@ fi
 put LOCAL_CATALOG_BACKEND "$backend"
 
 profiles=()
-if [[ "$backend" == "mongodb" ]]; then
+if [[ "$backend" == "mongodb" && -n "$mongodb_url" ]]; then
+  # Pointing at a MongoDB that already exists — do not start the bundled one.
+  put CKAN_LOCAL_ENABLED "False"
+  put MONGODB_CONNECTION_STRING "$mongodb_url"
+  ok "Using the existing MongoDB at $mongodb_url"
+elif [[ "$backend" == "mongodb" ]]; then
   # Provisioned by this repository's own compose file.
   profiles+=("mongodb")
   put CKAN_LOCAL_ENABLED "False"
