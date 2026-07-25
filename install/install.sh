@@ -372,7 +372,7 @@ PY
 
   section "Endpoint name" \
     "A short name identifying this Endpoint. Must be unique in the" \
-    "Federation — registering fails if one already has this name."
+    "Federation; if the name is already taken you will be asked for another."
   ask ep_name "Endpoint name" "${ep_name:-my_endpoint}"
 
   section "Contact email" \
@@ -397,50 +397,89 @@ PY
   ask_yes_no streaming "Enable data streaming (Kafka)?" "no"
   ask_yes_no rexec     "Enable remote execution?" "no"
 
-  local payload
-  payload="$(python3 - <<PY
-import json
+  local proceed confirmed="no"
+  # Confirm once before creating anything; a name clash then loops back to ask
+  # for a different name without re-confirming the rest.
+  while true; do
+    if [[ "$confirmed" != "yes" ]]; then
+      echo
+      echo "  About to register '${ep_name}' for '${organization}' at ${federation_url%/}."
+      ask_yes_no proceed "Continue?" "yes"
+      [[ "$proceed" == "yes" ]] || fail "Aborted; nothing was registered."
+      confirmed="yes"
+    fi
+
+    # Values are passed through the environment and typed in Python, so a
+    # name containing quotes or spaces cannot break the JSON, and booleans are
+    # real booleans (an earlier version substituted bash `true`/`false`
+    # straight into Python source, which is not valid there).
+    local payload
+    payload="$(
+      REG_CKAN_USER="$ckan_user" REG_CKAN_PASS="$ckan_pass" \
+      REG_POC="$poc" REG_ORG="$organization" REG_EP_NAME="$ep_name" \
+      REG_USERID="$userid" \
+      REG_STAGING="$staging" REG_JHUB="$jhub" REG_STREAMING="$streaming" \
+      REG_REXEC="$rexec" REG_PUBLIC="$public_ep" \
+      python3 <<'PY'
+import json, os
+
+
+def flag(name):
+    return os.environ.get(name) == "yes"
+
+
 print(json.dumps({
-    "ckan_name": "$ckan_user",
-    "ckan_password": """$ckan_pass""",
-    "enable_staging": $([[ "$staging" == "yes" ]] && echo true || echo false),
-    "poc": "$poc",
-    "organization": """$organization""",
-    "jhub": $([[ "$jhub" == "yes" ]] && echo true || echo false),
-    "streaming": $([[ "$streaming" == "yes" ]] && echo true || echo false),
-    "rexec": $([[ "$rexec" == "yes" ]] && echo true || echo false),
-    "ep_name": """$ep_name""",
-    "userid": "$userid",
-    "public": $([[ "$public_ep" == "yes" ]] && echo true || echo false),
+    "ckan_name": os.environ["REG_CKAN_USER"],
+    "ckan_password": os.environ["REG_CKAN_PASS"],
+    "enable_staging": flag("REG_STAGING"),
+    "poc": os.environ["REG_POC"],
+    "organization": os.environ["REG_ORG"],
+    "jhub": flag("REG_JHUB"),
+    "streaming": flag("REG_STREAMING"),
+    "rexec": flag("REG_REXEC"),
+    "ep_name": os.environ["REG_EP_NAME"],
+    "userid": os.environ["REG_USERID"],
+    "public": flag("REG_PUBLIC"),
 }))
 PY
 )"
 
-  echo
-  echo "  About to register '${ep_name}' for '${organization}' at ${federation_url%/}."
-  local proceed
-  ask_yes_no proceed "Continue?" "yes"
-  [[ "$proceed" == "yes" ]] || fail "Aborted; nothing was registered."
+    response="$(mktemp)"
+    http_code="$(curl -s -o "$response" -w '%{http_code}' -m 60 \
+      -X POST "${federation_url%/}/ep/simple" \
+      -H "Authorization: Bearer $token" \
+      -H "Content-Type: application/json" \
+      -d "$payload" || echo 000)"
 
-  response="$(mktemp)"
-  http_code="$(curl -s -o "$response" -w '%{http_code}' -m 60 \
-    -X POST "${federation_url%/}/ep/simple" \
-    -H "Authorization: Bearer $token" \
-    -H "Content-Type: application/json" \
-    -d "$payload" || echo 000)"
+    body="$(cat "$response")"
+    rm -f "$response"
 
-  body="$(cat "$response")"
-  rm -f "$response"
+    if [[ "$http_code" == "400" ]] && interactive; then
+      # The most common 400 is a name already taken. Rather than abort and
+      # lose everything typed so far, ask for a different name and retry.
+      warn "The Federation rejected the name '${ep_name}': ${body}"
+      warn "This usually means an Endpoint with that name already exists."
+      local taken="$ep_name"
+      # No default here, so pressing Enter cannot resubmit the same name.
+      while true; do
+        ask ep_name "Try a different Endpoint name" ""
+        [[ -n "$ep_name" && "$ep_name" != "$taken" ]] && break
+        ep_name="$taken"
+        warn "Please enter a name different from '${taken}'."
+      done
+      continue
+    fi
 
-  case "$http_code" in
-    201) ;;
-    000) fail "Could not reach the Federation at ${federation_url%/}." ;;
-    400) fail "The Federation rejected the registration: ${body}
+    case "$http_code" in
+      201) break ;;
+      000) fail "Could not reach the Federation at ${federation_url%/}." ;;
+      400) fail "The Federation rejected the registration: ${body}
        An Endpoint with this name may already exist." ;;
-    401) fail "The Federation rejected the token. Check it has not expired." ;;
-    422) fail "The Federation rejected the values: ${body}" ;;
-    *)   fail "The Federation answered HTTP $http_code: ${body}" ;;
-  esac
+      401) fail "The Federation rejected the token. Check it has not expired." ;;
+      422) fail "The Federation rejected the values: ${body}" ;;
+      *)   fail "The Federation answered HTTP $http_code: ${body}" ;;
+    esac
+  done
 
   config_id="$(python3 - "$body" <<'PY'
 import json, sys
