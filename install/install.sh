@@ -342,7 +342,8 @@ register_with_federation() {
   fi
 
   section "Access token" \
-    "Your personal NDP access token, from your user panel on the platform." \
+    "Your personal NDP access token. Get it from the user section of" \
+    "https://nationaldataplatform.org/ (sign in, then open your user panel)." \
     "It authorizes the registration and identifies you as the Endpoint's" \
     "administrator. It is sent only to the Federation, never stored."
   ask_secret token "Your NDP access token (not shown)"
