@@ -382,8 +382,10 @@ PY
   [[ -n "$poc" ]] || fail "A contact email is required to register."
 
   section "Catalog administrator" \
-    "The administrator account created for this Endpoint's catalog. The same" \
-    "credentials are reused if this script installs CKAN, so they match."
+    "The Federation records a catalog administrator account with every" \
+    "registration — it is required, whichever local catalog you choose next." \
+    "You pick MongoDB or CKAN further on; if you pick CKAN (or this script" \
+    "installs one), these same credentials become its admin, so they match."
   ask ckan_user "Catalog admin username" "ckan_admin"
   ask_secret ckan_pass "Catalog admin password (not shown)"
   [[ -n "$ckan_pass" ]] || fail "A catalog admin password is required."
