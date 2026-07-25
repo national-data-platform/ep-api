@@ -397,10 +397,16 @@ PY
   ckan_user=""
   ckan_pass=""
 
+  section "Listed on the platform" \
+    "Whether this Endpoint reports its status to the NDP, so it shows up as" \
+    "an active, discoverable Endpoint on the platform. This is about" \
+    "visibility only — it does NOT control who can read this Endpoint's" \
+    "data; that is governed by its access groups and roles."
+  ask_yes_no public_ep "List this Endpoint on the platform?" "yes"
+
   section "Features" \
-    "What this Endpoint offers. Each can be changed later; leave the" \
+    "What else this Endpoint offers. Each can be changed later; leave the" \
     "defaults if unsure."
-  ask_yes_no public_ep "Publicly listed on the platform?" "yes"
   ask_yes_no staging   "Publish through a staging catalog first?" "no"
   ask_yes_no jhub      "Enable JupyterHub?" "no"
   ask_yes_no streaming "Enable data streaming (Kafka)?" "no"
