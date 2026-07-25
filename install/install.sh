@@ -404,13 +404,29 @@ PY
     "data; that is governed by its access groups and roles."
   ask_yes_no public_ep "List this Endpoint on the platform?" "yes"
 
-  section "Features" \
-    "What else this Endpoint offers. Each can be changed later; leave the" \
-    "defaults if unsure."
-  ask_yes_no staging   "Publish through a staging catalog first?" "no"
-  ask_yes_no jhub      "Enable JupyterHub?" "no"
+  echo
+  echo "${BLUE}The rest are optional features, off by default. Each can be"
+  echo "  changed later; leave them off if unsure.${NC}"
+
+  section "Staging catalog" \
+    "Publish datasets to a staging (pre-production) catalog for review before" \
+    "they reach the global NDP catalog, instead of publishing directly."
+  ask_yes_no staging "Publish through a staging catalog first?" "no"
+
+  section "JupyterHub" \
+    "Show a JupyterHub link in the Endpoint's UI, for users to open notebooks" \
+    "against this Endpoint's data."
+  ask_yes_no jhub "Enable JupyterHub?" "no"
+
+  section "Data streaming" \
+    "Let this Endpoint manage and stream Kafka topics, for real-time data" \
+    "rather than static datasets. Needs a reachable Kafka broker."
   ask_yes_no streaming "Enable data streaming (Kafka)?" "no"
-  ask_yes_no rexec     "Enable remote execution?" "no"
+
+  section "Remote execution" \
+    "Let this Endpoint drive the Remote Execution Deployment API, to launch" \
+    "compute jobs. Needs that service configured."
+  ask_yes_no rexec "Enable remote execution?" "no"
 
   local proceed confirmed="no"
   # Confirm once before creating anything; a name clash then loops back to ask
