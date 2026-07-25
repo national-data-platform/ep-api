@@ -436,6 +436,16 @@ if [[ -z "$config_id" ]] && interactive; then
   echo "${BLUE}No --config-id given. A few questions, then nothing is written until you confirm.${NC}"
   echo "${BLUE}Press Enter to accept the value in brackets.${NC}"
   echo
+  echo "  A configuration id identifies this Endpoint's registration in the NDP"
+  echo "  Federation — the central registry of all Endpoints. The registration"
+  echo "  holds the settings the Endpoint is set up with (organization, access"
+  echo "  group, catalog, identity-provider client) and is what lists it on the"
+  echo "  platform. You get an id when you register."
+  echo
+  echo "  Paste the id if you already registered this Endpoint (on the platform"
+  echo "  or from a previous run). Leave it blank and the next step offers to"
+  echo "  register now."
+  echo
 
   ask config_id "Federation configuration id, if you have one (blank to skip)" ""
 
