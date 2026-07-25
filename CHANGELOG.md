@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-07-25
+
+### Fixed
+- **The test token is no longer rejected on endpoints with group-based access enabled.** The user information fabricated for the test token carried the role `admin`, which the endpoint does not recognize (`ndp_admin` is the platform admin role), and no groups. With `ENABLE_GROUP_BASED_ACCESS=True` this failed the entry check, so `/user/info` returned 403 and the UI refused to let the test token in — and even where admitted it resolved to no effective role. The test token now carries `ndp_admin`, so it grants the full access it is meant to, regardless of group-based access.
+
+### Backwards compatibility
+- Only the roles reported for the test token change. No routes or request/response shapes change. The test token remains a development convenience that should be left unset in production.
+
 ## [0.33.0] - 2026-07-20
 
 ### Added
