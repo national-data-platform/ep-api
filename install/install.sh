@@ -381,14 +381,15 @@ PY
   ask poc "Contact email" ""
   [[ -n "$poc" ]] || fail "A contact email is required to register."
 
-  section "Catalog administrator" \
-    "The Federation records a catalog administrator account with every" \
-    "registration — it is required, whichever local catalog you choose next." \
-    "You pick MongoDB or CKAN further on; if you pick CKAN (or this script" \
-    "installs one), these same credentials become its admin, so they match."
-  ask ckan_user "Catalog admin username" "ckan_admin"
-  ask_secret ckan_pass "Catalog admin password (not shown)"
-  [[ -n "$ckan_pass" ]] || fail "A catalog admin password is required."
+  # The Federation requires ckan_name/ckan_password fields but only stores
+  # them — it never authenticates or provisions with them (the staging-catalog
+  # token is fetched with the user's own bearer token), and this installer
+  # never reads them back from a fetched config. So they are sent empty rather
+  # than prompted for: an Endpoint on MongoDB has no catalog admin, and one on
+  # CKAN gets its sysadmin from the CKAN install step. Sending them empty also
+  # keeps a real password out of the Federation's unauthenticated /ep/{id}.
+  ckan_user=""
+  ckan_pass=""
 
   section "Features" \
     "What this Endpoint offers. Each can be changed later; leave the" \
@@ -494,10 +495,6 @@ PY
   [[ -n "$config_id" ]] || fail "The Federation accepted the registration but returned no id: ${body}"
 
   ok "Registered. Configuration id: $config_id"
-  # The catalog admin just chosen is reused when this installer provisions
-  # CKAN, so the two agree rather than drifting apart.
-  ckan_sysadmin="$ckan_user"
-  ckan_password="$ckan_pass"
   echo
   info "Keep this id — re-running the installer with --config-id $config_id"
   info "reproduces this Endpoint without registering again."
@@ -530,6 +527,29 @@ if [[ -z "$config_id" ]] && interactive; then
     "Leave blank and the next step offers to register now."
   ask config_id "Configuration id (blank to skip)" ""
 
+  # Catalog first, so the reason the later CKAN questions (ports, sysadmin)
+  # appear is already established, and the registration does not ask about a
+  # catalog before you have said which one you want.
+  section "Local catalog" \
+    "Where this Endpoint stores the datasets published to it. MongoDB is" \
+    "self-contained; CKAN is heavier but is the full NDP catalog."
+  choose backend_choice "Where should this Endpoint store its catalog?" 1 \
+    "MongoDB, installed alongside the Endpoint (simplest)" \
+    "CKAN, installed by this script (takes several minutes)" \
+    "CKAN, one I already have"
+  case "$backend_choice" in
+    1) backend="mongodb" ;;
+    2) backend="ckan"; ckan_url="" ;;
+    3) backend="ckan"
+       section "Existing CKAN" \
+         "Connect to a CKAN you already run. The key is verified before" \
+         "anything is written."
+       ask ckan_url       "CKAN URL" ""
+       ask_secret ckan_api_key "CKAN API key (not shown)"
+       ask ckan_sysadmin  "CKAN username that key belongs to (blank to skip verifying it)" ""
+       ;;
+  esac
+
   if [[ -z "$config_id" ]]; then
     section "Federation registration" \
       "Registering creates the configuration in the Federation and, with it," \
@@ -553,26 +573,6 @@ if [[ -z "$config_id" ]] && interactive; then
       ask ep_name "Endpoint name" "my_endpoint"
     fi
   fi
-
-  section "Local catalog" \
-    "Where this Endpoint stores the datasets published to it. MongoDB is" \
-    "self-contained; CKAN is heavier but is the full NDP catalog."
-  choose backend_choice "Where should this Endpoint store its catalog?" 1 \
-    "MongoDB, installed alongside the Endpoint (simplest)" \
-    "CKAN, installed by this script (takes several minutes)" \
-    "CKAN, one I already have"
-  case "$backend_choice" in
-    1) backend="mongodb" ;;
-    2) backend="ckan"; ckan_url="" ;;
-    3) backend="ckan"
-       section "Existing CKAN" \
-         "Connect to a CKAN you already run. The key is verified before" \
-         "anything is written."
-       ask ckan_url       "CKAN URL" ""
-       ask_secret ckan_api_key "CKAN API key (not shown)"
-       ask ckan_sysadmin  "CKAN username that key belongs to (blank to skip verifying it)" ""
-       ;;
-  esac
 
   section "Endpoint port" \
     "The host port the Endpoint's web UI and API are served on. The default" \
