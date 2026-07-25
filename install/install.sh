@@ -531,10 +531,10 @@ if [[ -z "$config_id" ]] && interactive; then
   # appear is already established, and the registration does not ask about a
   # catalog before you have said which one you want.
   section "Local catalog" \
-    "Where this Endpoint stores the datasets published to it. MongoDB is" \
-    "self-contained; CKAN is heavier but is the full NDP catalog."
-  choose backend_choice "Where should this Endpoint store its catalog?" 1 \
-    "MongoDB, installed alongside the Endpoint (simplest)" \
+    "Choose what this Endpoint uses as its local data catalog — where the" \
+    "datasets published to it are stored."
+  choose backend_choice "Which local catalog should this Endpoint use?" 1 \
+    "MongoDB, installed alongside the Endpoint" \
     "CKAN, installed by this script (takes several minutes)" \
     "CKAN, one I already have"
   case "$backend_choice" in
