@@ -55,6 +55,15 @@ warn()    { echo "${YELLOW}[warn]${NC} $*" >&2; }
 fail()    { echo "${RED}[fail]${NC} $*" >&2; exit 1; }
 step()    { echo; echo "${GREEN}==>${NC} $*"; }
 
+banner() {
+  echo
+  echo "${BLUE}╭──────────────────────────────────────────────╮${NC}"
+  echo "${BLUE}│${NC}    ${GREEN}NDP Endpoint — Configuration Assistant${NC}    ${BLUE}│${NC}"
+  echo "${BLUE}╰──────────────────────────────────────────────╯${NC}"
+  echo "  Sets up and starts an NDP Endpoint on this machine."
+  echo "  Nothing is written or started until you confirm."
+}
+
 usage() {
   cat <<USAGE
 NDP Endpoint installer
@@ -118,6 +127,8 @@ done
 
 [[ "$backend" == "mongodb" || "$backend" == "ckan" ]] \
   || fail "--backend must be mongodb or ckan (got: $backend)"
+
+banner
 
 # --------------------------------------------------------------
 step "Checking prerequisites"
