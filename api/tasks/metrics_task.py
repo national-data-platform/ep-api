@@ -2,8 +2,10 @@
 
 import asyncio
 from datetime import datetime
+import hashlib
 import json
 import logging
+import os
 
 import httpx
 
@@ -21,6 +23,49 @@ from api.services.status_services import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _is_enabled(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _api_key_fingerprint(api_key: str) -> str:
+    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:12]
+
+
+def add_deployment_metrics(metrics_payload):
+    """
+    Add optional deployment metadata to the federation metrics payload.
+
+    NetBird values are installer-provided through environment variables.
+    CKAN URL is safe to report. The CKAN API key is reported only when
+    ``REPORT_CKAN_API_KEY_IN_METRICS`` is explicitly enabled; otherwise only
+    a configured flag and short fingerprint are sent for operator checks.
+    """
+    netbird_enabled = _is_enabled(os.getenv("NETBIRD_ENABLED", ""))
+    netbird_ip = os.getenv("NETBIRD_IP", "").strip()
+    netbird_group = os.getenv("NETBIRD_GROUP", "").strip()
+
+    if netbird_enabled or netbird_ip or netbird_group:
+        metrics_payload["netbird_enabled"] = netbird_enabled
+        if netbird_ip:
+            metrics_payload["netbird_ip"] = netbird_ip
+        if netbird_group:
+            metrics_payload["netbird_group"] = netbird_group
+
+    ckan_url = (ckan_settings.ckan_url or "").strip()
+    if ckan_url:
+        metrics_payload["ckan_url"] = ckan_url
+
+    ckan_api_key = (ckan_settings.ckan_api_key or "").strip()
+    ckan_api_key_configured = bool(ckan_api_key and ckan_api_key != "your-api-key")
+    metrics_payload["ckan_api_key_configured"] = ckan_api_key_configured
+    if ckan_api_key_configured:
+        metrics_payload["ckan_api_key_fingerprint"] = _api_key_fingerprint(
+            ckan_api_key
+        )
+        if _is_enabled(os.getenv("REPORT_CKAN_API_KEY_IN_METRICS", "")):
+            metrics_payload["ckan_api_key"] = ckan_api_key
 
 
 async def record_system_metrics():
@@ -65,6 +110,7 @@ async def record_system_metrics():
                 "s3_enabled": s3_settings.s3_enabled,
                 "pre_ckan_enabled": ckan_settings.pre_ckan_enabled,
             }
+            add_deployment_metrics(metrics_payload)
 
             # Add URLs/details for enabled infrastructure services
             if swagger_settings.use_jupyterlab:

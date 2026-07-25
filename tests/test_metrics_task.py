@@ -5,7 +5,64 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
 
-from api.tasks.metrics_task import record_system_metrics
+from api.tasks.metrics_task import add_deployment_metrics, record_system_metrics
+
+
+def test_add_deployment_metrics_reports_netbird_and_ckan_metadata(monkeypatch):
+    monkeypatch.setenv("NETBIRD_ENABLED", "true")
+    monkeypatch.setenv("NETBIRD_IP", "100.93.31.218")
+    monkeypatch.setenv("NETBIRD_GROUP", "ndp-ep")
+    monkeypatch.delenv("REPORT_CKAN_API_KEY_IN_METRICS", raising=False)
+    payload = {}
+
+    with patch("api.tasks.metrics_task.ckan_settings") as mock_ckan:
+        mock_ckan.ckan_url = "https://nlr.ndp.utah.edu/ckan"
+        mock_ckan.ckan_api_key = "local-secret-key"
+
+        add_deployment_metrics(payload)
+
+    assert payload["netbird_enabled"] is True
+    assert payload["netbird_ip"] == "100.93.31.218"
+    assert payload["netbird_group"] == "ndp-ep"
+    assert payload["ckan_url"] == "https://nlr.ndp.utah.edu/ckan"
+    assert payload["ckan_api_key_configured"] is True
+    assert payload["ckan_api_key_fingerprint"] == "2744e2f96b64"
+    assert "ckan_api_key" not in payload
+
+
+def test_add_deployment_metrics_can_report_ckan_api_key_when_explicitly_enabled(
+    monkeypatch,
+):
+    monkeypatch.setenv("REPORT_CKAN_API_KEY_IN_METRICS", "true")
+    payload = {}
+
+    with patch("api.tasks.metrics_task.ckan_settings") as mock_ckan:
+        mock_ckan.ckan_url = "https://nlr.ndp.utah.edu/ckan"
+        mock_ckan.ckan_api_key = "local-secret-key"
+
+        add_deployment_metrics(payload)
+
+    assert payload["ckan_api_key"] == "local-secret-key"
+    assert payload["ckan_api_key_configured"] is True
+
+
+def test_add_deployment_metrics_does_not_treat_placeholder_key_as_configured(
+    monkeypatch,
+):
+    monkeypatch.delenv("NETBIRD_ENABLED", raising=False)
+    monkeypatch.delenv("NETBIRD_IP", raising=False)
+    monkeypatch.delenv("NETBIRD_GROUP", raising=False)
+    payload = {}
+
+    with patch("api.tasks.metrics_task.ckan_settings") as mock_ckan:
+        mock_ckan.ckan_url = "http://localhost:5000"
+        mock_ckan.ckan_api_key = "your-api-key"
+
+        add_deployment_metrics(payload)
+
+    assert payload["ckan_url"] == "http://localhost:5000"
+    assert payload["ckan_api_key_configured"] is False
+    assert "ckan_api_key_fingerprint" not in payload
 
 
 class TestRecordSystemMetrics:
