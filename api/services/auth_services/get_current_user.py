@@ -42,8 +42,14 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
 
     # Handle test token
     if token == swagger_settings.test_token:
+        # The test token is meant to grant full access without contacting the
+        # authentication service. It must therefore carry the platform admin
+        # role the endpoint actually recognizes (``ndp_admin``); the earlier
+        # ``"admin"`` string matched nothing, so with group-based access
+        # enabled the test user was denied entry to its own endpoint and
+        # resolved to no effective role.
         return {
-            "roles": ["admin", "user"],
+            "roles": ["ndp_admin"],
             "groups": [],
             "sub": "test_user",
             "username": "Test User",

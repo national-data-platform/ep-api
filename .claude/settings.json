@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:8002/status/)",
+      "Bash(curl -s -H \"Authorization: Bearer test-token-local\" http://localhost:8002/user/info)",
+      "Bash(curl -s http://localhost:8002/ui/)",
+      "Bash(curl -s -H \"Authorization: Bearer test-token-local\" http://localhost:8002/user/info -v)",
+      "Bash(docker pull:*)",
+      "Bash(gh issue create --title 'React asset paths in index.html not rewritten with ROOT_PATH prefix' --body ':*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8002/ep-api/ui/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8002/ep-api/ui/static/js/main.20709373.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8002/ep-api/ui/static/css/main.4159b21f.css)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8002/ep-api/ui/favicon.ico)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8002/ep-api/health)",
+      "Bash(gh issue create --title 'resource_search crashes with AttributeError when resource fields are None' --body ':*)",
+      "Bash(docker cp:*)",
+      "Bash(black --check --diff api/repositories/base_repository.py tests/repositories/test_base_repository.py)",
+      "Bash(python -m black --check --diff ~/ep-api/api/repositories/base_repository.py ~/ep-api/tests/repositories/test_base_repository.py)",
+      "Bash(python3 -m black --version)",
+      "Bash(python3 -m flake8 --version)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/black --check --diff api/repositories/base_repository.py tests/repositories/test_base_repository.py)",
+      "Bash(.venv/bin/black --check api/repositories/base_repository.py tests/repositories/test_base_repository.py)",
+      "Bash(.venv/bin/flake8 api/repositories/base_repository.py tests/repositories/test_base_repository.py --max-line-length=88)",
+      "Bash(.venv/bin/black --check --diff api/repositories/base_repository.py)",
+      "Bash(docker login:*)",
+      "Bash(ls Dockerfile* docker*)",
+      "Bash(gh release create v0.10.11 --title v0.10.11 --notes ':*)",
+      "Bash(gh run:*)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" http://localhost:8002/)",
+      "Bash(curl -s http://localhost:8002/resources/search?q=test)",
+      "Bash(curl -s http://localhost:8002/)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" \"http://localhost:8002/ep-api/api/resources/search?q=test\")",
+      "Bash(curl -s \"http://localhost:8002/ep-api/api/resources/search?q=test\")",
+      "Bash(curl -s \"http://localhost:8002/ep-api/api/status/\")"
+    ]
+  }
+}

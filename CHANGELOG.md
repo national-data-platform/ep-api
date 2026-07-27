@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - The two stale installers at the repository root (`install.sh`, `setup.sh`). Neither had been updated since January, both had fallen behind `example.env` by eleven variables, and `setup.sh` had diverged from its counterpart in `sci-ndp/NDP-EP` by more than 1700 lines.
 
+## [0.33.2] - 2026-07-25
+
+### Fixed
+- **Endpoint administrators can now reach the UI management areas.** The admin dashboard and the access-request review page were shown only to holders of the platform-wide `ndp_admin` role. A user who administers *this* endpoint holds `group:{endpoint-uuid}:admin`, which the UI's client-side check missed — it matched only `ndp_admin` or names ending in `_admin`, and the canonical role ends in `:admin`. The UI now trusts the backend's `effective_role` (which already resolves every admin role form) to decide admin status, so endpoint administrators see the areas their role grants. The admin helper moved to `ui/src/services/roles.js` and is unit-tested.
+
+### Backwards compatibility
+- UI only. No API behavior, routes, or request/response shapes change. The backend already reported `effective_role`; the fallback that matches role strings is kept for older backends and now also recognizes the `:admin` form.
+
+## [0.33.1] - 2026-07-25
+
+### Fixed
+- **The test token is no longer rejected on endpoints with group-based access enabled.** The user information fabricated for the test token carried the role `admin`, which the endpoint does not recognize (`ndp_admin` is the platform admin role), and no groups. With `ENABLE_GROUP_BASED_ACCESS=True` this failed the entry check, so `/user/info` returned 403 and the UI refused to let the test token in — and even where admitted it resolved to no effective role. The test token now carries `ndp_admin`, so it grants the full access it is meant to, regardless of group-based access.
+
+### Backwards compatibility
+- Only the roles reported for the test token change. No routes or request/response shapes change. The test token remains a development convenience that should be left unset in production.
+
 ## [0.33.0] - 2026-07-20
 
 ### Added

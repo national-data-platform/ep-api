@@ -827,16 +827,23 @@ fi
 put LOCAL_CATALOG_BACKEND "$backend"
 
 profiles=()
+# CKAN_LOCAL_ENABLED, despite the name, is the master switch for local catalog
+# writes for ANY backend — it gates the registration, update, delete and
+# resource routes (see api/main.py). It must be True for MongoDB too, or the
+# Endpoint comes up read-only and datasets cannot be registered.
 if [[ "$backend" == "mongodb" && -n "$mongodb_url" ]]; then
   # Pointing at a MongoDB that already exists — do not start the bundled one.
-  put CKAN_LOCAL_ENABLED "False"
+  put CKAN_LOCAL_ENABLED "True"
   put MONGODB_CONNECTION_STRING "$mongodb_url"
   ok "Using the existing MongoDB at $mongodb_url"
 elif [[ "$backend" == "mongodb" ]]; then
-  # Provisioned by this repository's own compose file.
+  # Provisioned by this repository's own compose file. That MongoDB is started
+  # with root credentials (admin/admin123), so the connection string must carry
+  # them — without them the Endpoint cannot create indexes or write, and
+  # /search fails with "Command createIndexes requires authentication".
   profiles+=("mongodb")
-  put CKAN_LOCAL_ENABLED "False"
-  put MONGODB_CONNECTION_STRING "mongodb://mongodb:27017"
+  put CKAN_LOCAL_ENABLED "True"
+  put MONGODB_CONNECTION_STRING "mongodb://admin:admin123@mongodb:27017"
   ok "Using the bundled MongoDB (compose profile 'mongodb')"
 elif [[ -n "$ckan_url" ]]; then
   # Pointing at a CKAN that already exists.
