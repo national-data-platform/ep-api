@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.3] - 2026-07-27
+
 ### Added
 - **An installer that ships with the code it installs** (`install/`). Driven by a Federation registration: `./install/install.sh --config-id <id>`. It renders `.env` from `example.env` rather than keeping its own list of settings, selects optional services through compose profiles, and verifies the authentication service and CKAN before writing anything.
 - `--backend ckan` installs CKAN, waits for it, creates a sysadmin and mints an API token, storing it in `.env.install-state` so re-running reuses it instead of minting another. Point at an existing CKAN with `--ckan-url` and `--ckan-api-key` instead.
@@ -16,8 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `docker-compose.yml` publishes the API on `${EP_API_PORT:-8002}`. The port was previously a literal that the old installer rewrote with `sed`; the pattern had stopped matching, and `sed -i` exits 0 when it matches nothing, so the override silently did nothing.
 
+### Fixed
+- **Endpoint administrators are recognized when their role uses the Keycloak group path.** Per-endpoint role recognition was keyed on `AFFINITIES_EP_UUID` (`group:{uuid}:admin`), but the identity provider emits the full group path (e.g. `group:ndp_ep/ep-{id}:admin`). On endpoints registered through the Federation or created by the installer, `AFFINITIES_EP_UUID` is unset, so every endpoint-scoped admin/writer/viewer role was missed — the API reported an effective role of `none` and the UI hid the management areas. Roles are now derived from the configured `GROUP_NAMES` (which hold the group paths the provider issues) and compared with path normalization, while the `AFFINITIES_EP_UUID` forms keep working for older deployments. Based on a fix from @Yutian-Qin and @salharir.
+
 ### Removed
 - The two stale installers at the repository root (`install.sh`, `setup.sh`). Neither had been updated since January, both had fallen behind `example.env` by eleven variables, and `setup.sh` had diverged from its counterpart in `sci-ndp/NDP-EP` by more than 1700 lines.
+
+### Backwards compatibility
+- No routes or request/response shapes change. Existing `ndp_admin` and `group:{AFFINITIES_EP_UUID}:*` role recognition is preserved.
 
 ## [0.33.2] - 2026-07-25
 
