@@ -22,10 +22,10 @@ class ResourceRequest(BaseModel):
         """Validate that URL is not empty and has a valid format."""
         if not v or not v.strip():
             raise ValueError("url cannot be empty")
-        # Basic URL validation - must start with http://, https://, s3://, or be a path
-        if not re.match(r"^(https?://|s3://|/|\.)", v):
+        # Basic URL validation - must start with http://, https://, s3://, ws://, wss://, or be a path
+        if not re.match(r"^(https?://|s3://|wss?://|/|\.)", v):
             raise ValueError(
-                "url must be a valid URL (http://, https://, s3://) or a path"
+                "url must be a valid URL (http://, https://, s3://, ws://, wss://) or a path"
             )
         return v
 

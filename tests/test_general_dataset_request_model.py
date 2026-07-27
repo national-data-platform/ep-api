@@ -48,6 +48,32 @@ class TestResourceRequest:
         assert resource.mimetype == "application/json"
         assert resource.size == 2048
 
+    def test_create_with_ws_url(self):
+        """Test creating ResourceRequest with a ws:// URL."""
+        resource = ResourceRequest(
+            url="ws://stream.example.com/data", name="websocket_resource"
+        )
+
+        assert resource.url == "ws://stream.example.com/data"
+        assert resource.name == "websocket_resource"
+
+    def test_create_with_wss_url(self):
+        """Test creating ResourceRequest with a wss:// URL."""
+        resource = ResourceRequest(
+            url="wss://stream.example.com/data", name="secure_websocket_resource"
+        )
+
+        assert resource.url == "wss://stream.example.com/data"
+        assert resource.name == "secure_websocket_resource"
+
+    def test_invalid_url_scheme_raises_error(self):
+        """Test that unsupported URL schemes raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            ResourceRequest(url="ftp://example.com/data.csv", name="ftp_resource")
+
+        errors = exc_info.value.errors()
+        assert any(e["loc"][0] == "url" for e in errors)
+
     def test_missing_required_field_raises_error(self):
         """Test that missing required fields raise ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
