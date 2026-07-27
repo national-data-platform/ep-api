@@ -84,6 +84,9 @@ ep_api_port="8002"
 dry_run="false"
 start="true"
 assume_yes="false"
+# The Federation has no field for a remote-execution URL, so when registration
+# captures one it is applied straight to the .env after the config is fetched.
+reg_rexec_url=""
 
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
 BLUE=$'\033[0;34m'; NC=$'\033[0m'
@@ -454,10 +457,15 @@ PY
   # is sent as false rather than prompted for.
   staging="no"
 
+  local jupyter_url=""
   section "JupyterHub" \
     "Show a JupyterHub link in the Endpoint's UI, for users to open notebooks" \
     "against this Endpoint's data."
   ask_yes_no jhub "Enable JupyterHub?" "no"
+  if [[ "$jhub" == "yes" ]]; then
+    ask jupyter_url "JupyterHub URL the link should point to" ""
+    [[ -n "$jupyter_url" ]] || { warn "No URL given; JupyterHub left off."; jhub="no"; }
+  fi
 
   section "Data streaming" \
     "Let this Endpoint manage and stream Kafka topics, for real-time data" \
@@ -468,6 +476,10 @@ PY
     "Let this Endpoint drive the Remote Execution Deployment API, to launch" \
     "compute jobs. Needs that service configured."
   ask_yes_no rexec "Enable remote execution?" "no"
+  if [[ "$rexec" == "yes" ]]; then
+    ask reg_rexec_url "Remote Execution Deployment API URL" ""
+    [[ -n "$reg_rexec_url" ]] || { warn "No URL given; remote execution left off."; rexec="no"; }
+  fi
 
   local proceed confirmed="no"
   # Confirm once before creating anything; a name clash then loops back to ask
@@ -491,7 +503,7 @@ PY
       REG_POC="$poc" REG_ORG="$organization" REG_EP_NAME="$ep_name" \
       REG_USERID="$userid" \
       REG_STAGING="$staging" REG_JHUB="$jhub" REG_STREAMING="$streaming" \
-      REG_REXEC="$rexec" REG_PUBLIC="$public_ep" \
+      REG_REXEC="$rexec" REG_PUBLIC="$public_ep" REG_JUPYTER_URL="$jupyter_url" \
       python3 <<'PY'
 import json, os
 
@@ -500,7 +512,7 @@ def flag(name):
     return os.environ.get(name) == "yes"
 
 
-print(json.dumps({
+payload = {
     "ckan_name": os.environ["REG_CKAN_USER"],
     "ckan_password": os.environ["REG_CKAN_PASS"],
     "enable_staging": flag("REG_STAGING"),
@@ -512,7 +524,12 @@ print(json.dumps({
     "ep_name": os.environ["REG_EP_NAME"],
     "userid": os.environ["REG_USERID"],
     "public": flag("REG_PUBLIC"),
-}))
+}
+# Optional: the Federation stores it and returns it, and the installer reads it
+# back into JUPYTER_URL. Only sent when JupyterHub is on and a URL was given.
+if flag("REG_JHUB") and os.environ.get("REG_JUPYTER_URL"):
+    payload["jupyter_url"] = os.environ["REG_JUPYTER_URL"]
+print(json.dumps(payload))
 PY
 )"
 
@@ -826,6 +843,14 @@ PY
     [[ -n "$fed_jupyter_url" ]] && put JUPYTER_URL "$fed_jupyter_url"
   else
     put USE_JUPYTERLAB "False"
+  fi
+
+  # Remote execution: the Federation stores no URL for it, so it is applied
+  # from what registration captured. Enabled only when a URL is present, since
+  # REXEC_CONNECTION without REXEC_DEPLOYMENT_API_URL has nothing to talk to.
+  if [[ -n "$reg_rexec_url" ]]; then
+    put REXEC_CONNECTION "True"
+    put REXEC_DEPLOYMENT_API_URL "$reg_rexec_url"
   fi
 
   if [[ -n "$fed_pre_ckan_url" && -n "$fed_pre_ckan_key" ]]; then
