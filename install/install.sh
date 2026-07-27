@@ -23,7 +23,45 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_URL_DEFAULT="https://github.com/national-data-platform/ep-api.git"
+
+# --------------------------------------------------------------
+# Bootstrap: work whether run from a checkout or piped from the web.
+# --------------------------------------------------------------
+# The installer needs the rest of the repository next to it (example.env,
+# docker-compose.yml, the render helper). When run as
+#   bash <(curl -fsSL .../install/install.sh) ...
+# there is no checkout, so clone the repository and re-exec from there.
+# When run from a checkout, this is skipped and it runs in place.
+_script="${BASH_SOURCE[0]:-$0}"
+_here=""
+if [[ "$_script" != /dev/fd/* && "$_script" != /proc/self/fd/* && -f "$_script" ]]; then
+  _here="$(cd "$(dirname "$_script")/.." 2>/dev/null && pwd || true)"
+fi
+
+if [[ -z "$_here" || ! -f "$_here/example.env" ]]; then
+  echo "==> Fetching the NDP Endpoint repository"
+  command -v git >/dev/null 2>&1 || { echo "git is required to install. Please install git and retry." >&2; exit 1; }
+  repo_url="${EP_REPO_URL:-$REPO_URL_DEFAULT}"
+  repo_ref="${EP_REPO_REF:-main}"
+  target="${EP_INSTALL_DIR:-$HOME/ndp-ep}"
+
+  if [[ -d "$target/.git" ]]; then
+    echo "    Reusing existing checkout at $target"
+    git -C "$target" fetch --depth 1 origin "$repo_ref" >/dev/null 2>&1 \
+      && git -C "$target" checkout -q "$repo_ref" \
+      && git -C "$target" reset --hard "origin/$repo_ref" >/dev/null 2>&1 || true
+  else
+    echo "    Cloning $repo_url ($repo_ref) into $target"
+    git clone --depth 1 --branch "$repo_ref" "$repo_url" "$target" \
+      || { echo "Could not clone $repo_url" >&2; exit 1; }
+  fi
+
+  echo "    Running the installer from $target"
+  exec bash "$target/install/install.sh" "$@"
+fi
+
+REPO_ROOT="$_here"
 FEDERATION_URL_DEFAULT="https://federation.ndp.utah.edu"
 
 CKAN_REPO_DEFAULT="https://github.com/sci-ndp/pop-ckan-docker.git"
@@ -83,6 +121,10 @@ usage() {
 NDP Endpoint installer
 
 Usage:
+  # From the web (clones the repository, then installs):
+  bash <(curl -fsSL https://raw.githubusercontent.com/national-data-platform/ep-api/main/install/install.sh) [options]
+
+  # From a checkout:
   install.sh --config-id <id> [options]
   install.sh --backend mongodb [options]        # standalone, no Federation
 
