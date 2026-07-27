@@ -352,6 +352,15 @@ host_ip() {
     || echo "127.0.0.1"
 }
 
+with_scheme() {
+  # Prepend https:// when a URL is given without one. The Federation validates
+  # jupyter_url as a full URL, so a bare host like 'jupyter.example.org' would
+  # otherwise be rejected and take the whole registration down with it.
+  local url="$1"
+  [[ -z "$url" || "$url" == *://* ]] && { printf '%s' "$url"; return; }
+  printf 'https://%s' "$url"
+}
+
 # --------------------------------------------------------------
 # Collect the values that will override the documented defaults.
 # --------------------------------------------------------------
@@ -464,6 +473,7 @@ PY
   ask_yes_no jhub "Enable JupyterHub?" "no"
   if [[ "$jhub" == "yes" ]]; then
     ask jupyter_url "JupyterHub URL the link should point to" ""
+    jupyter_url="$(with_scheme "$jupyter_url")"
     [[ -n "$jupyter_url" ]] || { warn "No URL given; JupyterHub left off."; jhub="no"; }
   fi
 
@@ -478,6 +488,7 @@ PY
   ask_yes_no rexec "Enable remote execution?" "no"
   if [[ "$rexec" == "yes" ]]; then
     ask reg_rexec_url "Remote Execution Deployment API URL" ""
+    reg_rexec_url="$(with_scheme "$reg_rexec_url")"
     [[ -n "$reg_rexec_url" ]] || { warn "No URL given; remote execution left off."; rexec="no"; }
   fi
 
@@ -590,7 +601,9 @@ PY
         ;;
       422)
         fail "The Federation rejected some of the values:
-         ${reason}"
+         ${reason}
+       If you gave a JupyterHub URL, it must be a full URL (the installer
+       adds https:// when the scheme is missing) and the email a valid one."
         ;;
       502|503|504)
         # The Federation reached a downstream service (Affinities, Keycloak,
