@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.6] - 2026-07-27
+
+### Added
+- **Install guide for the one-line script** ([docs/installing-with-the-script.md](docs/installing-with-the-script.md)). Walks through `bash <(curl -fsSL https://bit.ly/ndp-ep)` — what to have ready, registering with the Federation, and each catalog option (MongoDB installed or existing, CKAN installed or existing) with the optional features, each with a place for a short screen recording. Linked from the README Quick Start.
+
+### Backwards compatibility
+- Documentation only. No API behavior, request/response shapes, or routes change.
+
 ## [0.33.5] - 2026-07-27
 
 ### Fixed

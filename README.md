@@ -63,6 +63,15 @@ This is a staging environment provided by the NDP for dataset submission and rev
 
 ## ⚡ Quick Start
 
+> **Just want to stand up an Endpoint?** The one-line installer registers it
+> with the Federation, sets up its catalog and starts it:
+> ```bash
+> bash <(curl -fsSL https://bit.ly/ndp-ep)
+> ```
+> See the [install guide](docs/installing-with-the-script.md) for a walk-through
+> of each option. The manual Docker setup below is for development and custom
+> deployments.
+
 Get the NDP-EP API running with Docker in under 5 minutes:
 
 ### Prerequisites
