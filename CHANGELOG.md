@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.5] - 2026-07-27
+
+### Fixed
+- **Authentication-service failures are no longer reported as invalid tokens.** `get_current_user` raised `HTTPException(502)` for an unreachable or misbehaving auth service inside a `try` whose trailing `except Exception` rewrote everything as `401 "Authentication failed"` — so an auth service that was down, returning 500, or answering an unexpected status looked exactly like a mistyped token. Deliberately-raised statuses now propagate unchanged (`except HTTPException: raise`), an unreachable service and unexpected errors return `502`, and only a token the service actually rejects returns `401`.
+
+### Backwards compatibility
+- A genuinely invalid token still returns `401`. Cases that were previously mislabelled `401` (auth service down, 500, unexpected status) now correctly return `502`.
+
 ## [0.33.4] - 2026-07-27
 
 ### Added

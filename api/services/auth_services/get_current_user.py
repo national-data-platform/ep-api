@@ -101,7 +101,13 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
         data = response.json()
 
         if "error" in data:
-            raise Exception(f"Token validation failed: {data['error']}")
+            # The authentication service accepted the request but rejected the
+            # token — a genuine 401, not an internal failure.
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token: {data['error']}",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
         # Ensure 'sub' field is always present
         if "sub" not in data:
@@ -113,15 +119,26 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
 
         return data
 
+    except HTTPException:
+        # Statuses this function deliberately raised (a 401 for a bad token, a
+        # 502 for an unreachable or misbehaving auth service) must reach the
+        # caller unchanged. Without this, the generic handler below would
+        # rewrite every one of them as 401 "Authentication failed", so an auth
+        # service that is down looked exactly like a mistyped token.
+        raise
     except requests.exceptions.RequestException as e:
+        # Could not reach the auth service at all — a gateway problem, not a
+        # bad token.
+        logger.error(f"Auth service unreachable: {e}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Auth service unavailable: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Authentication service is unavailable.",
         )
     except Exception as e:
+        # An unexpected failure while validating (e.g. a malformed response).
+        # It is not the caller's token that is at fault, so it is not a 401.
+        logger.error(f"Unexpected error validating token: {e}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Authentication service returned an unexpected error.",
         )
