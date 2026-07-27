@@ -319,3 +319,70 @@ class TestRecordSystemMetrics:
             await task
         except asyncio.CancelledError:
             pass
+
+
+class TestAddDeploymentMetrics:
+    """Tests for add_deployment_metrics — deployment metadata, no secrets."""
+
+    def test_reports_netbird_and_ckan_metadata(self):
+        from api.tasks.metrics_task import add_deployment_metrics
+
+        with (
+            patch("api.tasks.metrics_task.ckan_settings") as ckan,
+            patch.dict(
+                "os.environ",
+                {
+                    "NETBIRD_ENABLED": "true",
+                    "NETBIRD_IP": "100.64.0.5",
+                    "NETBIRD_GROUP": "ndp",
+                },
+                clear=False,
+            ),
+        ):
+            ckan.ckan_url = "https://ckan.example.org"
+            ckan.ckan_api_key = "a-real-key"
+            payload = {}
+            add_deployment_metrics(payload)
+
+        assert payload["netbird_enabled"] is True
+        assert payload["netbird_ip"] == "100.64.0.5"
+        assert payload["netbird_group"] == "ndp"
+        assert payload["ckan_url"] == "https://ckan.example.org"
+        assert payload["ckan_api_key_configured"] is True
+
+    def test_never_includes_the_api_key_or_a_derivative(self):
+        from api.tasks.metrics_task import add_deployment_metrics
+
+        with (
+            patch("api.tasks.metrics_task.ckan_settings") as ckan,
+            patch.dict(
+                "os.environ",
+                {"REPORT_CKAN_API_KEY_IN_METRICS": "true"},  # must be ignored
+                clear=False,
+            ),
+        ):
+            ckan.ckan_url = "https://ckan.example.org"
+            ckan.ckan_api_key = "super-secret-key"
+            payload = {}
+            add_deployment_metrics(payload)
+
+        serialized = str(payload)
+        assert "super-secret-key" not in serialized
+        assert "ckan_api_key" not in payload
+        assert "ckan_api_key_fingerprint" not in payload
+        assert payload["ckan_api_key_configured"] is True
+
+    def test_placeholder_key_counts_as_not_configured(self):
+        from api.tasks.metrics_task import add_deployment_metrics
+
+        with (
+            patch("api.tasks.metrics_task.ckan_settings") as ckan,
+            patch.dict("os.environ", {}, clear=False),
+        ):
+            ckan.ckan_url = ""
+            ckan.ckan_api_key = "your-api-key"
+            payload = {}
+            add_deployment_metrics(payload)
+
+        assert payload["ckan_api_key_configured"] is False
+        assert "ckan_url" not in payload

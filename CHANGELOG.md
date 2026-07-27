@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.4] - 2026-07-27
+
+### Added
+- **Deployment metadata in the metrics report.** The periodic metrics the Endpoint sends to the Federation now include its NetBird connectivity (enablement, address, group — from `NETBIRD_ENABLED`/`NETBIRD_IP`/`NETBIRD_GROUP`), the CKAN URL it publishes to, and a boolean saying whether a CKAN API key is configured. This lets the platform see an Endpoint's connectivity and catalog wiring at a glance. No secret or secret-derived value is ever sent — only the "configured" boolean. Based on a change from @salharir, with the CKAN API key and its fingerprint dropped from the payload (a metrics endpoint is not a place for secrets).
+
+### Backwards compatibility
+- Additive only. The extra fields appear in the metrics payload; no routes or request/response shapes change.
+
 ## [0.33.3] - 2026-07-27
 
 ### Added
