@@ -47,6 +47,40 @@ def endpoint_group_role_name(role_level: str) -> str:
     return f"group:{ep_uuid}:{role_level}"
 
 
+def endpoint_group_role_names(role_level: str) -> List[str]:
+    """
+    Return accepted per-endpoint role names for ``role_level``.
+
+    The deployment's endpoint access boundary is configured through
+    ``GROUP_NAMES``. Keycloak group roles are emitted as
+    ``group:{group_path}:{role}``, so role checks must accept those group
+    paths directly. ``AFFINITIES_EP_UUID`` forms are still accepted for
+    older deployments that configured roles that way, but Affinities is
+    not required for the viewer/writer/admin model.
+    """
+    role_names = [
+        f"group:{group_name}:{role_level}" for group_name in get_allowed_groups()
+    ]
+
+    ep_uuid = (affinities_settings.ep_uuid or "").strip()
+    if not ep_uuid:
+        return list(dict.fromkeys(role_names))
+
+    normalized_ep = normalize_group_path(ep_uuid)
+    role_names.extend(
+        [
+            endpoint_group_role_name(role_level),
+            f"group:{normalized_ep}:{role_level}",
+        ]
+    )
+    if "/" not in normalized_ep:
+        role_names.append(f"group:ndp_ep/{ep_uuid}:{role_level}")
+        if not normalized_ep.startswith("ep-"):
+            role_names.append(f"group:ndp_ep/ep-{ep_uuid}:{role_level}")
+
+    return list(dict.fromkeys(role_names))
+
+
 def normalize_group_path(path: str) -> str:
     """
     Normalize a group path for comparison.
@@ -372,6 +406,21 @@ def get_user_for_endpoint_access(
     return user_info
 
 
+def _normalize_role_name(role: str) -> str:
+    """
+    Normalize a role name for comparison.
+
+    For Keycloak group roles, normalize the group path segment too, so
+    ``group:/ndp_ep/ep-1:admin`` and ``group:ndp_ep/ep-1:admin`` compare
+    as the same role.
+    """
+    value = role.strip().lower()
+    if value.startswith("group:") and ":" in value[len("group:") :]:
+        group_path, role_level = value[len("group:") :].rsplit(":", 1)
+        return f"group:{normalize_group_path(group_path)}:{role_level.strip()}"
+    return value
+
+
 def _has_any_role(user_info: Dict[str, Any], candidates) -> bool:
     """
     Return True if the user carries any of the role names in ``candidates``.
@@ -381,14 +430,15 @@ def _has_any_role(user_info: Dict[str, Any], candidates) -> bool:
     Empty strings in ``candidates`` are skipped (callers may pass them
     when AFFINITIES_EP_UUID is not configured).
     """
-    targets = {c.strip().lower() for c in candidates if c}
+    targets = {_normalize_role_name(c) for c in candidates if c}
     if not targets:
         return False
     roles = user_info.get("roles", [])
     if not isinstance(roles, list):
         return False
     return any(
-        isinstance(role, str) and role.strip().lower() in targets for role in roles
+        isinstance(role, str) and _normalize_role_name(role) in targets
+        for role in roles
     )
 
 
@@ -406,7 +456,7 @@ def is_admin(user_info: Dict[str, Any]) -> bool:
         user_info,
         [
             ADMIN_ROLE_NAME,
-            endpoint_group_role_name("admin"),
+            *endpoint_group_role_names("admin"),
             endpoint_admin_role_name(),
         ],
     )
@@ -421,7 +471,7 @@ def is_writer(user_info: Dict[str, Any]) -> bool:
         return True
     return _has_any_role(
         user_info,
-        [WRITER_ROLE_NAME, endpoint_group_role_name("writer")],
+        [WRITER_ROLE_NAME, *endpoint_group_role_names("writer")],
     )
 
 
@@ -434,7 +484,7 @@ def is_viewer(user_info: Dict[str, Any]) -> bool:
         return True
     return _has_any_role(
         user_info,
-        [VIEWER_ROLE_NAME, endpoint_group_role_name("viewer")],
+        [VIEWER_ROLE_NAME, *endpoint_group_role_names("viewer")],
     )
 
 

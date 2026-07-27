@@ -684,6 +684,12 @@ class TestRoleTiers:
             ep_uuid=uuid,
         )
 
+    def _patch_group_names(self, group_names):
+        return patch(
+            "api.services.auth_services.authorization_service.swagger_settings",
+            group_names=group_names,
+        )
+
     EP = "11111111-2222-3333-4444-555555555555"
 
     def test_is_admin_via_global_role(self):
@@ -692,6 +698,28 @@ class TestRoleTiers:
     def test_is_admin_via_canonical_per_ep_role(self):
         with self._patch_uuid(self.EP):
             user = {"roles": [f"group:{self.EP}:admin"]}
+            assert is_admin(user) is True
+
+    def test_is_admin_via_keycloak_group_path_role(self):
+        with self._patch_uuid(f"ep-{self.EP}"):
+            user = {"roles": [f"group:ndp_ep/ep-{self.EP}:admin"]}
+            assert is_admin(user) is True
+            assert effective_role(user) == "admin"
+
+    def test_is_admin_via_keycloak_group_path_role_with_bare_uuid_config(self):
+        with self._patch_uuid(self.EP):
+            user = {"roles": [f"group:ndp_ep/ep-{self.EP}:admin"]}
+            assert is_admin(user) is True
+
+    def test_is_admin_via_group_names_without_affinities_uuid(self):
+        with self._patch_uuid(""), self._patch_group_names(f"ndp_ep/ep-{self.EP}"):
+            user = {"roles": [f"group:ndp_ep/ep-{self.EP}:admin"]}
+            assert is_admin(user) is True
+            assert effective_role(user) == "admin"
+
+    def test_is_admin_normalizes_leading_slash_in_group_path_role(self):
+        with self._patch_uuid(f"ndp_ep/ep-{self.EP}"):
+            user = {"roles": [f"group:/ndp_ep/ep-{self.EP}:admin"]}
             assert is_admin(user) is True
 
     def test_is_admin_via_legacy_per_ep_role_is_still_supported(self):
@@ -709,6 +737,7 @@ class TestRoleTiers:
         with self._patch_uuid(self.EP):
             assert is_writer({"roles": [WRITER_ROLE_NAME]}) is True
             assert is_writer({"roles": [f"group:{self.EP}:writer"]}) is True
+            assert is_writer({"roles": [f"group:ndp_ep/{self.EP}:writer"]}) is True
             assert is_writer({"roles": [ADMIN_ROLE_NAME]}) is True
             assert is_writer({"roles": [VIEWER_ROLE_NAME]}) is False
             assert is_writer({"roles": [f"group:{self.EP}:viewer"]}) is False
@@ -718,9 +747,15 @@ class TestRoleTiers:
         with self._patch_uuid(self.EP):
             assert is_viewer({"roles": [VIEWER_ROLE_NAME]}) is True
             assert is_viewer({"roles": [f"group:{self.EP}:viewer"]}) is True
+            assert is_viewer({"roles": [f"group:ndp_ep/{self.EP}:viewer"]}) is True
             assert is_viewer({"roles": [WRITER_ROLE_NAME]}) is True
             assert is_viewer({"roles": [ADMIN_ROLE_NAME]}) is True
             assert is_viewer({"roles": []}) is False
+
+    def test_group_names_roles_cover_writer_and_viewer_without_affinities_uuid(self):
+        with self._patch_uuid(""), self._patch_group_names(f"/ndp_ep/ep-{self.EP}"):
+            assert is_writer({"roles": [f"group:ndp_ep/ep-{self.EP}:writer"]}) is True
+            assert is_viewer({"roles": [f"group:ndp_ep/ep-{self.EP}:viewer"]}) is True
 
     def test_effective_role_returns_highest_tier(self):
         with self._patch_uuid(self.EP):
