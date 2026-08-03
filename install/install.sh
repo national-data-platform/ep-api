@@ -68,7 +68,11 @@ CKAN_REPO_DEFAULT="https://github.com/sci-ndp/pop-ckan-docker.git"
 
 config_id=""
 federation_url="$FEDERATION_URL_DEFAULT"
-backend="mongodb"
+# The lightest Endpoint there is: no catalog to install, nothing to store, and
+# every optional integration off. It authenticates users, searches the
+# platform's global catalog and reports to the Federation. Asking for MongoDB
+# or CKAN is opting in to more.
+backend="none"
 mongodb_url=""
 ckan_url=""
 ckan_api_key=""
@@ -134,8 +138,13 @@ Usage:
 Options:
   --config-id <id>        Federation configuration id for this Endpoint.
   --federation-url <url>  Default: $FEDERATION_URL_DEFAULT
-  --backend <name>        Local catalog backend: mongodb | ckan. Default: mongodb
+  --backend <name>        Local catalog backend: none | mongodb | ckan.
+                          Default: none
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
+
+With --backend none nothing is stored locally and no catalog is installed. The
+Endpoint authenticates users, searches the platform's global catalog and
+reports to the Federation. It is the quickest Endpoint to stand up.
 
 With --backend mongodb, the bundled MongoDB is started unless you point at one
 you already have:
@@ -189,8 +198,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$backend" == "mongodb" || "$backend" == "ckan" ]] \
-  || fail "--backend must be mongodb or ckan (got: $backend)"
+[[ "$backend" == "none" || "$backend" == "mongodb" || "$backend" == "ckan" ]] \
+  || fail "--backend must be none, mongodb or ckan (got: $backend)"
 
 banner
 
@@ -683,23 +692,30 @@ if [[ -z "$config_id" ]] && interactive; then
   # catalog before you have said which one you want.
   section "Local catalog" \
     "Choose what this Endpoint uses as its local data catalog — where the" \
-    "datasets published to it are stored."
+    "datasets published to it are stored." \
+    "" \
+    "With no local catalog nothing is installed or stored here: the Endpoint" \
+    "authenticates users, searches the platform's global catalog and is" \
+    "listed in the Federation. It is the quickest one to stand up, and a" \
+    "catalog can be added later by running this again."
   choose backend_choice "Which local catalog should this Endpoint use?" 1 \
+    "None — nothing is stored locally (quickest)" \
     "MongoDB, installed alongside the Endpoint" \
     "MongoDB, one I already have" \
     "CKAN, installed by this script (takes several minutes)" \
     "CKAN, one I already have"
   case "$backend_choice" in
-    1) backend="mongodb"; mongodb_url="" ;;
-    2) backend="mongodb"
+    1) backend="none"; mongodb_url=""; ckan_url="" ;;
+    2) backend="mongodb"; mongodb_url="" ;;
+    3) backend="mongodb"
        section "Existing MongoDB" \
          "Connect to a MongoDB you already run, instead of installing one." \
          "Give its connection string, reachable from the Endpoint container."
        ask mongodb_url "MongoDB connection string" \
          "mongodb://host.docker.internal:27017"
        ;;
-    3) backend="ckan"; ckan_url="" ;;
-    4) backend="ckan"
+    4) backend="ckan"; ckan_url="" ;;
+    5) backend="ckan"
        section "Existing CKAN" \
          "Connect to a CKAN you already run. The key is verified before" \
          "anything is written."
@@ -911,7 +927,20 @@ profiles=()
 # writes for ANY backend — it gates the registration, update, delete and
 # resource routes (see api/main.py). It must be True for MongoDB too, or the
 # Endpoint comes up read-only and datasets cannot be registered.
-if [[ "$backend" == "mongodb" && -n "$mongodb_url" ]]; then
+if [[ "$backend" == "none" ]]; then
+  # No local catalog. Nothing is installed and nothing is stored here, so no
+  # compose profile is added. CKAN_LOCAL_ENABLED must be False to match: it is
+  # what leaves the routes that write to a local catalog unmounted, and with it
+  # on the Endpoint would offer operations with nowhere to go. The CKAN and
+  # MongoDB settings are blanked so nothing points at a service that is absent.
+  put CKAN_LOCAL_ENABLED "False"
+  put CKAN_URL ""
+  put CKAN_API_KEY ""
+  put MONGODB_CONNECTION_STRING ""
+  ok "No local catalog — nothing is stored on this Endpoint"
+  info "It authenticates users, searches the global catalog and reports to the Federation."
+  info "Run this again with --backend mongodb or --backend ckan to add one later."
+elif [[ "$backend" == "mongodb" && -n "$mongodb_url" ]]; then
   # Pointing at a MongoDB that already exists — do not start the bundled one.
   put CKAN_LOCAL_ENABLED "True"
   put MONGODB_CONNECTION_STRING "$mongodb_url"

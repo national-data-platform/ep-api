@@ -22,7 +22,10 @@ class CatalogSettings(BaseSettings):
     Attributes
     ----------
     local_catalog_backend : str
-        Backend type for local catalog: "ckan" or "mongodb" (default: "ckan")
+        Backend type for local catalog: "ckan", "mongodb" or "none"
+        (default: "ckan"). "none" means this Endpoint stores nothing
+        locally: it serves the global NDP catalog and its own
+        authentication, and no local catalog is expected to exist.
     mongodb_connection_string : str
         MongoDB connection URI (default: "mongodb://localhost:27017")
     mongodb_database : str
@@ -43,6 +46,22 @@ class CatalogSettings(BaseSettings):
     }
 
     @property
+    def has_local_catalog(self) -> bool:
+        """
+        Whether this Endpoint has a local catalog at all.
+
+        LOCAL_CATALOG_BACKEND="none" is a deployment that stores nothing
+        locally. Callers use this to skip local catalog work rather than
+        letting `local_catalog` raise.
+
+        Returns
+        -------
+        bool
+            False when LOCAL_CATALOG_BACKEND is "none", True otherwise
+        """
+        return self.local_catalog_backend.lower() != "none"
+
+    @property
     def local_catalog(self) -> DataCatalogRepository:
         """
         Get the repository for the local catalog.
@@ -58,11 +77,18 @@ class CatalogSettings(BaseSettings):
         Raises
         ------
         ValueError
-            If an unsupported backend type is specified
+            If no local catalog is configured, or an unsupported backend
+            type is specified
         """
         backend = self.local_catalog_backend.lower()
 
-        if backend == "mongodb":
+        if backend == "none":
+            raise ValueError(
+                "This Endpoint has no local catalog "
+                "(LOCAL_CATALOG_BACKEND=none). Set it to 'ckan' or 'mongodb' "
+                "to store datasets locally."
+            )
+        elif backend == "mongodb":
             return MongoDBRepository(
                 connection_string=self.mongodb_connection_string,
                 database_name=self.mongodb_database,
@@ -72,7 +98,7 @@ class CatalogSettings(BaseSettings):
         else:
             raise ValueError(
                 f"Unsupported catalog backend: {backend}. "
-                f"Supported backends: 'ckan', 'mongodb'"
+                f"Supported backends: 'ckan', 'mongodb', 'none'"
             )
 
     @property

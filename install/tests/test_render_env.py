@@ -102,6 +102,33 @@ def test_real_example_env_renders():
     assert "ORGANIZATION=Tarragona" in text
 
 
+def test_an_endpoint_with_no_local_catalog_renders():
+    """
+    The lightest install: no catalog, nothing stored locally. Every value it
+    writes must be documented in example.env, and the rendered file must say
+    plainly that there is no catalog rather than leaving a stale backend.
+    """
+    example_path = Path(__file__).resolve().parents[2] / "example.env"
+    text, applied, unknown = render(
+        example_path.read_text(encoding="utf-8"),
+        {
+            "LOCAL_CATALOG_BACKEND": "none",
+            "CKAN_LOCAL_ENABLED": "False",
+            "CKAN_URL": "",
+            "CKAN_API_KEY": "",
+            "MONGODB_CONNECTION_STRING": "",
+        },
+    )
+
+    assert unknown == []
+    assert "LOCAL_CATALOG_BACKEND=none" in text
+    assert "CKAN_LOCAL_ENABLED=False" in text
+    # Nothing may be left pointing at a MongoDB or CKAN that was not installed.
+    assert "MONGODB_CONNECTION_STRING=\n" in text
+    assert "CKAN_URL=\n" in text
+    assert "CKAN_API_KEY=\n" in text
+
+
 def test_every_variable_the_installer_sets_is_documented():
     """
     Guard against the drift that broke the previous installer: every variable

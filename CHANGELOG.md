@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-08-03
+
+### Added
+- **An Endpoint can be installed with no local catalog.** `LOCAL_CATALOG_BACKEND=none` is a deployment that stores nothing locally — no MongoDB, no CKAN, nothing to install. It authenticates users, searches the platform's global catalog, serves its UI and reports to the Federation, which is what most Endpoints are asked to do. The installer offers it as the first answer to the local-catalog question and renders it together with `CKAN_LOCAL_ENABLED=False`, blanking the CKAN and MongoDB settings so nothing points at a service that was not installed. A catalog can be added later by running the installer again with `--backend mongodb` or `--backend ckan`.
+- `catalog_settings.has_local_catalog`, so callers can skip local catalog work instead of asking for a repository that does not exist.
+
+### Changed
+- **The installer's default backend is now `none`.** The lightest install is the one that needs no decisions; asking for MongoDB or CKAN is opting in to more. Runs that relied on the previous default of `mongodb` must now pass `--backend mongodb` explicitly.
+- **The readiness probe no longer checks a local catalog nothing can reach.** `/ready` reported the catalog as `disabled` only for the CKAN backend; with any other backend it probed the catalog even when `CKAN_LOCAL_ENABLED=False` had already unmounted the local catalog routes and made `/search?server=local` answer 400. An Endpoint deliberately configured without a usable local catalog was reported unhealthy with HTTP 503. It is now reported `disabled` whenever the local catalog cannot be reached through the API, on any backend.
+- `/status` reports the backend as disconnected without attempting a connection when there is no local catalog, instead of logging a failed one every call.
+
+### Fixed
+- **A container built today starts again.** `requirements.txt` constrained nothing, so a fresh install resolved `mcp` 2.0.0, whose low-level `Server` no longer accepts the positional arguments `fastapi-mcp` 0.4.0 passes it. `FastApiMCP(app)` runs at import time, so the API did not come up at all and CI failed on every branch; images built earlier were unaffected because their dependencies were resolved when they were built. Pinned to `mcp<2.0.0` until `fastapi-mcp` supports it.
+- **An Endpoint with no local catalog keeps reporting to the Federation.** Catalog statistics are collected inside the same `try` as the rest of the metrics payload, so asking for a repository that does not exist left the payload empty and skipped the POST entirely — the Endpoint would have gone silent rather than reporting without dataset counts. With no catalog the counts are reported as zero and the metrics go out as usual.
+
+### Backwards compatibility
+- Existing deployments are unaffected: `ckan` and `mongodb` behave exactly as before, and the new behaviour applies only to `LOCAL_CATALOG_BACKEND=none`.
+- The one behaviour change for existing setups is the readiness probe: a deployment running with `CKAN_LOCAL_ENABLED=False` and a MongoDB backend was answering 503 and now answers 200 with the catalog reported `disabled`.
+- Unattended installer runs that did not pass `--backend` used to get MongoDB and now get no catalog. Add `--backend mongodb` to keep the previous result.
+
 ## [0.33.5] - 2026-07-27
 
 ### Fixed
