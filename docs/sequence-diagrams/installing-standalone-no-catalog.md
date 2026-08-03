@@ -195,18 +195,3 @@ routes are not mounted at all — they are absent from `/docs` rather than
 failing when called — and `/search?server=local` answers `400 Local CKAN is
 disabled and cannot be used`. Publishing to the staging catalog is off too,
 since it travels through the same routes.
-
-## Adding to it later
-
-Re-running the installer reconfigures the same Endpoint, so nothing here is a
-dead end:
-
-```bash
-./install/install.sh --backend mongodb          # add a local catalog
-./install/install.sh --config-id <id>           # apply a Federation registration
-```
-
-The existing `.env` is copied to `.env.backup.<timestamp>` first, every time.
-Registering is what creates this Endpoint's Keycloak client and group, so it is
-also what makes identity-provider sign-in possible — see
-[../../install/README.md](../../install/README.md).
