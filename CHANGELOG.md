@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-08-03
+
+### Added
+- **Identity-provider sign-in can actually be enabled at install time.** The installer offered it and then asked for a client id with no default and no way of finding one; a blank answer switched sign-in back off, so in practice the button was never offered. Both the realm and the client now default to the National Data Platform's — its public client serves any Endpoint in that realm — so answering yes and pressing Enter is enough. A client id registered for this Endpoint specifically can be given instead.
+- `--oidc`, `--oidc-issuer` and `--oidc-client-id`, so an unattended install can enable sign-in. The identity-provider questions were the only prompts with no flag behind them, contrary to what the installer's README says.
+
+### Changed
+- A Federation registration still never switches sign-in on by itself — `--config-id` skips every prompt, so there is nobody to ask — but it now says how to enable it, and prints the client id it created for use with `--oidc-client-id`.
+
+### Backwards compatibility
+- Sign-in remains off unless it is asked for, at the prompt or with `--oidc`. Existing `.env` files are untouched.
+
 ## [0.34.1] - 2026-08-03
 
 ### Fixed

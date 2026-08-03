@@ -156,6 +156,30 @@ def test_an_install_without_a_registration_is_not_public():
     )
 
 
+def test_identity_provider_sign_in_has_answerable_defaults():
+    """
+    The client id used to be asked for with no default and no way of finding
+    one, and a blank answer switched sign-in back off — so the feature was
+    offered and could not be taken. Both the realm and the client must have a
+    default the operator can accept with Enter.
+    """
+    import re
+
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert re.search(
+        r'^OIDC_ISSUER_DEFAULT="https://\S+"', install_sh, re.M
+    ), "install.sh has no default identity provider realm"
+    assert re.search(
+        r'^OIDC_CLIENT_ID_DEFAULT="\S+"', install_sh, re.M
+    ), "install.sh has no default client id"
+    assert re.search(
+        r'ask oidc_client_id\s+"[^"]*"\s+"\$OIDC_CLIENT_ID_DEFAULT"', install_sh
+    ), "the client id prompt does not offer the default"
+
+
 def test_every_variable_the_installer_sets_is_documented():
     """
     Guard against the drift that broke the previous installer: every variable

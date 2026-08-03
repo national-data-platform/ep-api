@@ -66,6 +66,13 @@ FEDERATION_URL_DEFAULT="https://federation.ndp.utah.edu"
 
 CKAN_REPO_DEFAULT="https://github.com/sci-ndp/pop-ckan-docker.git"
 
+# The National Data Platform's realm, and the public client that serves the
+# Endpoints in it. Sign-in needs a client registered in the same realm the
+# tokens are validated against; this one covers any Endpoint, so enabling
+# sign-in does not require registering anything first.
+OIDC_ISSUER_DEFAULT="https://idp.nationaldataplatform.org/realms/NDP"
+OIDC_CLIENT_ID_DEFAULT="ndp_frontend_prod"
+
 config_id=""
 federation_url="$FEDERATION_URL_DEFAULT"
 # The lightest Endpoint there is: no catalog to install, nothing to store, and
@@ -85,6 +92,9 @@ ckan_ssl_port="8443"
 ckan_http_port="81"
 ckan_app_port="5000"
 ep_api_port="8002"
+want_oidc="no"
+oidc_issuer=""
+oidc_client_id=""
 dry_run="false"
 start="true"
 assume_yes="false"
@@ -141,6 +151,9 @@ Options:
   --backend <name>        Local catalog backend: none | mongodb | ckan.
                           Default: none
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
+  --oidc                  Offer sign-in through the identity provider.
+  --oidc-issuer <url>     Realm URL. Default: $OIDC_ISSUER_DEFAULT
+  --oidc-client-id <id>   Client id. Default: $OIDC_CLIENT_ID_DEFAULT
 
 With --backend none nothing is stored locally and no catalog is installed. The
 Endpoint authenticates users, searches the platform's global catalog and
@@ -190,6 +203,9 @@ while [[ $# -gt 0 ]]; do
     --ckan-http-port)  ckan_http_port="${2:-}"; shift 2 ;;
     --ckan-app-port)   ckan_app_port="${2:-}"; shift 2 ;;
     --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
+    --oidc)            want_oidc="yes"; shift ;;
+    --oidc-issuer)     oidc_issuer="${2:-}"; want_oidc="yes"; shift 2 ;;
+    --oidc-client-id)  oidc_client_id="${2:-}"; want_oidc="yes"; shift 2 ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
@@ -665,12 +681,11 @@ PY
 # --------------------------------------------------------------
 # A Federation registration answers most of these. Without one, and on a
 # terminal, ask rather than silently installing a demo nobody asked for.
+# Anything a flag already supplied is left alone, so an unattended run keeps
+# what it was given.
 organization=""
 ep_name=""
 auth_api_url=""
-oidc_issuer=""
-oidc_client_id=""
-want_oidc="no"
 
 if [[ -z "$config_id" ]] && interactive; then
   echo
@@ -776,14 +791,17 @@ if [[ -z "$config_id" ]] && interactive; then
 
   section "Identity-provider sign-in" \
     "Optional. Adds a button that signs users in through the identity" \
-    "provider's own page (CILogon, EarthScope, ORCID). Needs a client id" \
-    "registered for this Endpoint; the Federation registration creates one." \
-    "The access-token and username/password logins work either way."
+    "provider's own page (CILogon, EarthScope, ORCID). The access-token and" \
+    "username/password logins work either way." \
+    "" \
+    "The defaults are the National Data Platform's realm and its public" \
+    "client, which serves any Endpoint in that realm, so answering yes is" \
+    "enough. Give a different client id only if one was registered for this" \
+    "Endpoint specifically."
   ask_yes_no want_oidc "Offer sign-in through the identity provider?" "no"
   if [[ "$want_oidc" == "yes" ]]; then
-    ask oidc_issuer    "Identity provider realm URL" \
-      "https://idp.nationaldataplatform.org/realms/NDP"
-    ask oidc_client_id "Client id registered for this Endpoint" ""
+    ask oidc_issuer    "Identity provider realm URL" "$OIDC_ISSUER_DEFAULT"
+    ask oidc_client_id "Client id" "$OIDC_CLIENT_ID_DEFAULT"
     if [[ -z "$oidc_client_id" ]]; then
       warn "No client id: sign-in will stay off. See docs/configuration.md."
       want_oidc="no"
@@ -898,13 +916,13 @@ PY
 
   put IS_PUBLIC "$([[ "$fed_public" == "true" ]] && echo True || echo False)"
 
-  # The registration names the realm but not the identity provider host, and
-  # the Endpoint must validate tokens against the same provider that issues
-  # them. Deriving one from the other is guesswork, so identity-provider
-  # sign-in is left switched off for the operator to configure deliberately.
-  if [[ -n "$fed_client_id" ]]; then
+  # Sign-in is never switched on by a registration alone: --config-id skips
+  # every prompt, and turning a login method on for an Endpoint whose operator
+  # did not ask for it is not the installer's call. --oidc is that ask.
+  if [[ -n "$fed_client_id" && "$want_oidc" != "yes" ]]; then
     info "Registration includes client id '$fed_client_id' for realm '$fed_realm'."
-    info "Identity-provider sign-in is left off; see docs/configuration.md to enable it."
+    info "Identity-provider sign-in is off; add --oidc to offer it, with"
+    info "--oidc-client-id '$fed_client_id' to sign in through that client."
   fi
 elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."
@@ -920,10 +938,14 @@ step "Selecting the local catalog backend"
 [[ -n "$ep_name" ]]       && put EP_NAME "$ep_name"
 [[ -n "$auth_api_url" ]]  && put AUTH_API_URL "$auth_api_url"
 
-if [[ "$want_oidc" == "yes" && -n "$oidc_client_id" ]]; then
+if [[ "$want_oidc" == "yes" ]]; then
+  # Reached with the flags on an unattended run, where nothing was prompted.
+  [[ -n "$oidc_issuer" ]]    || oidc_issuer="$OIDC_ISSUER_DEFAULT"
+  [[ -n "$oidc_client_id" ]] || oidc_client_id="$OIDC_CLIENT_ID_DEFAULT"
   put OIDC_ENABLED "True"
   put OIDC_ISSUER "$oidc_issuer"
   put OIDC_CLIENT_ID "$oidc_client_id"
+  ok "Identity-provider sign-in enabled with client '$oidc_client_id'"
 fi
 
 put LOCAL_CATALOG_BACKEND "$backend"

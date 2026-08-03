@@ -60,6 +60,12 @@ Run it with no arguments and it asks:
   Offer sign-in through the identity provider? [y/N]:
 ```
 
+Answering yes to the last one asks for the realm URL and the client id, both
+of which default to the National Data Platform's: its public client serves any
+Endpoint in that realm, so no client has to be registered first. Supply your
+own client id when one was registered for this Endpoint specifically — a
+Federation registration creates one, and prints it.
+
 [docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
 follows that run end to end — every prompt, who is contacted, what is started,
 and the `.env` it produces.
@@ -83,6 +89,8 @@ waiting for input.
 | `--federation-url <url>` | defaults to `https://federation.ndp.utah.edu` |
 | `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--ep-api-port <port>` | host port for the API, default `8002` |
+| `--oidc` | offer sign-in through the identity provider |
+| `--oidc-issuer <url>`, `--oidc-client-id <id>` | realm and client for it; both default to the National Data Platform's |
 | `--dry-run` | render the configuration and run the checks, start nothing |
 | `--no-start` | write everything, bring nothing up |
 | `--yes` | do not prompt before overwriting an existing `.env` |
@@ -221,9 +229,8 @@ are what gets tested.
 - **Kafka and JupyterHub are not provisioned.** A registration that asks for
   streaming or JupyterHub configures the Endpoint for them but does not stand
   them up.
-- **Identity-provider sign-in is left off**, even when the registration
-  carries a `client_id`. The registration names the realm but not the
-  identity provider's host, and `OIDC_ISSUER` has to agree with
-  `AUTH_API_URL`; guessing one from the other would fail at the last step of a
-  login, which looks like a credentials problem and is not. See
+- **Identity-provider sign-in is never switched on by a registration.**
+  `--config-id` skips every prompt, so there is nobody to ask, and turning a
+  login method on for an Endpoint whose operator did not request it is not the
+  installer's call. `--oidc` is that request. See
   [docs/configuration.md](../docs/configuration.md).
