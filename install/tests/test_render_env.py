@@ -156,12 +156,13 @@ def test_an_install_without_a_registration_is_not_public():
     )
 
 
-def test_identity_provider_sign_in_has_answerable_defaults():
+def test_identity_provider_sign_in_uses_the_registered_client():
     """
     The client id used to be asked for with no default and no way of finding
-    one, and a blank answer switched sign-in back off — so the feature was
-    offered and could not be taken. Both the realm and the client must have a
-    default the operator can accept with Enter.
+    one, so the feature was offered and could not be taken. The answer is the
+    client the Federation registration creates, which is confidential — the
+    installer must carry its secret across too, or the token exchange fails
+    with "Invalid client or Invalid client credentials".
     """
     import re
 
@@ -172,12 +173,16 @@ def test_identity_provider_sign_in_has_answerable_defaults():
     assert re.search(
         r'^OIDC_ISSUER_DEFAULT="https://\S+"', install_sh, re.M
     ), "install.sh has no default identity provider realm"
+    assert 'emit("fed_client_secret"' in install_sh, (
+        "the registration's client secret is not read, so a confidential "
+        "client cannot be used"
+    )
     assert re.search(
-        r'^OIDC_CLIENT_ID_DEFAULT="\S+"', install_sh, re.M
-    ), "install.sh has no default client id"
+        r'oidc_client_id="\$\{fed_client_id:-\}"', install_sh
+    ), "the registered client is not used when no client id is given"
     assert re.search(
-        r'ask oidc_client_id\s+"[^"]*"\s+"\$OIDC_CLIENT_ID_DEFAULT"', install_sh
-    ), "the client id prompt does not offer the default"
+        r"^\s*put OIDC_CLIENT_SECRET ", install_sh, re.M
+    ), "install.sh never writes OIDC_CLIENT_SECRET"
 
 
 def test_every_variable_the_installer_sets_is_documented():

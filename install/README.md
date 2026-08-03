@@ -60,11 +60,18 @@ Run it with no arguments and it asks:
   Offer sign-in through the identity provider? [y/N]:
 ```
 
-Answering yes to the last one asks for the realm URL and the client id, both
-of which default to the National Data Platform's: its public client serves any
-Endpoint in that realm, so no client has to be registered first. Supply your
-own client id when one was registered for this Endpoint specifically — a
-Federation registration creates one, and prints it.
+Answering yes to the last one asks for the realm URL, which defaults to the
+National Data Platform's, and for a client id — which can be left blank. The
+Federation registration creates a client for this Endpoint and hands back its
+id **and secret**, and that is what the installer then uses. Fill the client
+id in only to sign in through a different one; you will be asked for its
+secret, if it has one.
+
+That client is confidential. It works because the Endpoint's API exchanges the
+authorization code for the token, so the secret stays in `.env` and never
+reaches a browser. Without a registration there is no client, and sign-in
+stays off — the platform's own client cannot stand in for one, since its
+secret is not ours to have.
 
 [docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
 follows that run end to end — every prompt, who is contacted, what is started,
@@ -89,8 +96,9 @@ waiting for input.
 | `--federation-url <url>` | defaults to `https://federation.ndp.utah.edu` |
 | `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--ep-api-port <port>` | host port for the API, default `8002` |
-| `--oidc` | offer sign-in through the identity provider |
-| `--oidc-issuer <url>`, `--oidc-client-id <id>` | realm and client for it; both default to the National Data Platform's |
+| `--oidc` | offer sign-in through the identity provider, using the registered client |
+| `--oidc-issuer <url>` | realm for it, defaults to the National Data Platform's |
+| `--oidc-client-id <id>`, `--oidc-client-secret <s>` | sign in through a different client instead of the registered one |
 | `--dry-run` | render the configuration and run the checks, start nothing |
 | `--no-start` | write everything, bring nothing up |
 | `--yes` | do not prompt before overwriting an existing `.env` |

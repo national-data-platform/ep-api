@@ -66,12 +66,12 @@ FEDERATION_URL_DEFAULT="https://federation.ndp.utah.edu"
 
 CKAN_REPO_DEFAULT="https://github.com/sci-ndp/pop-ckan-docker.git"
 
-# The National Data Platform's realm, and the public client that serves the
-# Endpoints in it. Sign-in needs a client registered in the same realm the
-# tokens are validated against; this one covers any Endpoint, so enabling
-# sign-in does not require registering anything first.
+# The National Data Platform's realm. The client is not defaulted: sign-in
+# needs one registered in this same realm, and a Federation registration
+# creates it for the Endpoint, id and secret. There is no id that works for an
+# Endpoint that has not registered — the platform's own client is confidential
+# and its secret is not ours to have.
 OIDC_ISSUER_DEFAULT="https://idp.nationaldataplatform.org/realms/NDP"
-OIDC_CLIENT_ID_DEFAULT="ndp_frontend_prod"
 
 config_id=""
 federation_url="$FEDERATION_URL_DEFAULT"
@@ -95,6 +95,7 @@ ep_api_port="8002"
 want_oidc="no"
 oidc_issuer=""
 oidc_client_id=""
+oidc_client_secret=""
 dry_run="false"
 start="true"
 assume_yes="false"
@@ -151,9 +152,14 @@ Options:
   --backend <name>        Local catalog backend: none | mongodb | ckan.
                           Default: none
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
-  --oidc                  Offer sign-in through the identity provider.
+  --oidc                  Offer sign-in through the identity provider. The
+                          client comes from the Federation registration
+                          unless one is given below.
   --oidc-issuer <url>     Realm URL. Default: $OIDC_ISSUER_DEFAULT
-  --oidc-client-id <id>   Client id. Default: $OIDC_CLIENT_ID_DEFAULT
+  --oidc-client-id <id>   Client id, when not using the registered one.
+  --oidc-client-secret <s> Its secret, for a confidential client. The secret
+                          is used by the API to exchange the authorization
+                          code; it never reaches the browser.
 
 With --backend none nothing is stored locally and no catalog is installed. The
 Endpoint authenticates users, searches the platform's global catalog and
@@ -203,9 +209,10 @@ while [[ $# -gt 0 ]]; do
     --ckan-http-port)  ckan_http_port="${2:-}"; shift 2 ;;
     --ckan-app-port)   ckan_app_port="${2:-}"; shift 2 ;;
     --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
-    --oidc)            want_oidc="yes"; shift ;;
-    --oidc-issuer)     oidc_issuer="${2:-}"; want_oidc="yes"; shift 2 ;;
-    --oidc-client-id)  oidc_client_id="${2:-}"; want_oidc="yes"; shift 2 ;;
+    --oidc)               want_oidc="yes"; shift ;;
+    --oidc-issuer)        oidc_issuer="${2:-}"; want_oidc="yes"; shift 2 ;;
+    --oidc-client-id)     oidc_client_id="${2:-}"; want_oidc="yes"; shift 2 ;;
+    --oidc-client-secret) oidc_client_secret="${2:-}"; want_oidc="yes"; shift 2 ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
@@ -794,17 +801,16 @@ if [[ -z "$config_id" ]] && interactive; then
     "provider's own page (CILogon, EarthScope, ORCID). The access-token and" \
     "username/password logins work either way." \
     "" \
-    "The defaults are the National Data Platform's realm and its public" \
-    "client, which serves any Endpoint in that realm, so answering yes is" \
-    "enough. Give a different client id only if one was registered for this" \
-    "Endpoint specifically."
+    "It needs a client in the identity provider's realm. Registering this" \
+    "Endpoint with the Federation creates one and hands back its id and" \
+    "secret, which is all this needs — leave the client id blank to use it." \
+    "Fill it in only to sign in through a different client."
   ask_yes_no want_oidc "Offer sign-in through the identity provider?" "no"
   if [[ "$want_oidc" == "yes" ]]; then
     ask oidc_issuer    "Identity provider realm URL" "$OIDC_ISSUER_DEFAULT"
-    ask oidc_client_id "Client id" "$OIDC_CLIENT_ID_DEFAULT"
-    if [[ -z "$oidc_client_id" ]]; then
-      warn "No client id: sign-in will stay off. See docs/configuration.md."
-      want_oidc="no"
+    ask oidc_client_id "Client id (blank to use the registered one)" ""
+    if [[ -n "$oidc_client_id" ]]; then
+      ask_secret oidc_client_secret "Its client secret, if confidential (not shown)"
     fi
   fi
 fi
@@ -871,6 +877,7 @@ emit("fed_pre_ckan_url", cfg.get("pre_ckan_url") or "")
 emit("fed_pre_ckan_key", cfg.get("pre_ckan_key") or "")
 emit("fed_realm", cfg.get("realm_name") or "NDP")
 emit("fed_client_id", cfg.get("client_id") or "")
+emit("fed_client_secret", cfg.get("client_secret") or "")
 emit("fed_public", "true" if truthy(cfg.get("public")) else "false")
 PY
 )"
@@ -921,8 +928,7 @@ PY
   # did not ask for it is not the installer's call. --oidc is that ask.
   if [[ -n "$fed_client_id" && "$want_oidc" != "yes" ]]; then
     info "Registration includes client id '$fed_client_id' for realm '$fed_realm'."
-    info "Identity-provider sign-in is off; add --oidc to offer it, with"
-    info "--oidc-client-id '$fed_client_id' to sign in through that client."
+    info "Identity-provider sign-in is off; add --oidc to offer it through that client."
   fi
 elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."
@@ -939,13 +945,33 @@ step "Selecting the local catalog backend"
 [[ -n "$auth_api_url" ]]  && put AUTH_API_URL "$auth_api_url"
 
 if [[ "$want_oidc" == "yes" ]]; then
-  # Reached with the flags on an unattended run, where nothing was prompted.
-  [[ -n "$oidc_issuer" ]]    || oidc_issuer="$OIDC_ISSUER_DEFAULT"
-  [[ -n "$oidc_client_id" ]] || oidc_client_id="$OIDC_CLIENT_ID_DEFAULT"
-  put OIDC_ENABLED "True"
-  put OIDC_ISSUER "$oidc_issuer"
-  put OIDC_CLIENT_ID "$oidc_client_id"
-  ok "Identity-provider sign-in enabled with client '$oidc_client_id'"
+  # The issuer has a working default; the client does not, and comes from the
+  # registration unless one was given. The client the Federation creates is
+  # confidential, which is workable because the API exchanges the
+  # authorization code — the secret stays in .env and never reaches a browser.
+  [[ -n "$oidc_issuer" ]] || oidc_issuer="$OIDC_ISSUER_DEFAULT"
+
+  if [[ -z "$oidc_client_id" ]]; then
+    oidc_client_id="${fed_client_id:-}"
+    oidc_client_secret="${fed_client_secret:-}"
+    [[ -n "$oidc_client_id" ]] && info "Using the client the registration created for this Endpoint."
+  fi
+
+  if [[ -z "$oidc_client_id" ]]; then
+    warn "No client for identity-provider sign-in: it stays off."
+    warn "Register this Endpoint to get one, or pass --oidc-client-id."
+    want_oidc="no"
+  else
+    put OIDC_ENABLED "True"
+    put OIDC_ISSUER "$oidc_issuer"
+    put OIDC_CLIENT_ID "$oidc_client_id"
+    if [[ -n "$oidc_client_secret" ]]; then
+      put OIDC_CLIENT_SECRET "$oidc_client_secret"
+      ok "Identity-provider sign-in enabled with client '$oidc_client_id' (confidential)"
+    else
+      ok "Identity-provider sign-in enabled with client '$oidc_client_id' (public)"
+    fi
+  fi
 fi
 
 put LOCAL_CATALOG_BACKEND "$backend"

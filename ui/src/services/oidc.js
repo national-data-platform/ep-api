@@ -8,9 +8,12 @@
  * have no password in the realm itself, so the credentials form cannot work
  * for them and pasting a token by hand is their only alternative.
  *
- * A public client with PKCE is used rather than a confidential one so that no
- * client secret has to be distributed with the Endpoint, which is self-hosted
- * by many institutions.
+ * The browser starts the flow and receives the authorization code, but the
+ * code is exchanged for a token by this Endpoint's own API, not here. That is
+ * what allows a confidential client to be used without its secret ever
+ * reaching the page — which matters because the client a Federation
+ * registration creates for an Endpoint is confidential. A public client works
+ * through the same path, with no secret configured on the Endpoint.
  *
  * The flow ends by handing the resulting access token to
  * ``authAPI.setAndValidateToken``, so validation, storage and the
@@ -263,19 +266,18 @@ export const completeOidcLogin = async () => {
     throw new Error('Sign-in session has expired. Please try again.');
   }
 
-  const { clientId } = getConfig();
-  const config = await discover();
-
-  const response = await fetch(config.token_endpoint, {
+  // The Endpoint performs the exchange, so the client secret of a
+  // confidential client never has to exist in the browser. The PKCE verifier
+  // still travels from here: it is what proves this is the same session that
+  // started the flow.
+  const response = await fetch(`${BASE_URL}/user/oidc/exchange`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: clientId,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       code,
       redirect_uri: getRedirectUri(),
       code_verifier: verifier,
-    }).toString(),
+    }),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -283,7 +285,8 @@ export const completeOidcLogin = async () => {
   if (!response.ok || !data.access_token) {
     clearCallbackUrl();
     throw new Error(
-      data.error_description ||
+      data.detail ||
+        data.error_description ||
         data.error ||
         'The identity provider did not issue a token.'
     );

@@ -106,8 +106,9 @@ token and paste it by hand.
 
 Turning this on adds a **third** button that sends the user to the identity
 provider's own login page, where those providers appear. It uses the OAuth
-Authorization Code flow with PKCE against a **public** client, so no client
-secret is shipped with the Endpoint.
+Authorization Code flow with PKCE. The browser starts the flow and receives
+the authorization code; the **Endpoint** exchanges that code for a token, so
+a confidential client's secret never reaches the page.
 
 The other two methods are unchanged and remain available either way.
 
@@ -127,7 +128,17 @@ local Keycloak to production is just a change of this value.
 #### `OIDC_CLIENT_ID`
 *Required when `OIDC_ENABLED=True`.*
 The client registered for **this** Endpoint (see the requirements below).
-**Where:** your AAI/Keycloak administrator.
+**Where:** a Federation registration creates one per Endpoint and returns it;
+otherwise your AAI/Keycloak administrator.
+
+#### `OIDC_CLIENT_SECRET`
+*Required when the client is confidential — which the one a Federation
+registration creates is. Leave empty for a public client.*
+The authorization code is exchanged for a token by the API
+(`POST /user/oidc/exchange`), not by the browser, so the secret stays on the
+Endpoint and never reaches the page. It is a credential: it lives in `.env`,
+is never returned by any route, and is not exposed to the UI.
+**Where:** returned by the Federation registration alongside the client id.
 
 #### `OIDC_SCOPE`
 *Optional · default: `openid profile email`.*
@@ -141,9 +152,11 @@ saying nothing, so `OIDC_HELP_TEXT` shows no second line while empty.
 
 ### What your identity provider administrator must register
 
-1. **A public client with PKCE (S256).** Public rather than confidential so
-   that no client secret has to be distributed with the Endpoint, which is
-   self-hosted by many institutions.
+1. **A client with PKCE (S256), public or confidential.** A confidential
+   client works because the Endpoint performs the code exchange itself, so its
+   secret is never distributed to a browser — which is what makes the client a
+   Federation registration creates usable as it is. A public client needs no
+   `OIDC_CLIENT_SECRET`.
 2. **This deployment's callback URL** as a valid redirect URI on that client:
    `<scheme>://<host>[:<port>]<ROOT_PATH>/ui/auth/callback` — for example
    `https://my-endpoint.example.org/ep-api/ui/auth/callback`. The Endpoint

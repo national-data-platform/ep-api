@@ -4,8 +4,10 @@ import {
   isOidcCallback,
   getRedirectUri,
   beginOidcLogin,
+  completeOidcLogin,
   getOidcLabels,
 } from './oidc';
+import { authAPI } from './api';
 
 // ./api reads window.__EP_CONFIG__ and constructs an axios client at import
 // time; only BASE_URL and the shared validation entry point matter here.
@@ -188,5 +190,72 @@ describe('starting the sign-in', () => {
       value: originalSecure,
       configurable: true,
     });
+  });
+});
+
+// The exchange happens on the Endpoint, not here. That is what allows a
+// confidential client — the one a Federation registration creates — to be
+// used: its secret stays in the Endpoint's .env and is never in this page.
+describe('completing the sign-in', () => {
+  beforeEach(() => {
+    setConfig({
+      oidcEnabled: 'True',
+      oidcIssuer: 'https://idp.example.org/realms/NDP',
+      oidcClientId: 'ep-6a5e300b',
+    });
+    sessionStorage.setItem('oidcState', 'the-state');
+    sessionStorage.setItem('oidcCodeVerifier', 'the-verifier');
+    setUrl('/ep-api/ui/auth/callback?code=the-code&state=the-state');
+    global.fetch = jest.fn();
+    authAPI.setAndValidateToken.mockReset();
+  });
+
+  afterEach(() => {
+    delete window.__EP_CONFIG__;
+    sessionStorage.clear();
+    delete global.fetch;
+  });
+
+  it('exchanges the code through the Endpoint, never the provider', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ access_token: 'issued-token' }),
+    });
+    authAPI.setAndValidateToken.mockResolvedValue({ username: 'someone' });
+
+    await completeOidcLogin();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, options] = global.fetch.mock.calls[0];
+    expect(url).toBe('/ep-api/user/oidc/exchange');
+
+    const body = JSON.parse(options.body);
+    expect(body).toEqual({
+      code: 'the-code',
+      redirect_uri: getRedirectUri(),
+      code_verifier: 'the-verifier',
+    });
+    // Nothing about the client, and above all no secret, is sent from here.
+    expect(options.body).not.toMatch(/client_secret|client_id/);
+    expect(authAPI.setAndValidateToken).toHaveBeenCalledWith('issued-token');
+  });
+
+  it("reports the Endpoint's explanation when the exchange is refused", async () => {
+    global.fetch.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        detail: 'Invalid client or Invalid client credentials',
+      }),
+    });
+
+    await expect(completeOidcLogin()).rejects.toThrow(/Invalid client/);
+    expect(authAPI.setAndValidateToken).not.toHaveBeenCalled();
+  });
+
+  it('rejects a callback whose state does not match, without exchanging', async () => {
+    setUrl('/ep-api/ui/auth/callback?code=the-code&state=someone-elses-state');
+
+    await expect(completeOidcLogin()).rejects.toThrow(/could not be verified/);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

@@ -10,14 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.34.2] - 2026-08-03
 
 ### Added
-- **Identity-provider sign-in can actually be enabled at install time.** The installer offered it and then asked for a client id with no default and no way of finding one; a blank answer switched sign-in back off, so in practice the button was never offered. Both the realm and the client now default to the National Data Platform's — its public client serves any Endpoint in that realm — so answering yes and pressing Enter is enough. A client id registered for this Endpoint specifically can be given instead.
-- `--oidc`, `--oidc-issuer` and `--oidc-client-id`, so an unattended install can enable sign-in. The identity-provider questions were the only prompts with no flag behind them, contrary to what the installer's README says.
+- **Identity-provider sign-in works with the client a Federation registration already provides.** The installer offered sign-in and then asked for a client id with no default and no way of finding one, so in practice the button was never offered. The registration creates a client for each Endpoint and returns its id *and secret* — the installer now uses exactly that, so answering yes is enough. Nothing has to be registered by hand in the realm.
+- **`POST /user/oidc/exchange`.** The authorization code is now exchanged for a token by the API instead of by the browser. That is what makes the registered client usable: it is **confidential**, and a confidential client's secret cannot live in a page. The secret stays in `.env`, is never returned by any route and is never exposed to the UI. A public client goes through the same route with no secret configured, and no client authentication is sent.
+- `OIDC_CLIENT_SECRET`, documented in `example.env` and `docs/configuration.md`.
+- `--oidc`, `--oidc-issuer`, `--oidc-client-id` and `--oidc-client-secret`, so an unattended install can enable sign-in. The identity-provider questions were the only prompts with no flag behind them, contrary to what the installer's README says.
 
 ### Changed
-- A Federation registration still never switches sign-in on by itself — `--config-id` skips every prompt, so there is nobody to ask — but it now says how to enable it, and prints the client id it created for use with `--oidc-client-id`.
+- The UI no longer calls the identity provider's token endpoint. It posts the code, the redirect URI and the PKCE verifier to its own Endpoint, which performs the exchange. PKCE is unchanged: the verifier still originates in the browser and still proves the exchange belongs to the session that started the flow.
+- A Federation registration still never switches sign-in on by itself — `--config-id` skips every prompt, so there is nobody to ask — but it now says how to enable it.
+- Sign-in is left off, with an explanation, when there is no client to use: an Endpoint that never registered has none. The platform's own client cannot stand in, being confidential with a secret that is not the Endpoint's to have.
 
 ### Backwards compatibility
 - Sign-in remains off unless it is asked for, at the prompt or with `--oidc`. Existing `.env` files are untouched.
+- A deployment already using a public client keeps working without change: `OIDC_CLIENT_SECRET` stays empty and the exchange sends no client authentication. The only difference is that the request now leaves the Endpoint rather than the browser, so the identity provider no longer has to allow cross-origin calls from it.
 
 ## [0.34.1] - 2026-08-03
 
