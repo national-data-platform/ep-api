@@ -185,6 +185,31 @@ def test_identity_provider_sign_in_uses_the_registered_client():
     ), "install.sh never writes OIDC_CLIENT_SECRET"
 
 
+def test_sign_in_is_only_offered_when_there_is_a_client_to_offer():
+    """
+    Without a registration there is no client, so the question could only be
+    asked and then overruled. It must be inside the branch that runs when a
+    configuration id exists.
+    """
+    import re
+
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    guard = install_sh.index('if [[ -n "$config_id" ]]; then\n    section "Identity')
+    prompt = install_sh.index('ask_yes_no want_oidc "Offer sign-in')
+    closing = install_sh.index('  else\n    info "Identity-provider sign-in needs')
+
+    assert guard < prompt < closing, (
+        "the identity-provider question is asked outside the branch that "
+        "requires a registration"
+    )
+    assert re.search(
+        r"--oidc-client-id <id> --oidc-client-secret", install_sh
+    ), "nothing tells an operator with their own client how to use it"
+
+
 def test_every_variable_the_installer_sets_is_documented():
     """
     Guard against the drift that broke the previous installer: every variable

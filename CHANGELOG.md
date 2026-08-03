@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The UI no longer calls the identity provider's token endpoint. It posts the code, the redirect URI and the PKCE verifier to its own Endpoint, which performs the exchange. PKCE is unchanged: the verifier still originates in the browser and still proves the exchange belongs to the session that started the flow.
 - A Federation registration still never switches sign-in on by itself — `--config-id` skips every prompt, so there is nobody to ask — but it now says how to enable it.
-- Sign-in is left off, with an explanation, when there is no client to use: an Endpoint that never registered has none. The platform's own client cannot stand in, being confidential with a secret that is not the Endpoint's to have.
+- Sign-in is left off, with an explanation, when there is no client to use: an Endpoint that never registered has none. The platform's own client cannot stand in, being confidential with a secret that is not the Endpoint's to have. The installer does not ask about sign-in in that case either — the answer could only have been recorded and then overruled — and says instead which flags enable it for an operator who has a client of their own.
 
 ### Backwards compatibility
 - Sign-in remains off unless it is asked for, at the prompt or with `--oidc`. Existing `.env` files are untouched.

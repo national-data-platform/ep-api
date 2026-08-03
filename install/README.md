@@ -57,21 +57,27 @@ Run it with no arguments and it asks:
 
   Port to publish the Endpoint on [8003]:
   Authentication service (AAI) URL [https://idp.nationaldataplatform.org/temp/information]:
-  Offer sign-in through the identity provider? [y/N]:
 ```
 
-Answering yes to the last one asks for the realm URL, which defaults to the
-National Data Platform's, and for a client id — which can be left blank. The
-Federation registration creates a client for this Endpoint and hands back its
-id **and secret**, and that is what the installer then uses. Fill the client
-id in only to sign in through a different one; you will be asked for its
-secret, if it has one.
+**Identity-provider sign-in** is offered as a further question, but only when
+this Endpoint registered with the Federation — that registration is what
+creates the client it signs in through, and hands back its id and secret.
+Without one there is no client, so the question is not asked and sign-in stays
+off. The platform's own client cannot stand in: its secret is not ours to
+have.
+
+```
+  Offer sign-in through the identity provider? [y/N]: y
+  Identity provider realm URL [https://idp.nationaldataplatform.org/realms/NDP]:
+  Client id (blank to use the registered one):
+```
 
 That client is confidential. It works because the Endpoint's API exchanges the
 authorization code for the token, so the secret stays in `.env` and never
-reaches a browser. Without a registration there is no client, and sign-in
-stays off — the platform's own client cannot stand in for one, since its
-secret is not ours to have.
+reaches a browser. Fill the client id in only to sign in through a different
+one; you will be asked for its secret, if it has one — which is also how an
+Endpoint with a client of its own but no registration enables sign-in, with
+`--oidc-client-id` and `--oidc-client-secret`.
 
 [docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
 follows that run end to end — every prompt, who is contacted, what is started,

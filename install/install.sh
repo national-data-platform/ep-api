@@ -796,22 +796,31 @@ if [[ -z "$config_id" ]] && interactive; then
   ask auth_api_url "Authentication service (AAI) URL" \
     "https://idp.nationaldataplatform.org/temp/information"
 
-  section "Identity-provider sign-in" \
-    "Optional. Adds a button that signs users in through the identity" \
-    "provider's own page (CILogon, EarthScope, ORCID). The access-token and" \
-    "username/password logins work either way." \
-    "" \
-    "It needs a client in the identity provider's realm. Registering this" \
-    "Endpoint with the Federation creates one and hands back its id and" \
-    "secret, which is all this needs — leave the client id blank to use it." \
-    "Fill it in only to sign in through a different client."
-  ask_yes_no want_oidc "Offer sign-in through the identity provider?" "no"
-  if [[ "$want_oidc" == "yes" ]]; then
-    ask oidc_issuer    "Identity provider realm URL" "$OIDC_ISSUER_DEFAULT"
-    ask oidc_client_id "Client id (blank to use the registered one)" ""
-    if [[ -n "$oidc_client_id" ]]; then
-      ask_secret oidc_client_secret "Its client secret, if confidential (not shown)"
+  # Only worth asking when there is a client to sign in through. The
+  # registration creates one; without it the answer could only be recorded and
+  # then overruled, which is a question that wastes the operator's time.
+  if [[ -n "$config_id" ]]; then
+    section "Identity-provider sign-in" \
+      "Optional. Adds a button that signs users in through the identity" \
+      "provider's own page (CILogon, EarthScope, ORCID). The access-token and" \
+      "username/password logins work either way." \
+      "" \
+      "The registration created a client for this Endpoint and handed back" \
+      "its id and secret, which is all this needs — leave the client id blank" \
+      "to use it. Fill it in only to sign in through a different client."
+    ask_yes_no want_oidc "Offer sign-in through the identity provider?" "no"
+    if [[ "$want_oidc" == "yes" ]]; then
+      ask oidc_issuer    "Identity provider realm URL" "$OIDC_ISSUER_DEFAULT"
+      ask oidc_client_id "Client id (blank to use the registered one)" ""
+      if [[ -n "$oidc_client_id" ]]; then
+        ask_secret oidc_client_secret "Its client secret, if confidential (not shown)"
+      fi
     fi
+  else
+    info "Identity-provider sign-in needs a client in the provider's realm, which"
+    info "a Federation registration creates. Without one it stays off; the other"
+    info "two sign-in methods work as usual."
+    info "Already have a client? --oidc --oidc-client-id <id> --oidc-client-secret <secret>"
   fi
 fi
 
