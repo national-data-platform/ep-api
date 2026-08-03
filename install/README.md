@@ -48,10 +48,11 @@ Run it with no arguments and it asks:
   Endpoint name [my_endpoint]:
 
   Which local catalog should this Endpoint use?
-    1) MongoDB, installed alongside the Endpoint
-    2) MongoDB, one I already have
-    3) CKAN, installed by this script (takes several minutes)
-    4) CKAN, one I already have
+    1) None — nothing is stored locally (quickest)
+    2) MongoDB, installed alongside the Endpoint
+    3) MongoDB, one I already have
+    4) CKAN, installed by this script (takes several minutes)
+    5) CKAN, one I already have
   Choice [1]:
 
   Port to publish the Endpoint on [8003]:
@@ -76,7 +77,7 @@ waiting for input.
 |---|---|
 | `--config-id <id>` | Federation configuration id |
 | `--federation-url <url>` | defaults to `https://federation.ndp.utah.edu` |
-| `--backend mongodb\|ckan` | local catalog backend, default `mongodb` |
+| `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--ep-api-port <port>` | host port for the API, default `8002` |
 | `--dry-run` | render the configuration and run the checks, start nothing |
 | `--no-start` | write everything, bring nothing up |
@@ -85,10 +86,29 @@ waiting for input.
 `--dry-run` is the quickest way to see what a registration would produce. It
 never installs anything, including CKAN.
 
+### No local catalog
+
+The default, and the quickest Endpoint to stand up:
+
+```bash
+./install/install.sh --backend none
+```
+
+Nothing is installed and nothing is stored here. The Endpoint authenticates
+users, searches the platform's global catalog, serves its UI and reports to the
+Federation, which is all most Endpoints are asked to do. It renders
+`LOCAL_CATALOG_BACKEND=none` and `CKAN_LOCAL_ENABLED=False`, which leaves the
+routes that write to a local catalog unmounted — nothing can be published,
+including to the staging catalog. Re-running the installer with `--backend
+mongodb` or `--backend ckan` adds a catalog later.
+
+`/ready` reports the local catalog as `disabled` rather than down, so an
+Endpoint with no catalog is healthy rather than perpetually 503.
+
 ### MongoDB
 
-The default backend. The installer starts a MongoDB alongside the Endpoint,
-unless you point at one you already run:
+The installer starts a MongoDB alongside the Endpoint, unless you point at one
+you already run:
 
 ```bash
 ./install/install.sh --backend mongodb --mongodb-url mongodb://your-host:27017
