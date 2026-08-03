@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-08-03
+
+### Fixed
+- **An Endpoint installed without a Federation registration no longer reports to it.** The installer wrote `IS_PUBLIC` only when a registration was fetched, so declining to register left the `True` that `example.env` carries as a demo default, with `METRICS_ENDPOINT` still pointing at the Federation. A deliberately standalone Endpoint posted its public IP, organization, endpoint name, system usage and catalog counts to a platform it had not joined — and the Federation accepted them. `IS_PUBLIC` is now switched off with the rest of the defaults and turned back on only by a registration that asks to be listed. Metrics are still collected and logged locally; nothing leaves the Endpoint.
+
+### Backwards compatibility
+- Only new installations are affected. An existing `.env` keeps whatever `IS_PUBLIC` it has; set it to `False` by hand on an Endpoint that should not be reporting.
+- Installing with `--config-id`, or answering yes to the registration prompt, is unchanged: the registration decides, as before.
+
 ## [0.34.0] - 2026-08-03
 
 ### Added
