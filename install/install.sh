@@ -796,6 +796,12 @@ fi
 # Endpoint pointing at Kafka, MinIO, JupyterLab and Pelican that nothing has
 # provisioned. Everything optional starts off here, and is switched back on
 # further down only when something actually provides it.
+# IS_PUBLIC is what allows the metrics task to post to the Federation. An
+# Endpoint that never registered has no business reporting to a platform it is
+# not part of, and example.env's demo default of True made it do exactly that.
+# A registration decides it further down, from the answer given while
+# registering; without one it stays off.
+put IS_PUBLIC "False"
 put KAFKA_CONNECTION "False"
 put USE_JUPYTERLAB "False"
 put S3_ENABLED "False"

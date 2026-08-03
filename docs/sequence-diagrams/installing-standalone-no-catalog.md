@@ -91,9 +91,8 @@ sequenceDiagram
 
     rect rgb(245, 245, 245)
     Note over EP,Fed: From here on, on its own
-    EP->>Fed: POST /metrics/ every 3300s
-    Fed-->>EP: 201 Created
-    Note over EP,Fed: IS_PUBLIC defaults to True, so an Endpoint that<br/>never registered still reports its metrics
+    Note over EP: The metrics task collects every 3300s<br/>and logs the result
+    Note over EP,Fed: Nothing is posted: IS_PUBLIC is False without a<br/>registration, and posting is gated on it
     end
 ```
 
@@ -106,7 +105,7 @@ variable the Endpoint documents. Stripped of comments, this is the whole file:
 ROOT_PATH=
 ORGANIZATION=My-Organization
 EP_NAME=my_endpoint
-IS_PUBLIC=True
+IS_PUBLIC=False
 METRICS_INTERVAL_SECONDS=3300
 METRICS_ENDPOINT=https://federation.ndp.utah.edu/metrics/
 NETBIRD_ENABLED=False
@@ -153,8 +152,8 @@ AFFINITIES_EP_UUID=
 AFFINITIES_TIMEOUT=30
 ```
 
-The thirteen values the installer set are the ones that differ from
-`example.env`'s demo defaults:
+The values the installer set are the ones that differ from `example.env`'s
+demo defaults:
 
 | Variable | Value | Why |
 |---|---|---|
@@ -163,22 +162,21 @@ The thirteen values the installer set are the ones that differ from
 | `LOCAL_CATALOG_BACKEND` | `none` | No local catalog |
 | `CKAN_LOCAL_ENABLED` | `False` | Leaves the routes that write to a local catalog unmounted |
 | `CKAN_URL`, `CKAN_API_KEY`, `MONGODB_CONNECTION_STRING` | empty | Nothing must point at a service that was not installed |
+| `IS_PUBLIC` | `False` | No registration, so nothing is reported to the Federation |
 | `KAFKA_CONNECTION`, `S3_ENABLED`, `USE_JUPYTERLAB`, `PELICAN_ENABLED`, `AFFINITIES_ENABLED`, `REXEC_CONNECTION`, `PRE_CKAN_ENABLED`, `OIDC_ENABLED` | `False` | `example.env` is a demo with every integration on; a fresh install provisions none of them |
 
-Everything else is `example.env`'s documented default, untouched. Two of those
-defaults are worth knowing:
+Everything else is `example.env`'s documented default, untouched. One of those
+defaults is worth knowing: **`TEST_TOKEN=testing_token`** is a development
+convenience. Change it, or clear it, on anything reachable by others.
 
-- **`IS_PUBLIC=True`** with `METRICS_ENDPOINT` pointing at the Federation. The
-  Endpoint was never registered, but it does report its metrics. Set
-  `IS_PUBLIC=False` to keep it entirely to itself.
-- **`TEST_TOKEN=testing_token`** is a development convenience. Change it, or
-  clear it, on anything reachable by others.
+`METRICS_ENDPOINT` still points at the Federation, but it is never used:
+posting is gated on `IS_PUBLIC`, which a registration is what turns on.
 
 ## What this Endpoint does, and does not
 
 **It does**: authenticate users against the NDP AAI, search the platform's
-global catalog, serve its UI at `/ui/`, answer `/health` and `/ready`, redirect
-to services and report metrics to the Federation.
+global catalog, serve its UI at `/ui/`, answer `/health` and `/ready` and
+redirect to services.
 
 `/ready` reports the local catalog as `disabled`, not as down:
 
@@ -190,8 +188,10 @@ to services and report metrics to the Federation.
             "kafka": {"status": "disabled"}}}
 ```
 
-**It does not**: store anything. The registration, update, delete and resource
-routes are not mounted at all — they are absent from `/docs` rather than
-failing when called — and `/search?server=local` answers `400 Local CKAN is
-disabled and cannot be used`. Publishing to the staging catalog is off too,
-since it travels through the same routes.
+**It does not**: store anything, or tell anyone about itself. The registration,
+update, delete and resource routes are not mounted at all — they are absent
+from `/docs` rather than failing when called — and `/search?server=local`
+answers `400 Local CKAN is disabled and cannot be used`. Publishing to the
+staging catalog is off too, since it travels through the same routes. Nothing
+is posted to the Federation: the Endpoint never registered, so it is not
+public, and metrics stay local to its logs.
