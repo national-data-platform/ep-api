@@ -20,8 +20,13 @@ def check_backend_connection() -> bool:
     Returns
     -------
     bool
-        True if backend is connected and healthy, False otherwise
+        True if backend is connected and healthy, False otherwise.
+        False, without attempting a connection, when this Endpoint has no
+        local catalog (LOCAL_CATALOG_BACKEND=none).
     """
+    if not catalog_settings.has_local_catalog:
+        return False
+
     try:
         # Get the local catalog repository based on current configuration
         repository = catalog_settings.local_catalog

@@ -76,11 +76,18 @@ async def record_system_metrics():
             public_ip = get_public_ip()
             cpu, mem_used, mem_total, disk_used, disk_total = get_system_metrics()
 
-            # Get catalog statistics
-            catalog_repo = catalog_settings.local_catalog
-            num_datasets = get_num_datasets(catalog_repo)
-            num_services = get_num_services(catalog_repo)
-            services_titles = get_services_titles(catalog_repo)
+            # Get catalog statistics. An Endpoint with no local catalog has
+            # nothing to count; asking for the repository would raise and cost
+            # the whole report, including the POST to the Federation.
+            if catalog_settings.has_local_catalog:
+                catalog_repo = catalog_settings.local_catalog
+                num_datasets = get_num_datasets(catalog_repo)
+                num_services = get_num_services(catalog_repo)
+                services_titles = get_services_titles(catalog_repo)
+            else:
+                num_datasets = 0
+                num_services = 0
+                services_titles = []
 
             # Generate timestamp
             timestamp = datetime.utcnow().isoformat() + "Z"

@@ -43,8 +43,18 @@ def _check_local_catalog() -> Dict[str, Any]:
     """Check local catalog (CKAN or MongoDB) connection."""
     backend = catalog_settings.local_catalog_backend.lower()
 
-    if backend == "ckan" and not ckan_settings.ckan_local_enabled:
-        return {"status": "disabled", "backend": "ckan"}
+    # No local catalog at all: there is nothing to be unavailable, so the
+    # Endpoint is ready without one.
+    if not catalog_settings.has_local_catalog:
+        return {"status": "disabled", "backend": backend}
+
+    # CKAN_LOCAL_ENABLED is the master switch for the local catalog on every
+    # backend: with it off the local catalog routes are not mounted and
+    # /search rejects server=local, so nothing can reach the catalog. Probing
+    # it would report a dependency the Endpoint never uses as down, and answer
+    # 503 for a deployment running exactly as configured.
+    if not ckan_settings.ckan_local_enabled:
+        return {"status": "disabled", "backend": backend}
 
     try:
         repo = catalog_settings.local_catalog
