@@ -60,6 +60,10 @@ Run it with no arguments and it asks:
   Offer sign-in through the identity provider? [y/N]:
 ```
 
+[docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
+follows that run end to end — every prompt, who is contacted, what is started,
+and the `.env` it produces.
+
 Enter accepts the value in brackets. Suggested ports are picked from what is
 actually free on the machine, so the defaults do not collide with whatever is
 already running. Nothing is written or downloaded until the answers are
