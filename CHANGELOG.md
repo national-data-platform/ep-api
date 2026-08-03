@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/status` reports the backend as disconnected without attempting a connection when there is no local catalog, instead of logging a failed one every call.
 
 ### Fixed
+- **A container built today starts again.** `requirements.txt` constrained nothing, so a fresh install resolved `mcp` 2.0.0, whose low-level `Server` no longer accepts the positional arguments `fastapi-mcp` 0.4.0 passes it. `FastApiMCP(app)` runs at import time, so the API did not come up at all and CI failed on every branch; images built earlier were unaffected because their dependencies were resolved when they were built. Pinned to `mcp<2.0.0` until `fastapi-mcp` supports it.
 - **An Endpoint with no local catalog keeps reporting to the Federation.** Catalog statistics are collected inside the same `try` as the rest of the metrics payload, so asking for a repository that does not exist left the payload empty and skipped the POST entirely — the Endpoint would have gone silent rather than reporting without dataset counts. With no catalog the counts are reported as zero and the metrics go out as usual.
 
 ### Backwards compatibility
