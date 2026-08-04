@@ -21,8 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A Federation registration still never switches sign-in on by itself — `--config-id` skips every prompt, so there is nobody to ask — but it now says how to enable it.
 - Sign-in is left off, with an explanation, when there is no client to use: an Endpoint that never registered has none. The platform's own client cannot stand in, being confidential with a secret that is not the Endpoint's to have. The installer does not ask about sign-in in that case either — the answer could only have been recorded and then overruled — and says instead which flags enable it for an operator who has a client of their own.
 
+### Fixed
+- **Re-running the installer no longer keeps the previously built image.** The stack was started with `docker compose up -d`, which builds only when no image exists, so on any machine that had run an Endpoint before, the container came back from the image built the first time and the current checkout was never compiled in. The install reported success while running old code — a route added since answered 404, and the UI served was the one built then — while `.env`, regenerated on every run, was current, which made the mismatch read as a configuration problem. It is now started with `--build`, as the CKAN stack already was. Unchanged sources come from the layer cache.
+
 ### Backwards compatibility
 - Sign-in remains off unless it is asked for, at the prompt or with `--oidc`. Existing `.env` files are untouched.
+- Installs take longer when sources changed since the last run, because the image is rebuilt rather than silently reused.
 - A deployment already using a public client keeps working without change: `OIDC_CLIENT_SECRET` stays empty and the exchange sends no client authentication. The only difference is that the request now leaves the Endpoint rather than the browser, so the identity provider no longer has to allow cross-origin calls from it.
 
 ## [0.34.1] - 2026-08-03

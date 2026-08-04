@@ -1278,7 +1278,7 @@ step "Starting the Endpoint"
 # --------------------------------------------------------------
 if [[ "$start" != "true" ]]; then
   info "--no-start given; bring it up yourself with:"
-  echo "    cd $REPO_ROOT && EP_API_PORT=$ep_api_port ${COMPOSE[*]} ${profiles[*]/#/--profile } up -d"
+  echo "    cd $REPO_ROOT && EP_API_PORT=$ep_api_port ${COMPOSE[*]} ${profiles[*]/#/--profile } up -d --build"
   exit 0
 fi
 
@@ -1295,7 +1295,14 @@ for profile in "${profiles[@]:-}"; do
 done
 
 cd "$REPO_ROOT"
-EP_API_PORT="$ep_api_port" "${COMPOSE[@]}" "${profile_args[@]}" up -d
+
+# --build, or compose reuses whatever image was built the first time this
+# machine ran an Endpoint and the checkout is never compiled in: the install
+# reports success while running old code, with the freshly rendered .env
+# making the mismatch look like a configuration problem. Unchanged sources
+# come from the layer cache, so this costs little after the first run.
+info "Building the image from this checkout; the first run takes a few minutes."
+EP_API_PORT="$ep_api_port" "${COMPOSE[@]}" "${profile_args[@]}" up -d --build
 
 # --------------------------------------------------------------
 step "Verifying the Endpoint answers"
