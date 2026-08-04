@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.3] - 2026-08-04
+
+### Changed
+- **The installer no longer offers identity-provider sign-in.** It asked whether to offer it and then asked for a client id, but there is no client an Endpoint can use: the ones a Federation registration creates are confidential, so the browser's code exchange is refused with "Invalid client or Invalid client credentials", and their tokens carry no `sub` claim — which `AUTH_API_URL` looks the user up by, so validation answers 500 even once the exchange succeeds. The scope that supplies `sub` cannot be requested from the Endpoint. Answering yes could only produce a login button that fails after a successful sign-in, which reads as a credentials problem and is not one. The question is gone until how this is meant to work is settled with whoever administers the identity provider.
+
+### Backwards compatibility
+- The `OIDC_*` settings are unchanged, still documented in `example.env` and `docs/configuration.md`, and still read by the API and the UI. A deployment with a working client switches sign-in on by editing `.env`; the installer simply never turns it on.
+- An Endpoint already running with sign-in enabled is unaffected until it is re-installed. Re-running the installer renders a fresh `.env` with `OIDC_ENABLED=False`, as it did before this change whenever the question was answered no, so those three values have to be put back by hand — the previous file is kept as `.env.backup.<timestamp>`.
+
 ## [0.34.2] - 2026-08-04
 
 ### Fixed
