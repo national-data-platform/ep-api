@@ -210,6 +210,30 @@ def test_sign_in_is_only_offered_when_there_is_a_client_to_offer():
     ), "nothing tells an operator with their own client how to use it"
 
 
+def test_sign_in_asks_nothing_a_registration_already_answers():
+    """
+    Enabling sign-in is one yes/no. The realm, the client and its secret are
+    all knowable — the registration names the realm and creates the client,
+    and the provider's host is the one AUTH_API_URL validates against, since
+    they must be the same provider — so asking for them is asking the operator
+    to retype what the installer has.
+    """
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "idp_realm_url" in install_sh, "the realm URL is not derived at all"
+    for prompt in (
+        "ask oidc_issuer ",
+        "ask oidc_client_id ",
+        "ask_secret oidc_client_secret",
+    ):
+        assert prompt not in install_sh, (
+            f"'{prompt.strip()}' asks for something the registration already "
+            "provides; the flags cover the case where it does not"
+        )
+
+
 def test_every_variable_the_installer_sets_is_documented():
     """
     Guard against the drift that broke the previous installer: every variable

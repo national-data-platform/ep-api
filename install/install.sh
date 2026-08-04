@@ -376,6 +376,23 @@ with open(path, "w") as handle:
 PY
 }
 
+# The realm URL of the identity provider a given authentication service
+# validates against: same scheme and host, /realms/<name>. OIDC_ISSUER and
+# AUTH_API_URL must point at the same provider — the token is minted by one and
+# validated by the other — so the host is not a guess, it is the requirement.
+idp_realm_url() {
+  local auth_url="$1" realm="$2"
+  [[ -n "$auth_url" && -n "$realm" ]] || return 0
+  python3 - "$auth_url" "$realm" <<'PY'
+import sys
+from urllib.parse import urlparse
+
+parsed = urlparse(sys.argv[1])
+if parsed.scheme and parsed.netloc:
+    print(f"{parsed.scheme}://{parsed.netloc}/realms/{sys.argv[2].strip('/')}")
+PY
+}
+
 host_ip() {
   # The address the Endpoint container will use to reach CKAN, which is
   # published on the host rather than shared through a Docker network.
@@ -805,17 +822,10 @@ if [[ -z "$config_id" ]] && interactive; then
       "provider's own page (CILogon, EarthScope, ORCID). The access-token and" \
       "username/password logins work either way." \
       "" \
-      "The registration created a client for this Endpoint and handed back" \
-      "its id and secret, which is all this needs — leave the client id blank" \
-      "to use it. Fill it in only to sign in through a different client."
+      "Nothing else to answer: the registration created a client for this" \
+      "Endpoint, and its realm and credentials are taken from there. Signing" \
+      "in through a different client is --oidc-client-id, unattended."
     ask_yes_no want_oidc "Offer sign-in through the identity provider?" "no"
-    if [[ "$want_oidc" == "yes" ]]; then
-      ask oidc_issuer    "Identity provider realm URL" "$OIDC_ISSUER_DEFAULT"
-      ask oidc_client_id "Client id (blank to use the registered one)" ""
-      if [[ -n "$oidc_client_id" ]]; then
-        ask_secret oidc_client_secret "Its client secret, if confidential (not shown)"
-      fi
-    fi
   else
     info "Identity-provider sign-in needs a client in the provider's realm, which"
     info "a Federation registration creates. Without one it stays off; the other"
@@ -954,12 +964,30 @@ step "Selecting the local catalog backend"
 [[ -n "$auth_api_url" ]]  && put AUTH_API_URL "$auth_api_url"
 
 if [[ "$want_oidc" == "yes" ]]; then
-  # The issuer has a working default; the client does not, and comes from the
-  # registration unless one was given. The client the Federation creates is
+  # Nothing here is asked for: the registration names the realm, the identity
+  # provider's host is the one AUTH_API_URL already validates tokens against —
+  # they have to be the same provider or sign-in fails at the last step — and
+  # the client with its secret comes from the registration too. The client is
   # confidential, which is workable because the API exchanges the
-  # authorization code — the secret stays in .env and never reaches a browser.
+  # authorization code, so the secret stays in .env and never reaches a
+  # browser.
+  if [[ -z "$oidc_issuer" && -n "${fed_realm:-}" && -n "$auth_api_url" ]]; then
+    oidc_issuer="$(idp_realm_url "$auth_api_url" "$fed_realm")"
+    [[ -n "$oidc_issuer" ]] && info "Identity provider realm: $oidc_issuer (from the registration)"
+  fi
   [[ -n "$oidc_issuer" ]] || oidc_issuer="$OIDC_ISSUER_DEFAULT"
 
+  # A realm that does not answer means a login that starts and cannot finish,
+  # which surfaces as a credentials problem and is not one. Better to say so
+  # here, while nothing has been written.
+  if ! curl -s -o /dev/null -m 15 "${oidc_issuer%/}/.well-known/openid-configuration"; then
+    warn "The realm at $oidc_issuer does not answer; identity-provider sign-in stays off."
+    warn "Pass --oidc --oidc-issuer <realm-url> once you know the right one."
+    want_oidc="no"
+  fi
+fi
+
+if [[ "$want_oidc" == "yes" ]]; then
   if [[ -z "$oidc_client_id" ]]; then
     oidc_client_id="${fed_client_id:-}"
     oidc_client_secret="${fed_client_secret:-}"

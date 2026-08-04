@@ -68,16 +68,22 @@ have.
 
 ```
   Offer sign-in through the identity provider? [y/N]: y
-  Identity provider realm URL [https://idp.nationaldataplatform.org/realms/NDP]:
-  Client id (blank to use the registered one):
 ```
+
+That is the whole question. Nothing else is asked because nothing else has to
+be: the registration names the realm and creates the client, and the identity
+provider's host is the one `AUTH_API_URL` already validates tokens against —
+they have to be the same provider, or sign-in fails at the last step. The
+realm URL is derived from the two and checked against its discovery document
+before anything is written; a realm that does not answer leaves sign-in off
+and says so, rather than producing a login that starts and cannot finish.
 
 That client is confidential. It works because the Endpoint's API exchanges the
 authorization code for the token, so the secret stays in `.env` and never
-reaches a browser. Fill the client id in only to sign in through a different
-one; you will be asked for its secret, if it has one — which is also how an
-Endpoint with a client of its own but no registration enables sign-in, with
-`--oidc-client-id` and `--oidc-client-secret`.
+reaches a browser. Signing in through a different client — including on an
+Endpoint that has one of its own but no registration — is
+`--oidc-client-id`, `--oidc-client-secret` and, if the realm differs,
+`--oidc-issuer`.
 
 [docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
 follows that run end to end — every prompt, who is contacted, what is started,
