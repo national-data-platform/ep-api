@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.5] - 2026-08-04
+
+### Added
+- **Sequence diagram of a registered install** ([docs/sequence-diagrams/installing-registered-no-catalog.md](docs/sequence-diagrams/installing-registered-no-catalog.md)). The companion to the standalone one: the same lightest install, but registered with the Federation. It follows the run from the first prompt to the Endpoint reporting metrics, and opens up what the registration itself does on the operator's behalf — a Keycloak client, a group with them as its administrator, a staging-catalog token and an entry in Affinities, across three services none of which a standalone install touches. It says which of those the Endpoint actually uses, lists the `.env` values that differ from a standalone install and where each comes from, and notes that a token minted before the group existed does not carry it.
+
+### Backwards compatibility
+- Documentation only. No API behavior, request/response shapes, or routes change.
+
 ## [0.34.4] - 2026-08-04
 
 ### Added
