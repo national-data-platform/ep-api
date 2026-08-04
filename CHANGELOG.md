@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-08-04
+
+### Fixed
+- **Re-running the installer no longer keeps the previously built image.** The stack was started with `docker compose up -d`, which builds only when no image exists, so on any machine that had run an Endpoint before, the container came back from the image built the first time and the current checkout was never compiled in. The install reported success while running old code — a route added since answered 404, and the UI served was the one built then — while `.env`, regenerated on every run, was current, which made the mismatch read as a configuration problem rather than a stale build. It is now started with `--build`, as the CKAN stack already was. Unchanged sources come from the layer cache.
+
+### Backwards compatibility
+- Installs take longer when sources changed since the last run, because the image is rebuilt rather than silently reused. Nothing else changes.
+
 ## [0.34.1] - 2026-08-03
 
 ### Fixed
