@@ -16,6 +16,7 @@ import api.routes as routes
 from api.middleware import CorrelationIdMiddleware
 from api.exceptions import register_exception_handlers
 from api.config import ckan_settings, swagger_settings
+from api.config.catalog_settings import catalog_settings
 from api.config.minio_settings import s3_settings
 from api.routes.update_routes.put_dataset import router as dataset_update_router
 from api.tasks.metrics_task import record_system_metrics
@@ -50,11 +51,20 @@ root_logger.addHandler(file_handler)
 root_logger.addHandler(console_handler)
 
 
+# The local catalog is in play only when a backend provides one and the master
+# switch is on. LOCAL_CATALOG_BACKEND=none is an Endpoint that stores nothing
+# locally: mounting the routes that write to a catalog would offer operations
+# that cannot work.
+local_catalog_enabled = (
+    ckan_settings.ckan_local_enabled and catalog_settings.has_local_catalog
+)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run tasks on startup and handle shutdown."""
     # Ensure 'services' organization exists
-    if ckan_settings.ckan_local_enabled:
+    if local_catalog_enabled:
         try:
             from api.services.organization_services.list_organization import (
                 list_organization,
@@ -133,13 +143,13 @@ register_exception_handlers(app)
 
 app.include_router(routes.default_router, include_in_schema=False)
 app.include_router(routes.health_router, tags=["Health"])
-if ckan_settings.ckan_local_enabled:
+if local_catalog_enabled:
     app.include_router(routes.register_router, tags=["Registration"])
 app.include_router(routes.search_router, tags=["Search"])
-if ckan_settings.ckan_local_enabled:
+if local_catalog_enabled:
     app.include_router(routes.update_router, tags=["Update"])
     app.include_router(dataset_update_router, tags=["Update"])
-if ckan_settings.ckan_local_enabled:
+if local_catalog_enabled:
     app.include_router(routes.delete_router, tags=["Delete"])
     app.include_router(routes.resource_router, tags=["Resources"])
     app.include_router(routes.resource_search_router, tags=["Resources"])

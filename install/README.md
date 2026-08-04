@@ -14,9 +14,8 @@ those on top of the documented defaults and brings the stack up.
 ## Registering
 
 Without a configuration id, the installer offers to register the Endpoint for
-you. Registration is what creates this Endpoint's **Keycloak client and
-group**, so it is also what makes identity-provider sign-in possible without
-an administrator having to set anything up by hand. It also fetches a
+you. Registration creates this Endpoint's **Keycloak client and group**, which
+is what the group-based access control is keyed on. It also fetches a
 staging-catalog token and registers the Endpoint in Affinities.
 
 It needs your NDP access token, from your user panel on the platform. The user
@@ -48,16 +47,20 @@ Run it with no arguments and it asks:
   Endpoint name [my_endpoint]:
 
   Which local catalog should this Endpoint use?
-    1) MongoDB, installed alongside the Endpoint
-    2) MongoDB, one I already have
-    3) CKAN, installed by this script (takes several minutes)
-    4) CKAN, one I already have
+    1) None — nothing is stored locally (quickest)
+    2) MongoDB, installed alongside the Endpoint
+    3) MongoDB, one I already have
+    4) CKAN, installed by this script (takes several minutes)
+    5) CKAN, one I already have
   Choice [1]:
 
   Port to publish the Endpoint on [8003]:
   Authentication service (AAI) URL [https://idp.nationaldataplatform.org/temp/information]:
-  Offer sign-in through the identity provider? [y/N]:
 ```
+
+[docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
+follows that run end to end — every prompt, who is contacted, what is started,
+and the `.env` it produces.
 
 Enter accepts the value in brackets. Suggested ports are picked from what is
 actually free on the machine, so the defaults do not collide with whatever is
@@ -76,7 +79,7 @@ waiting for input.
 |---|---|
 | `--config-id <id>` | Federation configuration id |
 | `--federation-url <url>` | defaults to `https://federation.ndp.utah.edu` |
-| `--backend mongodb\|ckan` | local catalog backend, default `mongodb` |
+| `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--ep-api-port <port>` | host port for the API, default `8002` |
 | `--dry-run` | render the configuration and run the checks, start nothing |
 | `--no-start` | write everything, bring nothing up |
@@ -85,10 +88,29 @@ waiting for input.
 `--dry-run` is the quickest way to see what a registration would produce. It
 never installs anything, including CKAN.
 
+### No local catalog
+
+The default, and the quickest Endpoint to stand up:
+
+```bash
+./install/install.sh --backend none
+```
+
+Nothing is installed and nothing is stored here. The Endpoint authenticates
+users, searches the platform's global catalog, serves its UI and reports to the
+Federation, which is all most Endpoints are asked to do. It renders
+`LOCAL_CATALOG_BACKEND=none` and `CKAN_LOCAL_ENABLED=False`, which leaves the
+routes that write to a local catalog unmounted — nothing can be published,
+including to the staging catalog. Re-running the installer with `--backend
+mongodb` or `--backend ckan` adds a catalog later.
+
+`/ready` reports the local catalog as `disabled` rather than down, so an
+Endpoint with no catalog is healthy rather than perpetually 503.
+
 ### MongoDB
 
-The default backend. The installer starts a MongoDB alongside the Endpoint,
-unless you point at one you already run:
+The installer starts a MongoDB alongside the Endpoint, unless you point at one
+you already run:
 
 ```bash
 ./install/install.sh --backend mongodb --mongodb-url mongodb://your-host:27017
@@ -197,9 +219,15 @@ are what gets tested.
 - **Kafka and JupyterHub are not provisioned.** A registration that asks for
   streaming or JupyterHub configures the Endpoint for them but does not stand
   them up.
-- **Identity-provider sign-in is left off**, even when the registration
-  carries a `client_id`. The registration names the realm but not the
-  identity provider's host, and `OIDC_ISSUER` has to agree with
-  `AUTH_API_URL`; guessing one from the other would fail at the last step of a
-  login, which looks like a credentials problem and is not. See
+- **Identity-provider sign-in is not offered**, and the installer no longer
+  asks about it. There is no client an Endpoint can sign in through: the ones
+  a registration creates are confidential, so the browser's code exchange is
+  refused with "Invalid client or Invalid client credentials", and their
+  tokens carry no `sub` claim — which `AUTH_API_URL` looks the user up by, so
+  it answers 500 even once the exchange succeeds. The scope that supplies
+  `sub` is not assignable from this side. Until that is settled with whoever
+  administers the identity provider, offering the option could only produce a
+  button that fails after a successful login. The `OIDC_*` settings remain
+  documented and are read by the API, so a deployment with a working client
+  can switch it on by hand. See
   [docs/configuration.md](../docs/configuration.md).

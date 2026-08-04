@@ -102,6 +102,60 @@ def test_real_example_env_renders():
     assert "ORGANIZATION=Tarragona" in text
 
 
+def test_an_endpoint_with_no_local_catalog_renders():
+    """
+    The lightest install: no catalog, nothing stored locally. Every value it
+    writes must be documented in example.env, and the rendered file must say
+    plainly that there is no catalog rather than leaving a stale backend.
+    """
+    example_path = Path(__file__).resolve().parents[2] / "example.env"
+    text, applied, unknown = render(
+        example_path.read_text(encoding="utf-8"),
+        {
+            "LOCAL_CATALOG_BACKEND": "none",
+            "CKAN_LOCAL_ENABLED": "False",
+            "CKAN_URL": "",
+            "CKAN_API_KEY": "",
+            "MONGODB_CONNECTION_STRING": "",
+        },
+    )
+
+    assert unknown == []
+    assert "LOCAL_CATALOG_BACKEND=none" in text
+    assert "CKAN_LOCAL_ENABLED=False" in text
+    # Nothing may be left pointing at a MongoDB or CKAN that was not installed.
+    assert "MONGODB_CONNECTION_STRING=\n" in text
+    assert "CKAN_URL=\n" in text
+    assert "CKAN_API_KEY=\n" in text
+
+
+def test_an_install_without_a_registration_is_not_public():
+    """
+    IS_PUBLIC is what lets the metrics task post to the Federation. It used to
+    be written only when a registration was fetched, so declining to register
+    left example.env's demo default of True and the Endpoint reported to a
+    platform it had deliberately not joined.
+
+    The installer must switch it off with the rest of the defaults, before the
+    registration block gets its chance to turn it back on.
+    """
+    import re
+
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    default_off = re.search(r'^\s*put IS_PUBLIC "False"', install_sh, re.M)
+    from_registration = re.search(r"^\s*put IS_PUBLIC \"\$\(", install_sh, re.M)
+
+    assert default_off, 'install.sh never sets IS_PUBLIC "False" by default'
+    assert from_registration, "install.sh no longer sets IS_PUBLIC from a registration"
+    assert default_off.start() < from_registration.start(), (
+        "the default must come first, or a registration asking to be listed "
+        "would be overridden by it"
+    )
+
+
 def test_every_variable_the_installer_sets_is_documented():
     """
     Guard against the drift that broke the previous installer: every variable
@@ -126,3 +180,30 @@ def test_every_variable_the_installer_sets_is_documented():
         "install.sh sets variables that example.env does not document: "
         f"{undocumented}"
     )
+
+
+def test_the_endpoint_is_built_from_the_checkout_being_installed():
+    """
+    `compose up -d` builds only when no image exists, so on a machine that has
+    run an Endpoint before, the container comes back from the image built the
+    first time and the checkout is never compiled in. The install then reports
+    success while running old code — a route added today answers 404 — and the
+    freshly rendered .env makes it look like a configuration problem.
+    """
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    # The command is written with ${COMPOSE[@]}, since compose is either
+    # `docker compose` or `docker-compose` depending on the machine.
+    endpoint_ups = [
+        line
+        for line in install_sh.splitlines()
+        if "up -d" in line and "EP_API_PORT=" in line
+    ]
+
+    assert endpoint_ups, "no 'compose up' for the Endpoint found in install.sh"
+    for line in endpoint_ups:
+        assert (
+            "--build" in line
+        ), f"the Endpoint is started without --build: {line.strip()}"

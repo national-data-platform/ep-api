@@ -7,13 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.33.6] - 2026-07-27
+## [0.34.4] - 2026-08-04
 
 ### Added
-- **Install guide for the one-line script** ([docs/installing-with-the-script.md](docs/installing-with-the-script.md)). Walks through `bash <(curl -fsSL https://bit.ly/ndp-ep)` — what to have ready, registering with the Federation, and each catalog option (MongoDB installed or existing, CKAN installed or existing) with the optional features, each with a place for a short screen recording. Linked from the README Quick Start.
+- **Install guide for the one-line script** ([docs/installing-with-the-script.md](docs/installing-with-the-script.md)). Walks through `bash <(curl -fsSL https://bit.ly/ndp-ep)` — what to have ready, registering with the Federation, and each catalog option (no catalog, MongoDB installed or existing, CKAN installed or existing) with the optional features, each with a place for a short screen recording. Linked from the README Quick Start.
 
 ### Backwards compatibility
 - Documentation only. No API behavior, request/response shapes, or routes change.
+
+## [0.34.3] - 2026-08-04
+
+### Changed
+- **The installer no longer offers identity-provider sign-in.** It asked whether to offer it and then asked for a client id, but there is no client an Endpoint can use: the ones a Federation registration creates are confidential, so the browser's code exchange is refused with "Invalid client or Invalid client credentials", and their tokens carry no `sub` claim — which `AUTH_API_URL` looks the user up by, so validation answers 500 even once the exchange succeeds. The scope that supplies `sub` cannot be requested from the Endpoint. Answering yes could only produce a login button that fails after a successful sign-in, which reads as a credentials problem and is not one. The question is gone until how this is meant to work is settled with whoever administers the identity provider.
+
+### Backwards compatibility
+- The `OIDC_*` settings are unchanged, still documented in `example.env` and `docs/configuration.md`, and still read by the API and the UI. A deployment with a working client switches sign-in on by editing `.env`; the installer simply never turns it on.
+- An Endpoint already running with sign-in enabled is unaffected until it is re-installed. Re-running the installer renders a fresh `.env` with `OIDC_ENABLED=False`, as it did before this change whenever the question was answered no, so those three values have to be put back by hand — the previous file is kept as `.env.backup.<timestamp>`.
+
+## [0.34.2] - 2026-08-04
+
+### Fixed
+- **Re-running the installer no longer keeps the previously built image.** The stack was started with `docker compose up -d`, which builds only when no image exists, so on any machine that had run an Endpoint before, the container came back from the image built the first time and the current checkout was never compiled in. The install reported success while running old code — a route added since answered 404, and the UI served was the one built then — while `.env`, regenerated on every run, was current, which made the mismatch read as a configuration problem rather than a stale build. It is now started with `--build`, as the CKAN stack already was. Unchanged sources come from the layer cache.
+
+### Backwards compatibility
+- Installs take longer when sources changed since the last run, because the image is rebuilt rather than silently reused. Nothing else changes.
+
+## [0.34.1] - 2026-08-03
+
+### Fixed
+- **An Endpoint installed without a Federation registration no longer reports to it.** The installer wrote `IS_PUBLIC` only when a registration was fetched, so declining to register left the `True` that `example.env` carries as a demo default, with `METRICS_ENDPOINT` still pointing at the Federation. A deliberately standalone Endpoint posted its public IP, organization, endpoint name, system usage and catalog counts to a platform it had not joined — and the Federation accepted them. `IS_PUBLIC` is now switched off with the rest of the defaults and turned back on only by a registration that asks to be listed. Metrics are still collected and logged locally; nothing leaves the Endpoint.
+
+### Backwards compatibility
+- Only new installations are affected. An existing `.env` keeps whatever `IS_PUBLIC` it has; set it to `False` by hand on an Endpoint that should not be reporting.
+- Installing with `--config-id`, or answering yes to the registration prompt, is unchanged: the registration decides, as before.
+
+## [0.34.0] - 2026-08-03
+
+### Added
+- **An Endpoint can be installed with no local catalog.** `LOCAL_CATALOG_BACKEND=none` is a deployment that stores nothing locally — no MongoDB, no CKAN, nothing to install. It authenticates users, searches the platform's global catalog, serves its UI and reports to the Federation, which is what most Endpoints are asked to do. The installer offers it as the first answer to the local-catalog question and renders it together with `CKAN_LOCAL_ENABLED=False`, blanking the CKAN and MongoDB settings so nothing points at a service that was not installed. A catalog can be added later by running the installer again with `--backend mongodb` or `--backend ckan`.
+- `catalog_settings.has_local_catalog`, so callers can skip local catalog work instead of asking for a repository that does not exist.
+
+### Changed
+- **The installer's default backend is now `none`.** The lightest install is the one that needs no decisions; asking for MongoDB or CKAN is opting in to more. Runs that relied on the previous default of `mongodb` must now pass `--backend mongodb` explicitly.
+- **The readiness probe no longer checks a local catalog nothing can reach.** `/ready` reported the catalog as `disabled` only for the CKAN backend; with any other backend it probed the catalog even when `CKAN_LOCAL_ENABLED=False` had already unmounted the local catalog routes and made `/search?server=local` answer 400. An Endpoint deliberately configured without a usable local catalog was reported unhealthy with HTTP 503. It is now reported `disabled` whenever the local catalog cannot be reached through the API, on any backend.
+- `/status` reports the backend as disconnected without attempting a connection when there is no local catalog, instead of logging a failed one every call.
+
+### Fixed
+- **A container built today starts again.** `requirements.txt` constrained nothing, so a fresh install resolved `mcp` 2.0.0, whose low-level `Server` no longer accepts the positional arguments `fastapi-mcp` 0.4.0 passes it. `FastApiMCP(app)` runs at import time, so the API did not come up at all and CI failed on every branch; images built earlier were unaffected because their dependencies were resolved when they were built. Pinned to `mcp<2.0.0` until `fastapi-mcp` supports it.
+- **An Endpoint with no local catalog keeps reporting to the Federation.** Catalog statistics are collected inside the same `try` as the rest of the metrics payload, so asking for a repository that does not exist left the payload empty and skipped the POST entirely — the Endpoint would have gone silent rather than reporting without dataset counts. With no catalog the counts are reported as zero and the metrics go out as usual.
+
+### Backwards compatibility
+- Existing deployments are unaffected: `ckan` and `mongodb` behave exactly as before, and the new behaviour applies only to `LOCAL_CATALOG_BACKEND=none`.
+- The one behaviour change for existing setups is the readiness probe: a deployment running with `CKAN_LOCAL_ENABLED=False` and a MongoDB backend was answering 503 and now answers 200 with the catalog reported `disabled`.
+- Unattended installer runs that did not pass `--backend` used to get MongoDB and now get no catalog. Add `--backend mongodb` to keep the previous result.
 
 ## [0.33.5] - 2026-07-27
 
