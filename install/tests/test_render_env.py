@@ -180,3 +180,30 @@ def test_every_variable_the_installer_sets_is_documented():
         "install.sh sets variables that example.env does not document: "
         f"{undocumented}"
     )
+
+
+def test_the_endpoint_is_built_from_the_checkout_being_installed():
+    """
+    `compose up -d` builds only when no image exists, so on a machine that has
+    run an Endpoint before, the container comes back from the image built the
+    first time and the checkout is never compiled in. The install then reports
+    success while running old code — a route added today answers 404 — and the
+    freshly rendered .env makes it look like a configuration problem.
+    """
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    # The command is written with ${COMPOSE[@]}, since compose is either
+    # `docker compose` or `docker-compose` depending on the machine.
+    endpoint_ups = [
+        line
+        for line in install_sh.splitlines()
+        if "up -d" in line and "EP_API_PORT=" in line
+    ]
+
+    assert endpoint_ups, "no 'compose up' for the Endpoint found in install.sh"
+    for line in endpoint_ups:
+        assert (
+            "--build" in line
+        ), f"the Endpoint is started without --build: {line.strip()}"
