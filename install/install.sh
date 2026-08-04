@@ -668,9 +668,6 @@ PY
 organization=""
 ep_name=""
 auth_api_url=""
-oidc_issuer=""
-oidc_client_id=""
-want_oidc="no"
 
 if [[ -z "$config_id" ]] && interactive; then
   echo
@@ -774,21 +771,6 @@ if [[ -z "$config_id" ]] && interactive; then
   ask auth_api_url "Authentication service (AAI) URL" \
     "https://idp.nationaldataplatform.org/temp/information"
 
-  section "Identity-provider sign-in" \
-    "Optional. Adds a button that signs users in through the identity" \
-    "provider's own page (CILogon, EarthScope, ORCID). Needs a client id" \
-    "registered for this Endpoint; the Federation registration creates one." \
-    "The access-token and username/password logins work either way."
-  ask_yes_no want_oidc "Offer sign-in through the identity provider?" "no"
-  if [[ "$want_oidc" == "yes" ]]; then
-    ask oidc_issuer    "Identity provider realm URL" \
-      "https://idp.nationaldataplatform.org/realms/NDP"
-    ask oidc_client_id "Client id registered for this Endpoint" ""
-    if [[ -z "$oidc_client_id" ]]; then
-      warn "No client id: sign-in will stay off. See docs/configuration.md."
-      want_oidc="no"
-    fi
-  fi
 fi
 
 # example.env is written as a demo that shows every setting, so its defaults
@@ -898,13 +880,12 @@ PY
 
   put IS_PUBLIC "$([[ "$fed_public" == "true" ]] && echo True || echo False)"
 
-  # The registration names the realm but not the identity provider host, and
-  # the Endpoint must validate tokens against the same provider that issues
-  # them. Deriving one from the other is guesswork, so identity-provider
-  # sign-in is left switched off for the operator to configure deliberately.
+  # The client the registration creates is confidential and its tokens carry no
+  # `sub`, which AUTH_API_URL looks the user up by — so it cannot be used for
+  # sign-in as it stands. The installer says it exists and stops there; see
+  # docs/configuration.md.
   if [[ -n "$fed_client_id" ]]; then
     info "Registration includes client id '$fed_client_id' for realm '$fed_realm'."
-    info "Identity-provider sign-in is left off; see docs/configuration.md to enable it."
   fi
 elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."
@@ -919,12 +900,6 @@ step "Selecting the local catalog backend"
 [[ -n "$organization" ]]  && put ORGANIZATION "$organization"
 [[ -n "$ep_name" ]]       && put EP_NAME "$ep_name"
 [[ -n "$auth_api_url" ]]  && put AUTH_API_URL "$auth_api_url"
-
-if [[ "$want_oidc" == "yes" && -n "$oidc_client_id" ]]; then
-  put OIDC_ENABLED "True"
-  put OIDC_ISSUER "$oidc_issuer"
-  put OIDC_CLIENT_ID "$oidc_client_id"
-fi
 
 put LOCAL_CATALOG_BACKEND "$backend"
 

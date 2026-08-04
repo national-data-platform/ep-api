@@ -14,9 +14,8 @@ those on top of the documented defaults and brings the stack up.
 ## Registering
 
 Without a configuration id, the installer offers to register the Endpoint for
-you. Registration is what creates this Endpoint's **Keycloak client and
-group**, so it is also what makes identity-provider sign-in possible without
-an administrator having to set anything up by hand. It also fetches a
+you. Registration creates this Endpoint's **Keycloak client and group**, which
+is what the group-based access control is keyed on. It also fetches a
 staging-catalog token and registers the Endpoint in Affinities.
 
 It needs your NDP access token, from your user panel on the platform. The user
@@ -57,7 +56,6 @@ Run it with no arguments and it asks:
 
   Port to publish the Endpoint on [8003]:
   Authentication service (AAI) URL [https://idp.nationaldataplatform.org/temp/information]:
-  Offer sign-in through the identity provider? [y/N]:
 ```
 
 [docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
@@ -221,9 +219,15 @@ are what gets tested.
 - **Kafka and JupyterHub are not provisioned.** A registration that asks for
   streaming or JupyterHub configures the Endpoint for them but does not stand
   them up.
-- **Identity-provider sign-in is left off**, even when the registration
-  carries a `client_id`. The registration names the realm but not the
-  identity provider's host, and `OIDC_ISSUER` has to agree with
-  `AUTH_API_URL`; guessing one from the other would fail at the last step of a
-  login, which looks like a credentials problem and is not. See
+- **Identity-provider sign-in is not offered**, and the installer no longer
+  asks about it. There is no client an Endpoint can sign in through: the ones
+  a registration creates are confidential, so the browser's code exchange is
+  refused with "Invalid client or Invalid client credentials", and their
+  tokens carry no `sub` claim — which `AUTH_API_URL` looks the user up by, so
+  it answers 500 even once the exchange succeeds. The scope that supplies
+  `sub` is not assignable from this side. Until that is settled with whoever
+  administers the identity provider, offering the option could only produce a
+  button that fails after a successful login. The `OIDC_*` settings remain
+  documented and are read by the API, so a deployment with a working client
+  can switch it on by hand. See
   [docs/configuration.md](../docs/configuration.md).
