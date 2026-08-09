@@ -146,6 +146,48 @@ tokens of everyone who reaches it through the proxy. Registering requires a
 writer role, so this is not open to anonymous callers, but it is worth knowing
 before pointing a service at somewhere you do not control.
 
+## Who gets through
+
+Registering decides it once; every call is then answered by the same
+questions, in this order.
+
+```mermaid
+flowchart TD
+    R["POST /services<br/>owner_org must be services"] --> RA{"extras.requires_auth<br/>set to a truthy value?"}
+    RA -->|"no, or absent"| OPEN["Registered open<br/>— every service until now"]
+    RA -->|"yes"| PROT["Registered protected"]
+
+    C(["A caller: GET /services/redirect/name"]) --> F{"Service found in<br/>the services organization?"}
+    F -->|"no"| E404["404<br/>Service 'name' not found"]
+    F -->|"yes"| Q{"Does the service<br/>require authentication?"}
+
+    Q -->|"no"| FWD
+    Q -->|"yes"| H{"Bearer token<br/>presented?"}
+    H -->|"no"| E401["401 + WWW-Authenticate<br/>the service is never contacted"]
+    H -->|"yes"| V{"Does the authentication<br/>service accept it?"}
+    V -->|"no"| E4XX["Refused, and today<br/>reported as 502 — see below"]
+    V -->|"yes"| FWD["Forward the request,<br/>Authorization header included"]
+
+    FWD --> S{"Is the service<br/>reachable from the<br/>Endpoint's container?"}
+    S -->|"no"| E502["502<br/>Unable to connect to the target service"]
+    S -->|"yes"| OK["The service's own response,<br/>passed back unchanged"]
+
+    OPEN -.-> C
+    PROT -.-> C
+```
+
+Two things this picture makes plain. The check is on **the caller's identity,
+not their permissions** — any token the Endpoint can validate gets through,
+whichever groups or roles it carries. And a refused caller costs the service
+nothing: the Endpoint answers 401 without contacting it at all.
+
+One wrinkle, and it is not confined to services: a token the authentication
+service *rejects* currently arrives as **502**, not 401. That service answers
+`400` for a token it will not accept, and the Endpoint maps statuses it does
+not recognise to 502 on the assumption that the service is misbehaving. So a
+mistyped token reads as an Endpoint fault. A missing token is a clean 401; it
+is only a wrong one that misreports.
+
 ## What it looks like end to end
 
 ```bash

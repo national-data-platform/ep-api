@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **A service can require its callers to be authenticated.** The proxy at `/services/redirect/{name}` carries no authentication of its own: whoever reaches the Endpoint reaches the service through it. A service that should not be open now says so with a `requires_auth` extra, and the Endpoint validates the caller's bearer token before forwarding anything — an anonymous caller gets `401` with a `WWW-Authenticate` challenge and the service is never contacted. Subpaths are covered too, so `/services/redirect/{name}/anything` is not a way around it. `True`, `true`, `1`, `yes` and `on` all mean protected.
+- A decision flowchart, **Who gets through**, alongside the sequence diagram: what registering decides once, and the order of questions every call is then answered by — service found, protection asked for, token presented, token accepted, service reachable — with the status each dead end produces.
 - The service sequence diagram documents it, including what it does *not* do: the check is authentication, not authorization — it does not look at groups or roles — and the `Authorization` header still reaches the service, so whoever registers one receives the tokens of everyone who uses it.
 
 ### Backwards compatibility
