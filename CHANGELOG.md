@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.6] - 2026-08-09
+
+### Added
+- **Sequence diagram of publishing a dataset** ([docs/sequence-diagrams/publishing-a-dataset.md](docs/sequence-diagrams/publishing-a-dataset.md)). Where a dataset actually goes — registered in the local catalog, promoted from there to the staging catalog for review — and why the global catalog is never a publishing target. Every gate is marked with the status code it produces: the routes that are absent rather than answering an error when there is no local catalog, the 400 when the staging catalog is off, and the 403 from group access and roles. It also maps each install the installer can produce onto what it can and cannot publish, and explains why the staging credentials are not something to fill in by hand. The existing documentation described the three catalogs as boxes, which did not answer whether a given Endpoint can publish at all.
+
+### Backwards compatibility
+- Documentation only. No API behavior, request/response shapes, or routes change.
+
 ## [0.34.5] - 2026-08-04
 
 ### Added
