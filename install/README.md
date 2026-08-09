@@ -66,6 +66,15 @@ whatever the catalog is — so answering yes installs a MongoDB unless the
 catalog already provides one, and points the Endpoint at it. That is the whole
 answer: nothing else has to be arranged.
 
+A MongoDB is started on its own. The `mongo-express` administration console
+that ships in the compose file has its own profile and is never started for
+you — it exposes the whole database with credentials that are the same demo
+pair in every deployment. Bring it up deliberately if you want it:
+
+```bash
+docker compose --profile mongodb --profile mongo-express up -d
+```
+
 [docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
 follows that run end to end — every prompt, who is contacted, what is started,
 and the `.env` it produces.

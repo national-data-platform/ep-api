@@ -239,3 +239,27 @@ def test_access_requests_bring_their_own_mongodb():
     assert (
         "put MONGODB_CONNECTION_STRING " in block
     ), "the MongoDB installed for access requests is never pointed at"
+
+
+def test_starting_mongodb_does_not_publish_a_database_console():
+    """
+    mongo-express exposes the whole database, with the demo credentials that
+    are the same in every deployment. It shared the `mongodb` profile, so
+    choosing MongoDB as the catalog — or, now, enabling access requests on an
+    Endpoint that has no MongoDB — published an admin console on 8082 that
+    nobody asked for.
+    """
+    compose = (Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text(
+        encoding="utf-8"
+    )
+
+    block = compose[compose.index("mongo-express:") :]
+    profiles_line = next(
+        line for line in block.splitlines() if line.strip().startswith("profiles:")
+    )
+
+    assert "mongodb" not in profiles_line, (
+        "mongo-express starts with the mongodb profile, so a MongoDB cannot be "
+        f"started without it: {profiles_line.strip()}"
+    )
+    assert "mongo-express" in profiles_line, "mongo-express has no profile of its own"
