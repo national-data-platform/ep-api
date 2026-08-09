@@ -888,6 +888,13 @@ PY
     put PRE_CKAN_ENABLED "True"
     put PRE_CKAN_URL "$fed_pre_ckan_url"
     put PRE_CKAN_API_KEY "$fed_pre_ckan_key"
+    # Without this, a promoted dataset keeps the organization it has locally —
+    # 'services', or whatever the local catalog calls it — and the staging
+    # credentials cannot write there, so every publish fails with an
+    # authorization error naming a user rather than the missing setting. The
+    # organization the token can write to is the one the Federation minted it
+    # for, which is this Endpoint's configuration id.
+    put PRE_CKAN_ORGANIZATION "ep-${config_id}"
   else
     put PRE_CKAN_ENABLED "False"
   fi
@@ -1184,6 +1191,35 @@ if [[ "$backend" == "ckan" && "$dry_run" != "true" ]]; then
     esac
   else
     warn "CKAN key not verified: pass --ckan-sysadmin <name> to check it against this CKAN."
+  fi
+fi
+
+# The staging catalog accepts a dataset only in an organization its token may
+# write to. That organization is derived above from the configuration id, so
+# ask the staging catalog whether it agrees — a mismatch here is a publish that
+# fails much later with an authorization error naming a user, which reads as a
+# credentials problem and is not one.
+pre_url="$(grep -E '^PRE_CKAN_URL=' "$target" | head -1 | cut -d= -f2- | tr -d '"')"
+pre_key="$(grep -E '^PRE_CKAN_API_KEY=' "$target" | head -1 | cut -d= -f2- | tr -d '"')"
+pre_org="$(grep -E '^PRE_CKAN_ORGANIZATION=' "$target" | head -1 | cut -d= -f2- | tr -d '"')"
+
+if [[ -n "$pre_url" && -n "$pre_key" && -n "$pre_org" && "$dry_run" != "true" ]]; then
+  writable="$(curl -s -m 20 -H "Authorization: $pre_key" \
+    "${pre_url%/}/api/3/action/organization_list_for_user?permission=create_dataset" \
+    | python3 -c 'import json,sys
+try:
+    print(" ".join(o.get("name","") for o in json.load(sys.stdin).get("result", [])))
+except Exception:
+    print("")' 2>/dev/null || echo "")"
+
+  if [[ -z "$writable" ]]; then
+    warn "Could not ask the staging catalog which organizations its token may write to."
+  elif [[ " $writable " == *" $pre_org "* ]]; then
+    ok "Staging catalog accepts publishing to '$pre_org'"
+  else
+    warn "The staging catalog does not list '$pre_org' among the organizations its"
+    warn "token may write to, so publishing there will be refused. Set"
+    warn "PRE_CKAN_ORGANIZATION to one of: $writable"
   fi
 fi
 
