@@ -163,10 +163,15 @@ services:
   # ==============================================
   # Mongo Express - MongoDB Web UI
   # ==============================================
+  # Web administration console for the MongoDB above. It exposes the whole
+  # database, with credentials that are the same demo pair everywhere, so it
+  # is its own profile: starting a MongoDB — for the catalog or for access
+  # requests — must not publish an admin console nobody asked for. Bring it up
+  # deliberately with --profile mongo-express.
   mongo-express:
     image: mongo-express:latest
     container_name: ndp-mongo-express
-    profiles: ["mongodb", "full"]
+    profiles: ["mongo-express", "full"]
     ports:
       - "8082:8081"
     environment:

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.7] - 2026-08-09
+
+### Added
+- **Access requests can be enabled at install time, and what they need gets installed.** `ENABLE_ACCESS_REQUESTS` turns on the workflow where a user asks for access to an Endpoint and an administrator approves or rejects it, but the installer never mentioned it, so every installation inherited the `False` from `example.env`. The requests are stored in MongoDB, read through `MONGODB_CONNECTION_STRING` regardless of the catalog backend — so on CKAN or with no catalog at all, the setting pointed at a MongoDB that nothing had stood up. The installer now asks, and answering yes uses the catalog's MongoDB where there is one and installs a MongoDB for it where there is not. `--access-requests` covers the unattended case.
+
+### Changed
+- **Starting a MongoDB no longer publishes a database administration console.** `mongo-express` shared the `mongodb` compose profile, so choosing MongoDB as the catalog — and, with the change above, enabling access requests on an Endpoint that has none — brought up a console on port 8082 exposing the whole database, with the demo credentials that are identical in every deployment. It now has a profile of its own and is started only when asked for: `docker compose --profile mongodb --profile mongo-express up -d`. The `full` profile still includes it.
+
+### Backwards compatibility
+- Access requests stay off unless asked for, at the prompt or with the flag, so an existing installation re-run without it is configured exactly as before.
+- Enabling them on a CKAN or no-catalog Endpoint adds the `mongodb` compose profile, which starts a MongoDB container alongside the Endpoint.
+- A deployment that relied on `mongo-express` coming up with the `mongodb` profile has to add `--profile mongo-express`. A container already running is unaffected until the stack is brought down.
+
 ## [0.34.6] - 2026-08-09
 
 ### Added

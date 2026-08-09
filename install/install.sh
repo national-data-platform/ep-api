@@ -85,6 +85,7 @@ ckan_ssl_port="8443"
 ckan_http_port="81"
 ckan_app_port="5000"
 ep_api_port="8002"
+want_access_requests="no"
 dry_run="false"
 start="true"
 assume_yes="false"
@@ -141,6 +142,9 @@ Options:
   --backend <name>        Local catalog backend: none | mongodb | ckan.
                           Default: none
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
+  --access-requests       Let users request access and admins approve it.
+                          Stored in MongoDB: one is installed unless the
+                          catalog already provides one.
 
 With --backend none nothing is stored locally and no catalog is installed. The
 Endpoint authenticates users, searches the platform's global catalog and
@@ -190,6 +194,7 @@ while [[ $# -gt 0 ]]; do
     --ckan-http-port)  ckan_http_port="${2:-}"; shift 2 ;;
     --ckan-app-port)   ckan_app_port="${2:-}"; shift 2 ;;
     --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
+    --access-requests) want_access_requests="yes"; shift ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
@@ -771,6 +776,15 @@ if [[ -z "$config_id" ]] && interactive; then
   ask auth_api_url "Authentication service (AAI) URL" \
     "https://idp.nationaldataplatform.org/temp/information"
 
+  section "Access requests" \
+    "A self-service workflow: someone without access to this Endpoint asks" \
+    "for it from the login screen, and an administrator approves or rejects" \
+    "it from the UI. Without this, access is arranged outside the Endpoint." \
+    "" \
+    "The requests are stored in MongoDB, whatever the catalog is. One is" \
+    "installed for it unless the catalog already provides one."
+  ask_yes_no want_access_requests "Enable access requests?" "no"
+
 fi
 
 # example.env is written as a demo that shows every setting, so its defaults
@@ -1066,6 +1080,26 @@ else
   # CKAN is served over https with a self-signed certificate.
   put CKAN_VERIFY_SSL "False"
   ckan_url="$ckan_site_url"
+fi
+
+# Access requests are stored in MongoDB, read through
+# MONGODB_CONNECTION_STRING, whatever the catalog backend is — so wanting them
+# means wanting a MongoDB. The catalog provides one on the MongoDB backends;
+# on CKAN or with no catalog at all, one is installed for this alone, which is
+# the part that was missing: the setting existed and nothing stood up what it
+# needs.
+if [[ "$want_access_requests" == "yes" ]]; then
+  put ENABLE_ACCESS_REQUESTS "True"
+
+  if [[ "$backend" == "mongodb" && -n "$mongodb_url" ]]; then
+    ok "Access requests enabled, stored in the MongoDB you provided"
+  elif [[ "$backend" == "mongodb" ]]; then
+    ok "Access requests enabled, stored in the MongoDB installed for the catalog"
+  else
+    profiles+=("mongodb")
+    put MONGODB_CONNECTION_STRING "mongodb://admin:admin123@mongodb:27017"
+    ok "Access requests enabled — installing MongoDB for them (compose profile 'mongodb')"
+  fi
 fi
 
 if [[ "${fed_streaming:-false}" == "true" ]]; then
