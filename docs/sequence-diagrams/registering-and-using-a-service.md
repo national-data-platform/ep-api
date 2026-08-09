@@ -35,13 +35,17 @@ sequenceDiagram
     rect rgb(238, 242, 248)
     Note over User,Svc: Reaching it — a proxy, not a redirect
     User->>EP: GET /services/redirect/{name}
-    Note over User,EP: No token required: this route has no<br/>authentication of its own
     EP->>Local: search "services" for that name
     alt not found
         Local-->>EP: nothing
         EP-->>User: 404 — Service '{name}' not found
     else found
-        Local-->>EP: the dataset, with the service URL
+        Local-->>EP: the dataset, its URL and its extras
+        opt the service sets requires_auth
+            Note over EP: The proxy has no authentication of its own —<br/>this is the service asking for one
+            EP->>AAI: validate the caller's token
+            AAI-->>EP: identity — or 401, and the service is never contacted
+        end
         EP->>Svc: the same request, forwarded
         Note over EP,Svc: Sent from inside the Endpoint's container:<br/>a URL that works from your shell may not<br/>resolve from there
         alt the service answers
@@ -84,9 +88,10 @@ consequences worth planning for:
   `http://localhost:8002` — the Endpoint's own published port — is not
   reachable from there, and the answer is `502 Unable to connect to the target
   service`. Register the address the container can resolve.
-- The route takes **no token**. Whoever can reach the Endpoint can reach the
-  service through it, whatever the service's own access rules are. If that is
-  not what you want, the service has to enforce its own.
+- The route takes **no token by default**. Whoever can reach the Endpoint
+  reaches the service through it. A service that should not be open sets the
+  `requires_auth` extra, and the Endpoint then authenticates the caller before
+  forwarding anything — see below.
 
 **Publishing needs an organization the staging catalog will accept.** A
 promoted dataset keeps its local organization unless `PRE_CKAN_ORGANIZATION`
@@ -102,6 +107,44 @@ The installer sets that value from the registration — `ep-<config-id>`, the
 organization the Federation minted the staging token for — and checks with the
 staging catalog that it is accepted before writing anything. An Endpoint
 installed before that, or configured by hand, needs it set.
+
+## Protecting a service
+
+A service is open unless it says otherwise. To have the Endpoint authenticate
+callers first, set the `requires_auth` extra when registering it:
+
+```bash
+curl -X POST http://localhost:8002/services \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"service_name":"private-service","service_title":"Private service",
+       "owner_org":"services","service_url":"https://example.org/api",
+       "service_type":"API","extras":{"requires_auth":"true"}}'
+```
+
+From then on the proxy refuses anonymous callers, and the service is never
+contacted for them:
+
+```
+GET /services/redirect/private-service
+401  This service requires authentication. Provide a bearer token.
+     WWW-Authenticate: Bearer
+```
+
+Subpaths are covered too, so `/services/redirect/private-service/anything` is
+not a way around it. `True`, `true`, `1`, `yes` and `on` all mean protected;
+anything else, including the extra being absent, means open — so every service
+registered before this stays exactly as reachable as it was.
+
+What this checks is that the caller holds a token this Endpoint can validate.
+It is authentication, not authorization: it does not ask which groups or roles
+the user has. A service that needs finer rules still has to apply them itself,
+and it can — the proxy forwards the `Authorization` header, so the token
+reaches the service.
+
+That forwarding cuts both ways: whoever registers a service receives the
+tokens of everyone who reaches it through the proxy. Registering requires a
+writer role, so this is not open to anonymous callers, but it is worth knowing
+before pointing a service at somewhere you do not control.
 
 ## What it looks like end to end
 
