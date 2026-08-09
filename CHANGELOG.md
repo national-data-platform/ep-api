@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.8] - 2026-08-09
+
+### Fixed
+- **A registered Endpoint can publish to the staging catalog without being adjusted by hand.** The registration returns a staging URL and token and the installer wrote both, but left `PRE_CKAN_ORGANIZATION` empty — so a promoted dataset kept its local organization (`services`, or whatever the local catalog calls it), which the staging credentials cannot write to. Every publish failed with `Access denied: User <user> not authorized to add dataset to this organization`, an error naming a user rather than the missing setting. The installer now derives it from the configuration id — `ep-<config-id>`, the organization the Federation minted the token for — and asks the staging catalog to confirm it accepts writes there before anything is written, naming the organizations it would accept when it does not.
+
+### Added
+- **Sequence diagram of a service's life** ([docs/sequence-diagrams/registering-and-using-a-service.md](docs/sequence-diagrams/registering-and-using-a-service.md)): registered in the catalog, reached through the Endpoint, and promoted for review. It states the three things that catch people out — `owner_org` must be `services`; the redirect is a proxy rather than a 302, takes no token, and calls the service from inside the Endpoint's container, so an address that works from the operator's shell may not resolve there; and publishing needs an organization the staging catalog accepts.
+
+### Backwards compatibility
+- An Endpoint installed before this keeps its empty `PRE_CKAN_ORGANIZATION` until it is re-installed or the value is set by hand.
+
 ## [0.34.7] - 2026-08-09
 
 ### Added

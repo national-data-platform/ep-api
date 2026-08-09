@@ -263,3 +263,27 @@ def test_starting_mongodb_does_not_publish_a_database_console():
         f"started without it: {profiles_line.strip()}"
     )
     assert "mongo-express" in profiles_line, "mongo-express has no profile of its own"
+
+
+def test_a_registration_supplies_the_staging_organization():
+    """
+    A promoted dataset keeps its local organization unless
+    PRE_CKAN_ORGANIZATION says otherwise, and the staging credentials cannot
+    write to 'services' or to any organization local to the Endpoint. Without
+    this the staging catalog looks configured and every publish fails with an
+    authorization error naming a user, which reads as a credentials problem.
+
+    The organization is the one the Federation minted the token for, which is
+    derived from the configuration id the installer already has.
+    """
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        'put PRE_CKAN_ORGANIZATION "ep-${config_id}"' in install_sh
+    ), "the staging organization is not derived from the registration"
+    assert "organization_list_for_user" in install_sh, (
+        "nothing checks that the staging catalog accepts that organization "
+        "before the configuration is written"
+    )
