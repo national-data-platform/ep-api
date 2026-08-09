@@ -4,13 +4,50 @@ import logging
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import Response
+from fastapi.security import HTTPAuthorizationCredentials
 
-from api.services.service_services.redirect_service import get_service_url
+from api.services.auth_services.get_current_user import get_current_user
+from api.services.service_services.redirect_service import (
+    get_service_access,
+    get_service_url,  # noqa: F401  (kept importable for callers and tests)
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def require_valid_token(request: Request) -> None:
+    """
+    Let through only callers this Endpoint can authenticate.
+
+    Applied per service, when its ``requires_auth`` extra says so — the proxy
+    itself carries no authentication, and a service that does not ask for it
+    stays reachable by anyone who can reach the Endpoint.
+
+    The token is validated exactly as everywhere else, so an authentication
+    service that is down answers 502 rather than being mistaken for a bad
+    token.
+
+    Raises
+    ------
+    HTTPException
+        401 when no bearer token is presented, or the token is rejected.
+    """
+    header = request.headers.get("authorization", "")
+    scheme, _, token = header.partition(" ")
+
+    if scheme.lower() != "bearer" or not token.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This service requires authentication. Provide a bearer token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    get_current_user(
+        HTTPAuthorizationCredentials(scheme="Bearer", credentials=token.strip())
+    )
 
 
 async def proxy_request(
@@ -139,10 +176,13 @@ async def proxy_to_service_functional(service_identifier: str, request: Request)
     This endpoint actually performs the proxy functionality but is hidden
     from Swagger UI to avoid CORS issues.
     """
-    service_url, error = await get_service_url(service_identifier)
+    service_url, requires_auth, error = await get_service_access(service_identifier)
 
     if error:
         raise HTTPException(status_code=404, detail=error)
+
+    if requires_auth:
+        require_valid_token(request)
 
     return await proxy_request(request, service_url)
 
@@ -161,10 +201,13 @@ async def proxy_to_service_with_path_functional(
     This endpoint actually performs the proxy functionality but is hidden
     from Swagger UI to avoid CORS issues.
     """
-    service_url, error = await get_service_url(service_identifier)
+    service_url, requires_auth, error = await get_service_access(service_identifier)
 
     if error:
         raise HTTPException(status_code=404, detail=error)
+
+    if requires_auth:
+        require_valid_token(request)
 
     return await proxy_request(request, service_url, path)
 

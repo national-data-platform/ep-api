@@ -229,14 +229,14 @@ class TestProxyToServiceFunctional:
 
     @pytest.mark.asyncio
     @patch("api.routes.redirect_routes.service_redirect.proxy_request")
-    @patch("api.routes.redirect_routes.service_redirect.get_service_url")
+    @patch("api.routes.redirect_routes.service_redirect.get_service_access")
     async def test_proxy_success(self, mock_get_url, mock_proxy):
         """Test successful proxy to service."""
         from api.routes.redirect_routes.service_redirect import (
             proxy_to_service_functional,
         )
 
-        mock_get_url.return_value = ("https://api.example.com", None)
+        mock_get_url.return_value = ("https://api.example.com", False, None)
         mock_proxy.return_value = MagicMock(status_code=200)
 
         request = MagicMock()
@@ -246,14 +246,14 @@ class TestProxyToServiceFunctional:
         mock_proxy.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("api.routes.redirect_routes.service_redirect.get_service_url")
+    @patch("api.routes.redirect_routes.service_redirect.get_service_access")
     async def test_proxy_service_not_found(self, mock_get_url):
         """Test proxy with service not found."""
         from api.routes.redirect_routes.service_redirect import (
             proxy_to_service_functional,
         )
 
-        mock_get_url.return_value = (None, "Service not found")
+        mock_get_url.return_value = (None, False, "Service not found")
 
         with pytest.raises(HTTPException) as exc_info:
             await proxy_to_service_functional("missing-service", MagicMock())
@@ -266,14 +266,14 @@ class TestProxyToServiceWithPath:
 
     @pytest.mark.asyncio
     @patch("api.routes.redirect_routes.service_redirect.proxy_request")
-    @patch("api.routes.redirect_routes.service_redirect.get_service_url")
+    @patch("api.routes.redirect_routes.service_redirect.get_service_access")
     async def test_proxy_with_path_success(self, mock_get_url, mock_proxy):
         """Test successful proxy with path."""
         from api.routes.redirect_routes.service_redirect import (
             proxy_to_service_with_path_functional,
         )
 
-        mock_get_url.return_value = ("https://api.example.com", None)
+        mock_get_url.return_value = ("https://api.example.com", False, None)
         mock_proxy.return_value = MagicMock(status_code=200)
 
         request = MagicMock()
@@ -287,14 +287,14 @@ class TestProxyToServiceWithPath:
         )
 
     @pytest.mark.asyncio
-    @patch("api.routes.redirect_routes.service_redirect.get_service_url")
+    @patch("api.routes.redirect_routes.service_redirect.get_service_access")
     async def test_proxy_with_path_not_found(self, mock_get_url):
         """Test proxy with path service not found."""
         from api.routes.redirect_routes.service_redirect import (
             proxy_to_service_with_path_functional,
         )
 
-        mock_get_url.return_value = (None, "Service not found")
+        mock_get_url.return_value = (None, False, "Service not found")
 
         with pytest.raises(HTTPException) as exc_info:
             await proxy_to_service_with_path_functional(
