@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.7] - 2026-08-09
+
+### Added
+- **Access requests can be enabled at install time, and what they need gets installed.** `ENABLE_ACCESS_REQUESTS` turns on the workflow where a user asks for access to an Endpoint and an administrator approves or rejects it, but the installer never mentioned it, so every installation inherited the `False` from `example.env`. The requests are stored in MongoDB, read through `MONGODB_CONNECTION_STRING` regardless of the catalog backend — so on CKAN or with no catalog at all, the setting pointed at a MongoDB that nothing had stood up. The installer now asks, and answering yes uses the catalog's MongoDB where there is one and installs a MongoDB for it where there is not. `--access-requests` covers the unattended case.
+
+### Backwards compatibility
+- Access requests stay off unless asked for, at the prompt or with the flag, so an existing installation re-run without it is configured exactly as before.
+- Enabling them on a CKAN or no-catalog Endpoint adds the `mongodb` compose profile, which starts a MongoDB container alongside the Endpoint.
+
 ## [0.34.6] - 2026-08-09
 
 ### Added

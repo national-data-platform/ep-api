@@ -207,3 +207,35 @@ def test_the_endpoint_is_built_from_the_checkout_being_installed():
         assert (
             "--build" in line
         ), f"the Endpoint is started without --build: {line.strip()}"
+
+
+def test_access_requests_bring_their_own_mongodb():
+    """
+    Access requests are stored in MongoDB, read through
+    MONGODB_CONNECTION_STRING, whatever the catalog backend is. Offering the
+    option without standing up a MongoDB — which is what the setting had
+    before, documented and unreachable — produces an Endpoint that accepts the
+    answer and then cannot serve the feature.
+
+    So enabling it must add the compose profile and a connection string on any
+    backend that does not already provide one.
+    """
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        'ask_yes_no want_access_requests "Enable access requests?"' in install_sh
+    ), "the installer never offers access requests"
+    assert "--access-requests)" in install_sh, "there is no flag for an unattended run"
+
+    block_start = install_sh.index('if [[ "$want_access_requests" == "yes" ]]; then')
+    block = install_sh[block_start : install_sh.index("\nfi\n", block_start)]
+
+    assert 'put ENABLE_ACCESS_REQUESTS "True"' in block
+    assert (
+        'profiles+=("mongodb")' in block
+    ), "no MongoDB is installed for a backend that does not provide one"
+    assert (
+        "put MONGODB_CONNECTION_STRING " in block
+    ), "the MongoDB installed for access requests is never pointed at"

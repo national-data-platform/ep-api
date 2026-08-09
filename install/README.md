@@ -56,7 +56,15 @@ Run it with no arguments and it asks:
 
   Port to publish the Endpoint on [8003]:
   Authentication service (AAI) URL [https://idp.nationaldataplatform.org/temp/information]:
+  Enable access requests? [y/N]:
 ```
+
+**Access requests** are the self-service workflow: someone without access asks
+for it from the login screen, and an administrator approves or rejects it from
+the UI. They are stored in MongoDB, read through `MONGODB_CONNECTION_STRING`,
+whatever the catalog is — so answering yes installs a MongoDB unless the
+catalog already provides one, and points the Endpoint at it. That is the whole
+answer: nothing else has to be arranged.
 
 [docs/sequence-diagrams/installing-standalone-no-catalog.md](../docs/sequence-diagrams/installing-standalone-no-catalog.md)
 follows that run end to end — every prompt, who is contacted, what is started,
@@ -81,6 +89,7 @@ waiting for input.
 | `--federation-url <url>` | defaults to `https://federation.ndp.utah.edu` |
 | `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--ep-api-port <port>` | host port for the API, default `8002` |
+| `--access-requests` | enable the access-request workflow, installing MongoDB for it unless the catalog already provides one |
 | `--dry-run` | render the configuration and run the checks, start nothing |
 | `--no-start` | write everything, bring nothing up |
 | `--yes` | do not prompt before overwriting an existing `.env` |
