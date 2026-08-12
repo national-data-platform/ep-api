@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.10] - 2026-08-12
+
+### Fixed
+- **Endpoint editors can write.** The write-operation gate recognized the write tier only through `ndp_writer` / `group:{ep}:writer`, but the identity provider and the platform name that tier **editor** — the roles it issues are `group:ndp_ep/ep-{id}:editor` and the per-endpoint permission levels are admins/editors/viewers. So an editor of an endpoint was denied create, update and delete even though the role is meant to grant exactly that (administrators were unaffected). The writer tier now accepts the editor role names (`ndp_editor`, `group:{ep}:editor`) alongside the writer ones.
+
+### Backwards compatibility
+- Additive. Existing `ndp_writer` / `group:{ep}:writer` recognition is unchanged; editors are now also recognized.
+
 ## [0.34.9] - 2026-08-09
 
 ### Added

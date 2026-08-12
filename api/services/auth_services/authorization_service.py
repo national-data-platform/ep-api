@@ -17,6 +17,12 @@ ADMIN_ROLE_NAME = "ndp_admin"
 WRITER_ROLE_NAME = "ndp_writer"
 VIEWER_ROLE_NAME = "ndp_viewer"
 
+# The identity provider and the platform name the write tier "editor", not
+# "writer" — the roles it issues are ``group:{group}:editor`` and the
+# per-endpoint permission levels are admins/editors/viewers. The writer tier
+# accepts both so an endpoint editor is recognized as a writer.
+EDITOR_ROLE_NAME = "ndp_editor"
+
 
 def endpoint_admin_role_name() -> str:
     """
@@ -466,12 +472,21 @@ def is_writer(user_info: Dict[str, Any]) -> bool:
     """
     Return True if the user has writer tier or above on this endpoint.
     Admins are implicitly writers — they don't need both roles assigned.
+
+    The write tier is named "editor" by the identity provider and "writer"
+    here, so both are accepted (``ndp_editor``/``ndp_writer`` and
+    ``group:{ep}:editor``/``group:{ep}:writer``).
     """
     if is_admin(user_info):
         return True
     return _has_any_role(
         user_info,
-        [WRITER_ROLE_NAME, *endpoint_group_role_names("writer")],
+        [
+            WRITER_ROLE_NAME,
+            EDITOR_ROLE_NAME,
+            *endpoint_group_role_names("writer"),
+            *endpoint_group_role_names("editor"),
+        ],
     )
 
 
