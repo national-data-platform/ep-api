@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.13] - 2026-08-17
+
+### Added
+- **The installer can configure S3 object storage.** Previously the installer always wrote S3 as disabled and nothing re-enabled it, so object storage could only be added by editing the `.env` and starting the container by hand. It now offers S3 like the other optional pieces — a `--s3` flag and an interactive prompt — in two modes: install the bundled MinIO alongside the Endpoint (compose profile `s3`), or point at an S3-compatible service you already run (including Amazon S3) with `--s3-endpoint`/`--s3-access-key`/`--s3-secret-key`/`--s3-region`/`--s3-secure`. When S3 is not chosen, nothing changes from before.
+
+### Backwards compatibility
+- Additive. An install that does not ask for S3 renders exactly as it did; the bundled MinIO is only started when S3 is chosen without an external endpoint.
+
 ## [0.34.12] - 2026-08-17
 
 ### Fixed

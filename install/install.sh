@@ -86,6 +86,15 @@ ckan_http_port="81"
 ckan_app_port="5000"
 ep_api_port="8002"
 want_access_requests="no"
+# S3 object storage. want_s3 turns it on; with no s3_endpoint the bundled MinIO
+# is installed (compose profile 's3'), otherwise the Endpoint points at the
+# S3-compatible service given here. s3_secure controls https to that service.
+want_s3="no"
+s3_endpoint=""
+s3_access_key=""
+s3_secret_key=""
+s3_region="us-east-1"
+s3_secure="False"
 dry_run="false"
 start="true"
 assume_yes="false"
@@ -145,6 +154,15 @@ Options:
   --access-requests       Let users request access and admins approve it.
                           Stored in MongoDB: one is installed unless the
                           catalog already provides one.
+  --s3                    Enable S3 object storage. Installs the bundled MinIO
+                          (compose profile 's3') unless --s3-endpoint points at
+                          an S3-compatible service you already run.
+  --s3-endpoint <host>    Use this existing S3 service instead of installing
+                          MinIO (e.g. s3.amazonaws.com or my-host:9000).
+  --s3-access-key <key>   Access key for that S3 (required with --s3-endpoint).
+  --s3-secret-key <key>   Secret key for that S3 (required with --s3-endpoint).
+  --s3-region <region>    Region for that S3. Default: us-east-1
+  --s3-secure             Use https to reach that S3 (default is http).
 
 With --backend none nothing is stored locally and no catalog is installed. The
 Endpoint authenticates users, searches the platform's global catalog and
@@ -195,6 +213,12 @@ while [[ $# -gt 0 ]]; do
     --ckan-app-port)   ckan_app_port="${2:-}"; shift 2 ;;
     --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
     --access-requests) want_access_requests="yes"; shift ;;
+    --s3)              want_s3="yes"; shift ;;
+    --s3-endpoint)     want_s3="yes"; s3_endpoint="${2:-}"; shift 2 ;;
+    --s3-access-key)   s3_access_key="${2:-}"; shift 2 ;;
+    --s3-secret-key)   s3_secret_key="${2:-}"; shift 2 ;;
+    --s3-region)       s3_region="${2:-}"; shift 2 ;;
+    --s3-secure)       s3_secure="True"; shift ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
@@ -727,6 +751,32 @@ if [[ -z "$config_id" ]] && interactive; then
        ;;
   esac
 
+  section "S3 object storage" \
+    "Object storage for buckets and files, managed from the Endpoint's UI." \
+    "" \
+    "Install MinIO alongside the Endpoint, or point at an S3-compatible" \
+    "service you already run (including Amazon S3). Leave it off and the S3" \
+    "tools are simply absent."
+  ask_yes_no want_s3 "Enable S3 object storage?" "no"
+  if [[ "$want_s3" == "yes" ]]; then
+    choose s3_choice "Which S3 should this Endpoint use?" 1 \
+      "MinIO, installed alongside the Endpoint" \
+      "An S3-compatible service I already have"
+    if [[ "$s3_choice" == "2" ]]; then
+      section "Existing S3" \
+        "Connect to an S3-compatible service you already run. Give the" \
+        "endpoint, credentials and region, reachable from the Endpoint" \
+        "container."
+      ask s3_endpoint "S3 endpoint (host:port, or s3.amazonaws.com)" ""
+      ask s3_access_key "S3 access key" ""
+      ask_secret s3_secret_key "S3 secret key (not shown)"
+      ask s3_region "S3 region" "us-east-1"
+      ask_yes_no s3_secure "Use https to reach it?" "no"
+      s3_secure="$( [[ "$s3_secure" == "yes" ]] && echo True || echo False )"
+      [[ -n "$s3_endpoint" ]] || { warn "No endpoint given; S3 left off."; want_s3="no"; }
+    fi
+  fi
+
   if [[ -z "$config_id" ]]; then
     section "Federation registration" \
       "Registering creates the configuration in the Federation and, with it," \
@@ -1106,6 +1156,32 @@ if [[ "$want_access_requests" == "yes" ]]; then
     profiles+=("mongodb")
     put MONGODB_CONNECTION_STRING "mongodb://admin:admin123@mongodb:27017"
     ok "Access requests enabled — installing MongoDB for them (compose profile 'mongodb')"
+  fi
+fi
+
+# S3 object storage. With an endpoint given, point at that existing service;
+# otherwise install the bundled MinIO (compose profile 's3'), whose fixed
+# credentials match the defaults documented in example.env. The default put of
+# S3_ENABLED "False" above is what leaves it off when S3 was not chosen.
+if [[ "$want_s3" == "yes" ]]; then
+  put S3_ENABLED "True"
+  if [[ -n "$s3_endpoint" ]]; then
+    [[ -n "$s3_access_key" && -n "$s3_secret_key" ]] \
+      || fail "--s3-endpoint requires --s3-access-key and --s3-secret-key."
+    put S3_ENDPOINT "$s3_endpoint"
+    put S3_ACCESS_KEY "$s3_access_key"
+    put S3_SECRET_KEY "$s3_secret_key"
+    put S3_REGION "$s3_region"
+    put S3_SECURE "$s3_secure"
+    ok "S3 enabled, using the S3 at $s3_endpoint"
+  else
+    profiles+=("s3")
+    put S3_ENDPOINT "minio:9000"
+    put S3_ACCESS_KEY "minioadmin"
+    put S3_SECRET_KEY "minioadmin123"
+    put S3_SECURE "False"
+    put S3_REGION "us-east-1"
+    ok "S3 enabled — installing MinIO (compose profile 's3')"
   fi
 fi
 
