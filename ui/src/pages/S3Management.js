@@ -10,6 +10,10 @@ const S3Management = () => {
   // null = still checking, true/false = whether S3 is enabled on this Endpoint.
   const [s3Enabled, setS3Enabled] = useState(null);
   const [apiVersion, setApiVersion] = useState(null);
+  // Whether this Endpoint has a local catalog changes what the notice below
+  // should say: with one, direct S3 bypasses it (use S3 Resources to register);
+  // without one, there is simply nothing to register into.
+  const [hasLocalCatalog, setHasLocalCatalog] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,6 +23,8 @@ const S3Management = () => {
         if (cancelled) return;
         setS3Enabled(response.data?.s3_enabled === true);
         setApiVersion(response.data?.api_version || null);
+        const backend = response.data?.local_catalog_backend;
+        setHasLocalCatalog(!!backend && backend !== 'none');
       })
       .catch((error) => {
         if (cancelled) return;
@@ -99,8 +105,19 @@ const S3Management = () => {
         <div>
           <div style={{ fontWeight: '500' }}>Important Notice</div>
           <div style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            Direct S3 operations bypass CKAN metadata management. For data catalog integration, 
-            use the <strong>S3 Resources</strong> section instead.
+            {hasLocalCatalog ? (
+              <>
+                Direct S3 operations bypass the local catalog. To register an
+                S3 file in the catalog so it shows up in Search, use the{' '}
+                <strong>S3 resource</strong> option in the <strong>+ New</strong> menu instead.
+              </>
+            ) : (
+              <>
+                This Endpoint has no local catalog, so nothing here is registered
+                in one — these are direct S3 storage operations only. The files
+                you upload live in S3 and will not appear in catalog Search.
+              </>
+            )}
           </div>
         </div>
       </div>
