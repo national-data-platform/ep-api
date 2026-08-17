@@ -461,7 +461,7 @@ const Navigation = () => {
                       }}
                     >
                       <HardDrive size={18} />
-                      <span>S3 bucket</span>
+                      <span>S3 storage</span>
                     </Link>
                     )}
 
