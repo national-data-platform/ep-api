@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.34.15] - 2026-08-17
 
+### Changed
+- **S3 bucket/object storage moved from the top bar into the "+ New" menu as "S3 bucket".** It was a top-bar entry ("S3 Management") separate from everything else you create; it now sits in "+ New" alongside the other creatable resources, the same way organizations and datasets do, and the top bar is left to browsing. It still opens the same bucket-and-object page and is shown whenever S3 is enabled (raw storage needs no catalog).
+
 ### Fixed
-- **"S3 resource" in the "+ New" menu now requires a local catalog, not just S3.** Creating an S3 resource registers a package in the local catalog (a dataset whose resource points at an S3 URL), so it needs a catalog to succeed; the registration route is not even mounted without one. The previous release gated the entry on `s3_enabled` alone, so an Endpoint with S3 but no local catalog offered it and using it failed with a 404. The entry is now shown only when S3 is enabled **and** a local catalog exists, and the "+ New" button no longer appears for an S3-only, catalogless Endpoint (its S3 Management entry, which manages raw storage, is unaffected).
+- **"S3 resource" in the "+ New" menu now requires a local catalog, not just S3.** Creating an S3 resource registers a package in the local catalog (a dataset whose resource points at an S3 URL), so it needs a catalog to succeed; the registration route is not even mounted without one. The previous release gated the entry on `s3_enabled` alone, so an Endpoint with S3 but no local catalog offered it and using it failed with a 404. The entry is now shown only when S3 is enabled **and** a local catalog exists. The "+ New" menu appears whenever anything in it can be created — including "S3 bucket" on an S3-only Endpoint with no catalog.
 
 ### Backwards compatibility
-- UI only. An Endpoint with both a local catalog and S3 shows the entry exactly as before.
+- UI only. An Endpoint with both a local catalog and S3 offers the same actions as before, only with S3 bucket storage reached through "+ New" instead of the top bar.
 
 ## [0.34.14] - 2026-08-17
 

@@ -214,52 +214,12 @@ const Navigation = () => {
                 <span>Search</span>
               </Link>
 
-              {/* S3 Management (bucket/object storage tool) — writers only,
-                  and only when S3 storage is enabled on this Endpoint. It is
-                  an administrative storage tool, so viewers and users with no
-                  role do not see it (mirrors the backend guard); when S3 is
-                  not configured it is absent entirely, like the other
-                  optional integrations. */}
-              {canWrite && s3Enabled && (
-              <Link
-                to="/s3-management"
-                onMouseEnter={handleOtherNavEnter}
-                style={{
-                  color: '#6b7280',
-                  textDecoration: 'none',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.95rem',
-                  whiteSpace: 'nowrap',
-                  fontWeight: '500',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  backgroundColor: 'transparent',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.color = '#374151';
-                  e.target.style.fontWeight = '600';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.color = '#6b7280';
-                  e.target.style.fontWeight = '500';
-                }}
-              >
-                <HardDrive size={18} />
-                <span>S3 Management</span>
-              </Link>
-              )}
-
               {/* + New menu — only visible to users that can write, and only
                   when something here can actually be created: a local catalog
                   for organizations/datasets/services/URL resources (and S3
-                  resources, which register into the catalog too), or Kafka for
-                  topics. S3 alone is not enough — an S3 resource still needs a
-                  catalog to register in — so it is not part of this test. */}
-              {canWrite && (hasLocalCatalog || kafkaEnabled) && (
+                  resources, which register into the catalog too), Kafka for
+                  topics, or S3 for buckets (raw storage, no catalog needed). */}
+              {canWrite && (hasLocalCatalog || kafkaEnabled || s3Enabled) && (
               <div
                 style={{ position: 'relative' }}
                 onMouseEnter={handleNewMenuEnter}
@@ -471,6 +431,37 @@ const Navigation = () => {
                     >
                       <LinkIcon size={18} />
                       <span>URL resource</span>
+                    </Link>
+                    )}
+
+                    {s3Enabled && (
+                    <Link
+                      to="/s3-management"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '1rem 1.25rem',
+                        color: '#374151',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        backgroundColor: 'white',
+                        borderBottom: '1px solid #f3f4f6'
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.backgroundColor = '#f9fafb';
+                        e.target.style.color = '#2563eb';
+                        e.target.style.fontWeight = '600';
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.backgroundColor = 'white';
+                        e.target.style.color = '#374151';
+                        e.target.style.fontWeight = '500';
+                      }}
+                    >
+                      <HardDrive size={18} />
+                      <span>S3 bucket</span>
                     </Link>
                     )}
 
