@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, AlertCircle, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { Settings, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { servicesAPI } from '../services/api';
 
@@ -24,9 +24,11 @@ const Services = () => {
     documentation_url: ''
   });
   const [extrasPairs, setExtrasPairs] = useState([]);
+  // Protecting a service is stored as the extra `requires_auth`, but that key
+  // is not discoverable, so it gets a first-class checkbox here.
+  const [requiresAuth, setRequiresAuth] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
   const [typeHelpOpen, setTypeHelpOpen] = useState(false);
 
   const handleInputChange = (e) => {
@@ -57,7 +59,6 @@ const Services = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     setSubmitting(true);
 
     const payload = {
@@ -82,24 +83,22 @@ const Services = () => {
     if (formData.documentation_url)
       payload.documentation_url = formData.documentation_url;
     const extras = buildExtras();
+    // The checkbox is the authoritative source for this extra: set it when
+    // ticked so the service is protected regardless of the metadata rows.
+    if (requiresAuth) extras.requires_auth = 'true';
     if (Object.keys(extras).length > 0) payload.extras = extras;
 
     try {
       await servicesAPI.create(payload, 'local');
-      setSuccess(
-        `Service "${formData.service_name}" registered. You can keep registering more or go back to Search.`
-      );
-      setFormData({
-        service_name: '',
-        service_title: '',
-        service_url: '',
-        service_type_choice: '',
-        service_type_custom: '',
-        notes: '',
-        health_check_url: '',
-        documentation_url: ''
+      // Hand a success banner to Search and go there — the submit button sits
+      // at the bottom of a long form, so an inline message above it would land
+      // off-screen and read as "nothing happened".
+      navigate('/', {
+        state: {
+          flash: `Service "${formData.service_name}" registered successfully.`
+        }
       });
-      setExtrasPairs([]);
+      return;
     } catch (err) {
       const detail = err.response?.data?.detail;
       const raw = typeof detail === 'string' ? detail : err.message;
@@ -134,13 +133,6 @@ const Services = () => {
         <div className="alert alert-error">
           <AlertCircle size={20} />
           {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="alert alert-success">
-          <CheckCircle size={20} />
-          {success}
         </div>
       )}
 
@@ -308,6 +300,33 @@ const Services = () => {
               className="form-input"
               placeholder="https://docs.example.com/my-service"
             />
+          </div>
+
+          <div className="form-group">
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+                cursor: 'pointer'
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={requiresAuth}
+                onChange={(e) => setRequiresAuth(e.target.checked)}
+                style={{ marginTop: '0.2rem' }}
+              />
+              <span>
+                <span className="form-label" style={{ display: 'block' }}>
+                  Require authentication
+                </span>
+                <small style={{ color: '#64748b' }}>
+                  Callers must be signed in for the Endpoint to forward them to
+                  this service. Leave unchecked for an open service.
+                </small>
+              </span>
+            </label>
           </div>
 
           <div className="form-group">
