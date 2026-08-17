@@ -1161,9 +1161,13 @@ const ResultCard = ({
               marginBottom: '0.4rem'
             }}
           >
-            {proxyUrl}
+            <strong>&lt;your-ep-url&gt;</strong>/services/redirect/{item.name}
           </code>
-          <small style={{ color: '#64748b' }}>
+          <small style={{ color: '#64748b', display: 'block' }}>
+            Replace <strong>&lt;your-ep-url&gt;</strong> with this Endpoint's
+            public address.
+          </small>
+          <small style={{ color: '#64748b', display: 'block', marginTop: '0.35rem' }}>
             {requiresAuth ? (
               <>
                 Requires authentication — send an{' '}
@@ -1175,7 +1179,7 @@ const ResultCard = ({
               <>
                 Open — send a GET request or open it directly in a browser.{' '}
                 <a href={proxyUrl} target="_blank" rel="noreferrer">
-                  Open ↗
+                  Open here ↗
                 </a>
               </>
             )}
