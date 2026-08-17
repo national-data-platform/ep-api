@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.16] - 2026-08-17
+
+### Added
+- **A "Require authentication" checkbox when registering a service.** A service can require its callers to be authenticated, but the only way to turn that on from the UI was to add an `Additional metadata` pair with the exact key `requires_auth` — undiscoverable unless you knew the internals. The service form now has a labelled checkbox that sets the same underlying extra, so protecting a service no longer depends on knowing a magic key. The free-form metadata section stays for everything else.
+
+### Backwards compatibility
+- UI only. The stored value is unchanged (`requires_auth`), so services protected by hand and services protected through the checkbox are identical, and existing services are unaffected.
+
 ## [0.34.15] - 2026-08-17
 
 ### Changed

@@ -24,6 +24,9 @@ const Services = () => {
     documentation_url: ''
   });
   const [extrasPairs, setExtrasPairs] = useState([]);
+  // Protecting a service is stored as the extra `requires_auth`, but that key
+  // is not discoverable, so it gets a first-class checkbox here.
+  const [requiresAuth, setRequiresAuth] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -82,6 +85,9 @@ const Services = () => {
     if (formData.documentation_url)
       payload.documentation_url = formData.documentation_url;
     const extras = buildExtras();
+    // The checkbox is the authoritative source for this extra: set it when
+    // ticked so the service is protected regardless of the metadata rows.
+    if (requiresAuth) extras.requires_auth = 'true';
     if (Object.keys(extras).length > 0) payload.extras = extras;
 
     try {
@@ -100,6 +106,7 @@ const Services = () => {
         documentation_url: ''
       });
       setExtrasPairs([]);
+      setRequiresAuth(false);
     } catch (err) {
       const detail = err.response?.data?.detail;
       const raw = typeof detail === 'string' ? detail : err.message;
@@ -308,6 +315,33 @@ const Services = () => {
               className="form-input"
               placeholder="https://docs.example.com/my-service"
             />
+          </div>
+
+          <div className="form-group">
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+                cursor: 'pointer'
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={requiresAuth}
+                onChange={(e) => setRequiresAuth(e.target.checked)}
+                style={{ marginTop: '0.2rem' }}
+              />
+              <span>
+                <span className="form-label" style={{ display: 'block' }}>
+                  Require authentication
+                </span>
+                <small style={{ color: '#64748b' }}>
+                  Callers must be signed in for the Endpoint to forward them to
+                  this service. Leave unchecked for an open service.
+                </small>
+              </span>
+            </label>
           </div>
 
           <div className="form-group">
