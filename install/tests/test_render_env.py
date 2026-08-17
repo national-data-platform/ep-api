@@ -265,6 +265,64 @@ def test_starting_mongodb_does_not_publish_a_database_console():
     assert "mongo-express" in profiles_line, "mongo-express has no profile of its own"
 
 
+def test_the_installer_can_enable_s3_object_storage():
+    """
+    S3 was always written off and nothing re-enabled it, so an Endpoint could
+    only get object storage by editing .env and starting the container by hand.
+    The installer must offer S3 the same way as the other optional pieces:
+    interactively and with a flag, in two modes — install the bundled service,
+    or point at an S3 the operator already has.
+    """
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        'ask_yes_no want_s3 "Enable S3 object storage?"' in install_sh
+    ), "the installer never offers S3"
+    assert "--s3)" in install_sh, "there is no flag to enable S3 in an unattended run"
+    assert "--s3-endpoint)" in install_sh, "there is no flag for an existing S3"
+
+    # Two blocks share this guard — the interactive prompt and the block that
+    # writes the settings. rindex targets the latter, where the values land.
+    block_start = install_sh.rindex('if [[ "$want_s3" == "yes" ]]; then')
+    block = install_sh[block_start : install_sh.index("\nfi\n", block_start)]
+
+    assert 'put S3_ENABLED "True"' in block, "choosing S3 never enables it"
+    # Bundled MinIO: the compose profile that starts it, and the endpoint the
+    # Endpoint reaches it on.
+    assert 'profiles+=("s3")' in block, "the bundled MinIO is never started"
+    assert (
+        'put S3_ENDPOINT "minio:9000"' in block
+    ), "the bundled MinIO is not pointed at"
+    # Existing S3 cannot be used without its credentials.
+    assert (
+        "requires --s3-access-key and --s3-secret-key" in block
+    ), "an existing S3 is accepted without credentials"
+
+
+def test_the_bundled_minio_starts_only_with_the_s3_profile():
+    """
+    The installer enables S3's bundled storage by adding the 's3' compose
+    profile. The MinIO service must be behind exactly that profile, or the
+    profile the installer adds would not start it (or would start it whenever
+    something unrelated ran).
+    """
+    compose = (Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text(
+        encoding="utf-8"
+    )
+
+    block = compose[compose.index("minio:") :]
+    profiles_line = next(
+        line for line in block.splitlines() if line.strip().startswith("profiles:")
+    )
+
+    assert "s3" in profiles_line, (
+        "MinIO is not behind the 's3' profile, so the installer's "
+        f"profile would not start it: {profiles_line.strip()}"
+    )
+
+
 def test_a_registration_supplies_the_staging_organization():
     """
     A promoted dataset keeps its local organization unless
