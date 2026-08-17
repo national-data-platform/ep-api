@@ -255,9 +255,11 @@ const Navigation = () => {
 
               {/* + New menu — only visible to users that can write, and only
                   when something here can actually be created: a local catalog
-                  for organizations/datasets/services/URL resources, Kafka for
-                  topics, or S3 for S3 resources. */}
-              {canWrite && (hasLocalCatalog || kafkaEnabled || s3Enabled) && (
+                  for organizations/datasets/services/URL resources (and S3
+                  resources, which register into the catalog too), or Kafka for
+                  topics. S3 alone is not enough — an S3 resource still needs a
+                  catalog to register in — so it is not part of this test. */}
+              {canWrite && (hasLocalCatalog || kafkaEnabled) && (
               <div
                 style={{ position: 'relative' }}
                 onMouseEnter={handleNewMenuEnter}
@@ -472,7 +474,7 @@ const Navigation = () => {
                     </Link>
                     )}
 
-                    {s3Enabled && (
+                    {s3Enabled && hasLocalCatalog && (
                     <Link
                       to="/s3-resources"
                       style={{

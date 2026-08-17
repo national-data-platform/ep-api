@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.15] - 2026-08-17
+
+### Fixed
+- **"S3 resource" in the "+ New" menu now requires a local catalog, not just S3.** Creating an S3 resource registers a package in the local catalog (a dataset whose resource points at an S3 URL), so it needs a catalog to succeed; the registration route is not even mounted without one. The previous release gated the entry on `s3_enabled` alone, so an Endpoint with S3 but no local catalog offered it and using it failed with a 404. The entry is now shown only when S3 is enabled **and** a local catalog exists, and the "+ New" button no longer appears for an S3-only, catalogless Endpoint (its S3 Management entry, which manages raw storage, is unaffected).
+
+### Backwards compatibility
+- UI only. An Endpoint with both a local catalog and S3 shows the entry exactly as before.
+
 ## [0.34.14] - 2026-08-17
 
 ### Fixed
