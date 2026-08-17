@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.12] - 2026-08-17
+
+### Fixed
+- **The UI no longer shows S3 Management when S3 is disabled.** The "S3 Management" navigation entry was shown to any user who could write, regardless of whether S3 storage was enabled on the Endpoint, and the page loaded and only failed once it called the backend. S3 is off by default and stays off unless explicitly provisioned, so most Endpoints offered a feature that could not work. The entry is now hidden when S3 is not enabled — mirroring the other optional integrations, which are simply absent when not configured — and opening the page directly redirects to the landing page instead of showing a page that can only fail. The gate reads the `s3_enabled` flag the status endpoint already reports.
+
 ## [0.34.11] - 2026-08-12
 
 ### Added
