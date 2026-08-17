@@ -17,7 +17,8 @@ import {
   organizationsAPI,
   userAPI,
   resourcesAPI,
-  generalDatasetAPI
+  generalDatasetAPI,
+  BASE_URL
 } from '../services/api';
 import DatasetMetadata from '../components/DatasetMetadata';
 
@@ -934,6 +935,19 @@ const ResultCard = ({
   );
   const itemLabel = item.title || item.name || 'this item';
 
+  // For a service, the address a caller actually uses is the Endpoint's proxy
+  // (/services/redirect/<name>), not the service's own URL. Build it from the
+  // page origin and the configured root path.
+  const proxyUrl = isService
+    ? `${window.location.origin}${BASE_URL}/services/redirect/${item.name}`
+    : null;
+  // The requires_auth extra arrives as a string ("true") or a real boolean.
+  const requiresAuth =
+    isService &&
+    ['true', '1', 'yes', 'on'].includes(
+      String(item.extras?.requires_auth ?? '').toLowerCase()
+    );
+
   const openAction = (action) => {
     setActionError(null);
     setPendingAction(action);
@@ -1122,6 +1136,54 @@ const ResultCard = ({
           {resources.map((resource, idx) => (
             <ResourceRow key={resource.id || idx} resource={resource} isService={isService} />
           ))}
+        </div>
+      )}
+
+      {expanded && isService && proxyUrl && (
+        <div
+          style={{
+            marginTop: '0.75rem',
+            padding: '0.75rem',
+            background: '#f8fafc',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px'
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.35rem' }}>
+            Access through the Endpoint proxy
+          </div>
+          <code
+            style={{
+              display: 'block',
+              fontSize: '0.8rem',
+              wordBreak: 'break-all',
+              color: '#1e293b',
+              marginBottom: '0.4rem'
+            }}
+          >
+            <strong>&lt;your-ep-url&gt;</strong>/services/redirect/{item.name}
+          </code>
+          <small style={{ color: '#64748b', display: 'block' }}>
+            Replace <strong>&lt;your-ep-url&gt;</strong> with this Endpoint's
+            public address.
+          </small>
+          <small style={{ color: '#64748b', display: 'block', marginTop: '0.35rem' }}>
+            {requiresAuth ? (
+              <>
+                Requires authentication — send an{' '}
+                <code>Authorization: Bearer &lt;token&gt;</code> header (e.g. with
+                curl or the ndp-ep client). A plain browser tab cannot add it, so
+                opening this URL directly returns 401.
+              </>
+            ) : (
+              <>
+                Open — send a GET request or open it directly in a browser.{' '}
+                <a href={proxyUrl} target="_blank" rel="noreferrer">
+                  Open here ↗
+                </a>
+              </>
+            )}
+          </small>
         </div>
       )}
 
