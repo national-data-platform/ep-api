@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search as SearchIcon,
   AlertCircle,
@@ -33,6 +34,18 @@ const SERVERS = [
 ];
 
 const Search = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  // A one-off success banner handed over by a create form on navigation
+  // (e.g. after registering a service). Cleared from history so it does not
+  // reappear on refresh or back.
+  const [flash, setFlash] = useState(location.state?.flash || null);
+  useEffect(() => {
+    if (location.state?.flash) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -455,6 +468,15 @@ const Search = () => {
 
   return (
     <div style={{ maxWidth: '960px', margin: '0 auto', padding: '0 1rem' }}>
+      {flash && (
+        <div
+          className="alert alert-success"
+          style={{ marginTop: '1rem' }}
+          onClick={() => setFlash(null)}
+        >
+          {flash}
+        </div>
+      )}
       <div
         style={{
           display: 'flex',

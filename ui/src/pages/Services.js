@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, AlertCircle, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { Settings, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { servicesAPI } from '../services/api';
 
@@ -29,7 +29,6 @@ const Services = () => {
   const [requiresAuth, setRequiresAuth] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
   const [typeHelpOpen, setTypeHelpOpen] = useState(false);
 
   const handleInputChange = (e) => {
@@ -60,7 +59,6 @@ const Services = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     setSubmitting(true);
 
     const payload = {
@@ -92,21 +90,15 @@ const Services = () => {
 
     try {
       await servicesAPI.create(payload, 'local');
-      setSuccess(
-        `Service "${formData.service_name}" registered. You can keep registering more or go back to Search.`
-      );
-      setFormData({
-        service_name: '',
-        service_title: '',
-        service_url: '',
-        service_type_choice: '',
-        service_type_custom: '',
-        notes: '',
-        health_check_url: '',
-        documentation_url: ''
+      // Hand a success banner to Search and go there — the submit button sits
+      // at the bottom of a long form, so an inline message above it would land
+      // off-screen and read as "nothing happened".
+      navigate('/', {
+        state: {
+          flash: `Service "${formData.service_name}" registered successfully.`
+        }
       });
-      setExtrasPairs([]);
-      setRequiresAuth(false);
+      return;
     } catch (err) {
       const detail = err.response?.data?.detail;
       const raw = typeof detail === 'string' ? detail : err.message;
@@ -141,13 +133,6 @@ const Services = () => {
         <div className="alert alert-error">
           <AlertCircle size={20} />
           {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="alert alert-success">
-          <CheckCircle size={20} />
-          {success}
         </div>
       )}
 

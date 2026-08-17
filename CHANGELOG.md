@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **A "Require authentication" checkbox when registering a service.** A service can require its callers to be authenticated, but the only way to turn that on from the UI was to add an `Additional metadata` pair with the exact key `requires_auth` — undiscoverable unless you knew the internals. The service form now has a labelled checkbox that sets the same underlying extra, so protecting a service no longer depends on knowing a magic key. The free-form metadata section stays for everything else.
 
+### Fixed
+- **Registering a service now confirms and returns to Search.** The submit button sits at the bottom of a long form, and the success message was shown above it — off-screen — so a successful registration read as "nothing happened". Registering now takes you to Search with a success banner, where the new service is listed.
+
 ### Backwards compatibility
 - UI only. The stored value is unchanged (`requires_auth`), so services protected by hand and services protected through the checkbox are identical, and existing services are unaffected.
 
