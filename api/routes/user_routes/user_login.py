@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Form
 
 from api.models.token_model import UserLoginRequest
 from api.services.auth_services import authenticate_with_credentials
@@ -94,3 +94,60 @@ async def user_login(payload: UserLoginRequest) -> Dict[str, Any]:
         502: If the authentication service is unavailable.
     """
     return authenticate_with_credentials(payload.username, payload.password)
+
+
+@router.post(
+    "/token",
+    response_model=Dict[str, Any],
+    summary="Authenticate with form-encoded credentials (compatibility alias)",
+    description=(
+        "Compatibility alias for `/user/login`. Existing clients — such as "
+        "already-installed versions of the `ndp-ep` Python library — post "
+        "form-encoded `username` and `password` to `/token`. This route "
+        "accepts that form and returns the same result as `/user/login`, so "
+        "those clients keep working without any change on their side.\n\n"
+        "New integrations should use `POST /user/login` with a JSON body."
+    ),
+    responses={
+        200: {
+            "description": "Authentication successful",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "token_type": "Bearer",
+                        "roles": ["user"],
+                        "groups": [],
+                    }
+                }
+            },
+        },
+        401: {"description": "Invalid credentials"},
+        502: {"description": "Authentication service unavailable"},
+    },
+)
+async def token(
+    username: str = Form(...),
+    password: str = Form(...),
+) -> Dict[str, Any]:
+    """
+    Authenticate with form-encoded credentials.
+
+    This is a thin compatibility wrapper around the same authentication used
+    by ``/user/login``; the only difference is that the credentials arrive as
+    form fields rather than JSON, which is what existing clients send.
+
+    Parameters
+    ----------
+    username : str
+        The username to authenticate, from a form field.
+    password : str
+        The password to authenticate, from a form field.
+
+    Returns
+    -------
+    Dict[str, Any]
+        The authentication response from the identity provider, including
+        the access token.
+    """
+    return authenticate_with_credentials(username, password)
