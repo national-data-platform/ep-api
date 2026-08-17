@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.17] - 2026-08-17
+
+### Added
+- **Service search results show how to reach the service through the proxy.** A service card now shows the Endpoint proxy URL (`/services/redirect/<name>`) — the address a caller actually uses — instead of only the service's own URL and metadata. For an open service the URL can be opened directly in a browser (there is an "Open" link); for a service that requires authentication the card explains that the proxy only accepts a bearer token in the `Authorization` header, so the URL cannot be opened in a plain browser tab and must be called with a token (curl, the ndp-ep client, etc.).
+
+### Backwards compatibility
+- UI only. The proxy endpoint and its behaviour are unchanged; the card just surfaces the address and how to use it.
+
 ## [0.34.16] - 2026-08-17
 
 ### Added
