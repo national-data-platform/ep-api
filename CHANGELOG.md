@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.14] - 2026-08-17
+
+### Fixed
+- **The "+ New" menu only offers what the Endpoint can actually create.** It listed every resource kind a writer could create — organization, dataset, service, Kafka topic, URL resource, S3 resource — regardless of whether the underlying piece was configured, so an Endpoint without Kafka still offered "Kafka topic", one without S3 still offered "S3 resource", and one with no local catalog still offered datasets. Each entry now appears only when what it needs is present: the catalog entries (organization, dataset, service, URL resource) when the Endpoint has a local catalog, "Kafka topic" when streaming is enabled, and "S3 resource" when S3 is enabled. When none apply, the "+ New" menu is not shown. It reads the flags the status endpoint already reports, mirroring how the S3 Management entry is gated.
+
+### Backwards compatibility
+- UI only. An Endpoint that has a local catalog, Kafka and S3 shows exactly the same menu as before.
+
 ## [0.34.13] - 2026-08-17
 
 ### Added

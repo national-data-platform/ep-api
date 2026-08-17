@@ -30,11 +30,15 @@ const Navigation = () => {
   // canWrite drives the visibility of the "+ New" menu — viewers and
   // users with no role can browse but cannot create new resources.
   const [canWrite, setCanWrite] = useState(false);
-  // s3Enabled hides the S3 Management entry when this Endpoint has no S3
-  // storage configured, the same way the other optional integrations are
-  // simply absent when not provisioned. Defaults to false so the entry does
-  // not flash in before the status is known.
+  // Each "+ New" entry and the S3 Management entry are shown only when the
+  // piece they need is configured on this Endpoint, so nothing offers an
+  // action that cannot succeed. These come from the status endpoint. They
+  // default to false / no-catalog so nothing flashes in before status loads.
   const [s3Enabled, setS3Enabled] = useState(false);
+  const [kafkaEnabled, setKafkaEnabled] = useState(false);
+  // A local catalog is what the organization, dataset and URL-resource
+  // creators write to; with backend "none" there is nowhere to create them.
+  const [hasLocalCatalog, setHasLocalCatalog] = useState(false);
 
   // Determine admin and write-capability status from the current token's
   // /user/info response so the admin-only and writer-only entries are
@@ -60,18 +64,28 @@ const Navigation = () => {
     };
   }, []);
 
-  // Learn whether S3 storage is enabled on this Endpoint so the S3 Management
-  // entry is only shown when it can actually be used. The status endpoint
-  // reports this directly.
+  // Learn which integrations are configured on this Endpoint so the entries
+  // that need them are only shown when they can actually be used. The status
+  // endpoint reports these directly.
   useEffect(() => {
     let cancelled = false;
     statusAPI
       .getStatus()
       .then((response) => {
-        if (!cancelled) setS3Enabled(response.data?.s3_enabled === true);
+        if (cancelled) return;
+        const data = response.data || {};
+        setS3Enabled(data.s3_enabled === true);
+        setKafkaEnabled(data.kafka_enabled === true);
+        setHasLocalCatalog(
+          !!data.local_catalog_backend && data.local_catalog_backend !== 'none'
+        );
       })
       .catch(() => {
-        if (!cancelled) setS3Enabled(false);
+        if (!cancelled) {
+          setS3Enabled(false);
+          setKafkaEnabled(false);
+          setHasLocalCatalog(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -239,8 +253,11 @@ const Navigation = () => {
               </Link>
               )}
 
-              {/* + New menu — only visible to users that can write */}
-              {canWrite && (
+              {/* + New menu — only visible to users that can write, and only
+                  when something here can actually be created: a local catalog
+                  for organizations/datasets/services/URL resources, Kafka for
+                  topics, or S3 for S3 resources. */}
+              {canWrite && (hasLocalCatalog || kafkaEnabled || s3Enabled) && (
               <div
                 style={{ position: 'relative' }}
                 onMouseEnter={handleNewMenuEnter}
@@ -300,6 +317,7 @@ const Navigation = () => {
                       marginTop: '0.5rem'
                     }}
                   >
+                    {hasLocalCatalog && (
                     <Link
                       to="/organizations"
                       style={{
@@ -328,7 +346,9 @@ const Navigation = () => {
                       <Building2 size={18} />
                       <span>Organization</span>
                     </Link>
+                    )}
 
+                    {hasLocalCatalog && (
                     <Link
                       to="/datasets"
                       style={{
@@ -357,7 +377,9 @@ const Navigation = () => {
                       <FileText size={18} />
                       <span>Dataset</span>
                     </Link>
+                    )}
 
+                    {hasLocalCatalog && (
                     <Link
                       to="/services"
                       style={{
@@ -386,7 +408,9 @@ const Navigation = () => {
                       <Settings size={18} />
                       <span>Service</span>
                     </Link>
+                    )}
 
+                    {kafkaEnabled && (
                     <Link
                       to="/kafka-topics"
                       style={{
@@ -415,7 +439,9 @@ const Navigation = () => {
                       <Radio size={18} />
                       <span>Kafka topic</span>
                     </Link>
+                    )}
 
+                    {hasLocalCatalog && (
                     <Link
                       to="/url-resources"
                       style={{
@@ -444,7 +470,9 @@ const Navigation = () => {
                       <LinkIcon size={18} />
                       <span>URL resource</span>
                     </Link>
+                    )}
 
+                    {s3Enabled && (
                     <Link
                       to="/s3-resources"
                       style={{
@@ -472,6 +500,7 @@ const Navigation = () => {
                       <Database size={18} />
                       <span>S3 resource</span>
                     </Link>
+                    )}
                   </div>
                 )}
               </div>
