@@ -15,7 +15,7 @@ import {
   ShieldAlert,
   Plus
 } from 'lucide-react';
-import { isAccessRequestAdmin, userAPI } from '../services/api';
+import { isAccessRequestAdmin, statusAPI, userAPI } from '../services/api';
 
 /**
  * Enhanced navigation component similar to nationaldataplatform.org
@@ -30,6 +30,11 @@ const Navigation = () => {
   // canWrite drives the visibility of the "+ New" menu — viewers and
   // users with no role can browse but cannot create new resources.
   const [canWrite, setCanWrite] = useState(false);
+  // s3Enabled hides the S3 Management entry when this Endpoint has no S3
+  // storage configured, the same way the other optional integrations are
+  // simply absent when not provisioned. Defaults to false so the entry does
+  // not flash in before the status is known.
+  const [s3Enabled, setS3Enabled] = useState(false);
 
   // Determine admin and write-capability status from the current token's
   // /user/info response so the admin-only and writer-only entries are
@@ -49,6 +54,24 @@ const Navigation = () => {
           setIsAdmin(false);
           setCanWrite(false);
         }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Learn whether S3 storage is enabled on this Endpoint so the S3 Management
+  // entry is only shown when it can actually be used. The status endpoint
+  // reports this directly.
+  useEffect(() => {
+    let cancelled = false;
+    statusAPI
+      .getStatus()
+      .then((response) => {
+        if (!cancelled) setS3Enabled(response.data?.s3_enabled === true);
+      })
+      .catch(() => {
+        if (!cancelled) setS3Enabled(false);
       });
     return () => {
       cancelled = true;
@@ -177,10 +200,13 @@ const Navigation = () => {
                 <span>Search</span>
               </Link>
 
-              {/* S3 Management (bucket/object storage tool) — writers only.
-                  It is an administrative storage tool, so viewers and users
-                  with no role do not see it (mirrors the backend guard). */}
-              {canWrite && (
+              {/* S3 Management (bucket/object storage tool) — writers only,
+                  and only when S3 storage is enabled on this Endpoint. It is
+                  an administrative storage tool, so viewers and users with no
+                  role do not see it (mirrors the backend guard); when S3 is
+                  not configured it is absent entirely, like the other
+                  optional integrations. */}
+              {canWrite && s3Enabled && (
               <Link
                 to="/s3-management"
                 onMouseEnter={handleOtherNavEnter}

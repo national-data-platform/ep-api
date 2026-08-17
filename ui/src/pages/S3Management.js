@@ -1,36 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Info, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
+import { Database, Info, AlertTriangle } from 'lucide-react';
 import S3BucketManager from '../components/S3BucketManager';
 import S3ObjectManager from '../components/S3ObjectManager';
-import { versionAPI } from '../services/api';
+import { statusAPI } from '../services/api';
 
 const S3Management = () => {
   const [selectedBucket, setSelectedBucket] = useState(null);
-  const [s3Supported, setS3Supported] = useState(null); // null = checking, true/false = result
+  // null = still checking, true/false = whether S3 is enabled on this Endpoint.
+  const [s3Enabled, setS3Enabled] = useState(null);
   const [apiVersion, setApiVersion] = useState(null);
 
   useEffect(() => {
-    const checkS3Support = async () => {
-      try {
-        const [supported, versionInfo] = await Promise.all([
-          versionAPI.supportsS3Features(),
-          versionAPI.getVersion()
-        ]);
-        
-        setS3Supported(supported);
-        setApiVersion(versionInfo.version);
-      } catch (error) {
-        console.error('Error checking S3 support:', error);
-        setS3Supported(false);
-        setApiVersion('unknown');
-      }
+    let cancelled = false;
+    statusAPI
+      .getStatus()
+      .then((response) => {
+        if (cancelled) return;
+        setS3Enabled(response.data?.s3_enabled === true);
+        setApiVersion(response.data?.api_version || null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('Error checking S3 availability:', error);
+        setS3Enabled(false);
+      });
+    return () => {
+      cancelled = true;
     };
-
-    checkS3Support();
   }, []);
 
-  // Show loading state while checking version
-  if (s3Supported === null) {
+  // Show loading state while checking whether S3 is enabled
+  if (s3Enabled === null) {
     return (
       <div className="s3-management-page">
         <div className="page-header">
@@ -39,10 +40,10 @@ const S3Management = () => {
             S3 Bucket & Object Management
           </h1>
           <p className="page-subtitle">
-            Checking API version compatibility...
+            Checking S3 availability...
           </p>
         </div>
-        
+
         <div style={{ textAlign: 'center', padding: '3rem' }}>
           <div className="loading-spinner" style={{ margin: '0 auto' }}></div>
           <p style={{ marginTop: '1rem', color: '#64748b' }}>
@@ -53,44 +54,11 @@ const S3Management = () => {
     );
   }
 
-  // Show error if S3 features not supported
-  if (!s3Supported) {
-    return (
-      <div className="s3-management-page">
-        <div className="page-header">
-          <h1 className="page-title">
-            <Database size={32} style={{ marginRight: '0.5rem' }} />
-            S3 Bucket & Object Management
-          </h1>
-          <p className="page-subtitle">
-            API version {apiVersion} detected
-          </p>
-        </div>
-
-        <div className="alert alert-error">
-          <AlertCircle size={20} />
-          <div>
-            <div style={{ fontWeight: '500' }}>S3 Features Not Available</div>
-            <div style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-              S3 bucket and object management requires API version 0.2.0 or higher. 
-              Current API version: <strong>{apiVersion}</strong>
-            </div>
-            <div style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
-              Please upgrade the API server to access these features, or use the 
-              <strong> S3 Resources</strong> section for CKAN-integrated S3 resource management.
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-            <Database size={64} style={{ marginBottom: '1rem', opacity: 0.3 }} />
-            <h3 style={{ marginBottom: '0.5rem' }}>Feature Unavailable</h3>
-            <p>Upgrade to API v0.2.0+ to access S3 management features</p>
-          </div>
-        </div>
-      </div>
-    );
+  // When S3 is not enabled on this Endpoint the feature does not exist for the
+  // user: send them back to the landing page rather than showing a page that
+  // can only fail. The navigation entry is hidden in the same case.
+  if (!s3Enabled) {
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -115,10 +83,12 @@ const S3Management = () => {
       }}>
         <Info size={20} />
         <div>
-          <div style={{ fontWeight: '500' }}>S3 Management Features (API v{apiVersion})</div>
+          <div style={{ fontWeight: '500' }}>
+            S3 Management Features{apiVersion ? ` (API v${apiVersion})` : ''}
+          </div>
           <div style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            This page provides direct S3 bucket and object management capabilities. 
-            These features require API version 0.2.0 or higher and proper S3 credentials configuration.
+            This page provides direct S3 bucket and object management capabilities
+            for the S3 storage configured on this Endpoint.
           </div>
         </div>
       </div>
