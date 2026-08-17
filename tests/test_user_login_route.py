@@ -120,3 +120,52 @@ class TestUserLoginRoute:
             )
 
             assert response.status_code == 200
+
+
+class TestTokenAliasRoute:
+    """
+    Tests for the POST /token compatibility alias. Existing clients (e.g.
+    already-installed ndp-ep versions) post form-encoded credentials to
+    /token; the alias must accept that form and behave like /user/login.
+    """
+
+    @patch("api.routes.user_routes.user_login.authenticate_with_credentials")
+    def test_token_accepts_form_credentials(self, mock_auth):
+        """Form-encoded credentials to /token return the IDP payload."""
+        mock_auth.return_value = {
+            "access_token": "tok.en.value",
+            "token_type": "Bearer",
+            "roles": ["user"],
+            "groups": [],
+        }
+
+        response = client.post(
+            "/token",
+            data={"username": "john.doe", "password": "s3cret"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["access_token"] == "tok.en.value"
+        mock_auth.assert_called_once_with("john.doe", "s3cret")
+
+    @patch("api.routes.user_routes.user_login.authenticate_with_credentials")
+    def test_token_invalid_credentials_returns_401(self, mock_auth):
+        """Invalid credentials surface as a 401 response."""
+        mock_auth.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
+
+        response = client.post(
+            "/token",
+            data={"username": "john.doe", "password": "wrong"},
+        )
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid username or password"
+
+    def test_token_missing_password_returns_422(self):
+        """Omitting a form field triggers a validation error, not a 404."""
+        response = client.post("/token", data={"username": "john.doe"})
+
+        assert response.status_code == 422

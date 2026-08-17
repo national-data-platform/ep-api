@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.11] - 2026-08-12
+
+### Added
+- **`POST /token` compatibility alias for login.** Existing clients — notably already-installed versions of the `ndp-ep` Python library — authenticate by posting **form-encoded** `username` and `password` to `/token`, but the API exposed login only at `POST /user/login` with a JSON body, so those requests got a 404 and the client could not log in until it upgraded. The API now also answers `POST /token` with form-encoded credentials, returning the same authentication result as `/user/login`. New integrations should keep using `/user/login`.
+
+### Backwards compatibility
+- Additive. `/user/login` is unchanged; `/token` is a new route that accepts the form these clients already send.
+
 ## [0.34.10] - 2026-08-12
 
 ### Fixed
