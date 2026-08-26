@@ -41,3 +41,31 @@ jobs:
           verbose: true
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  ui-test:
+    name: Web UI tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 18 matches the ui-builder stage of Dockerfile.allinone, so the
+      # tests run against the same toolchain that builds the shipped bundle.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ui
+        run: npm ci
+
+      # react-scripts watches for changes by default, which would hang the
+      # runner; --watchAll=false makes it run once and exit.
+      - name: Run tests
+        working-directory: ui
+        run: npm test -- --watchAll=false
+        env:
+          CI: true
