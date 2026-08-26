@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Three generated files that were tracked despite being listed in `.gitignore`.** `.gitignore` only stops *untracked* files from being added, so a file committed before its rule existed stays tracked and keeps reappearing as modified. `.coverage` — the binary SQLite database written by `pytest --cov` — had been tracked since v1.0.0 and was rewritten on every local test run, so anyone running the suite got a spurious modification in `git status` and could commit it by accident with `git commit -a`. The two `docs/.ipynb_checkpoints/` files were Jupyter editor autosaves duplicating the tutorials beside them. All three are now untracked; none were used by the API, the tests, the installer or CI.
+
+### Backwards compatibility
+- No code changed. Existing clones keep their local copies of these files — they simply stop being tracked after pulling, so a local `pytest --cov` run no longer dirties the working tree.
+
 ## [0.34.20] - 2026-08-26
 
 ### Added
