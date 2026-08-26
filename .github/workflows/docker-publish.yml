@@ -1,16 +1,20 @@
 name: Publish Docker image
 
-# Publishing used to be a manual step, so a GitHub release could be tagged while
-# Docker Hub still served the previous image. Building from the release event
-# keeps the two in step.
+# The GitHub release is created by this workflow, as its final step, rather than
+# being the thing that triggers it. Publishing the release first left a window
+# where a release existed but its image did not: `docker pull` then served the
+# previous version while the release notes described the new one. Ordering it
+# this way means a failed push leaves no release at all, and recovering is
+# re-running the workflow rather than deleting and re-cutting a release.
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to build and push, e.g. 0.34.17'
+        description: 'Version to build and push, e.g. 0.34.18'
         required: true
       update_latest:
         description: 'Also move the latest tag'
@@ -19,6 +23,9 @@ on:
 
 env:
   IMAGE: rbardaji/ndp-ep-api
+
+permissions:
+  contents: write
 
 jobs:
   publish:
@@ -36,29 +43,44 @@ jobs:
         id: meta
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "release" ]; then
-            raw='${{ github.event.release.tag_name }}'
-            prerelease='${{ github.event.release.prerelease }}'
-            if [ "$prerelease" = "true" ]; then latest=false; else latest=true; fi
+          if [ "${{ github.event_name }}" = "push" ]; then
+            raw='${{ github.ref_name }}'
+            latest=true
           else
             raw='${{ inputs.version }}'
             latest='${{ inputs.update_latest }}'
           fi
           version="${raw#v}"
+          # A SemVer prerelease carries an identifier after a hyphen
+          # (0.35.0-rc1). There is no release object to ask any more, so the
+          # version string is what decides: a prerelease must never move
+          # `latest`, or `docker pull` hands users an unreleased build.
+          prerelease=false
+          case "$version" in
+            *-*) prerelease=true; latest=false ;;
+          esac
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
           {
             echo 'tags<<TAGS_EOF'
             echo "${IMAGE}:${version}"
-            # A prerelease must not move `latest`, or `docker pull` would hand
-            # every user an unreleased build.
             if [ "$latest" = "true" ]; then
               echo "${IMAGE}:latest"
             fi
             echo 'TAGS_EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Fail if the release tag and swagger_version disagree
+      - name: Fail if the tag and swagger_version disagree
         run: python scripts/check_release_version.py "${{ steps.meta.outputs.version }}"
+
+      - name: Read the release notes from the CHANGELOG
+        run: |
+          set -euo pipefail
+          python scripts/extract_changelog.py "${{ steps.meta.outputs.version }}" \
+            > release-notes.md
+          echo "Release notes for ${{ steps.meta.outputs.version }}:"
+          cat release-notes.md
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
@@ -83,10 +105,30 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Summarise what was pushed
+      # Only now that the image is on Docker Hub. Re-running for a tag whose
+      # release already exists updates it instead of failing, so a partial run
+      # can be finished by running this workflow again.
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag='${{ steps.meta.outputs.tag }}'
+          prerelease='${{ steps.meta.outputs.prerelease }}'
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+              --notes-file release-notes.md \
+              --prerelease="$prerelease" --draft=false
+          else
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+              --title "$tag" --notes-file release-notes.md \
+              --prerelease="$prerelease"
+          fi
+
+      - name: Summarise what was published
         run: |
           {
-            echo "### Pushed to Docker Hub"
+            echo "### Published ${{ steps.meta.outputs.tag }}"
             echo ''
             echo '```'
             echo "${{ steps.meta.outputs.tags }}"

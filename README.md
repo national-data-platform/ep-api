@@ -725,33 +725,51 @@ PELICAN_DIRECT_READS=False
 
 ## 🚢 Releasing
 
-The Docker Hub image is built and pushed by the **Publish Docker image**
-workflow, which runs when a GitHub release is published. Releasing is therefore:
+The GitHub release and the Docker Hub image are both produced by the **Publish
+Docker image** workflow, which runs when a `v*` tag is pushed. The release is
+created as the workflow's *last* step, once the image is on Docker Hub, so a
+failed build never leaves a release pointing at an image that does not exist.
 
 1. Bump `swagger_version` in `api/config/swagger_settings.py` and move the
    `## [Unreleased]` notes into a new `## [X.Y.Z]` section of
    [CHANGELOG.md](CHANGELOG.md).
-2. Merge that to `main` and tag it `vX.Y.Z`.
-3. Publish the GitHub release for that tag.
+2. Commit that to `main`.
+3. Tag and push:
+   ```bash
+   git tag vX.Y.Z
+   git push origin main --tags
+   ```
 
-The workflow then builds [Dockerfile.allinone](Dockerfile.allinone) and pushes
-`rbardaji/ndp-ep-api:X.Y.Z`, plus `rbardaji/ndp-ep-api:latest` when the release
-is not marked as a prerelease.
+The workflow then validates the tag, builds
+[Dockerfile.allinone](Dockerfile.allinone), pushes
+`rbardaji/ndp-ep-api:X.Y.Z` (plus `latest`), and finally creates the GitHub
+release with the notes taken from that version's CHANGELOG section.
 
-The release tag must match `swagger_version`; if it does not, the workflow stops
-before building. `swagger_version` is what the API reports at `/status/`, in
-`/docs` and in its metrics, so a mismatch would misreport every deployment built
-from that release. Check it locally with:
+Do not create the GitHub release by hand — the workflow does it.
+
+**Prereleases.** A tag with a SemVer prerelease identifier (`v0.35.0-rc1`) is
+detected automatically: the image is pushed under its own tag only, `latest` is
+left alone, and the GitHub release is marked as a prerelease.
+
+**If a run fails**, no release is created. Fix the cause and run the workflow
+again from the Actions tab with the same version — it will finish the release
+without needing a new tag.
+
+**Checks that run before anything is published:**
+
+- The tag must match `swagger_version`, which the API reports at `/status/`, in
+  `/docs` and in its metrics, so a mismatch would misreport every deployment.
+- The version must have a non-empty `CHANGELOG.md` section to use as notes.
+
+Both can be run locally:
 
 ```bash
-python scripts/check_release_version.py v0.34.17
+python scripts/check_release_version.py v0.34.18
+python scripts/extract_changelog.py v0.34.18
 ```
 
-To republish an image without cutting a new release, run the workflow manually
-from the Actions tab and pass the version explicitly.
-
 **Required repository secrets:** `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
-(a Docker Hub access token, not the account password).
+(a Docker Hub access token with Read & Write permissions).
 
 ## 📄 License
 
