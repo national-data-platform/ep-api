@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.18] - 2026-08-26
+
 ### Added
 - **The Docker Hub image is published automatically when a GitHub release is published.** `rbardaji/ndp-ep-api` was pushed by hand and the build and push commands were not written down anywhere in the repository, so a release could be tagged while Docker Hub still served the previous image — `docker pull rbardaji/ndp-ep-api:latest` then handed users code that did not match the release notes. A new "Publish Docker image" workflow builds `Dockerfile.allinone` on the `release: published` event and pushes it as both the version tag and `latest`. A prerelease pushes only its own version tag, so `latest` is never moved to an unreleased build. The workflow can also be started by hand (`workflow_dispatch`) with an explicit version, to republish an image without cutting a new release.
 - **A release whose tag disagrees with `swagger_version` fails before the image is built.** `swagger_version` is reported at `/status/`, in `/docs` and in the periodic metrics payload, so a tag that does not match it silently misreports every deployment built from that release. `scripts/check_release_version.py` compares the two and stops the workflow on a mismatch, naming both versions.
