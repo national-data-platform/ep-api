@@ -723,6 +723,36 @@ PELICAN_DIRECT_READS=False
 - **OSDF Documentation**: [https://osg-htc.org/services/osdf.html](https://osg-htc.org/services/osdf.html)
 - **Configuration Guide**: [pelican-origin.yml](pelican-origin.yml)
 
+## 🚢 Releasing
+
+The Docker Hub image is built and pushed by the **Publish Docker image**
+workflow, which runs when a GitHub release is published. Releasing is therefore:
+
+1. Bump `swagger_version` in `api/config/swagger_settings.py` and move the
+   `## [Unreleased]` notes into a new `## [X.Y.Z]` section of
+   [CHANGELOG.md](CHANGELOG.md).
+2. Merge that to `main` and tag it `vX.Y.Z`.
+3. Publish the GitHub release for that tag.
+
+The workflow then builds [Dockerfile.allinone](Dockerfile.allinone) and pushes
+`rbardaji/ndp-ep-api:X.Y.Z`, plus `rbardaji/ndp-ep-api:latest` when the release
+is not marked as a prerelease.
+
+The release tag must match `swagger_version`; if it does not, the workflow stops
+before building. `swagger_version` is what the API reports at `/status/`, in
+`/docs` and in its metrics, so a mismatch would misreport every deployment built
+from that release. Check it locally with:
+
+```bash
+python scripts/check_release_version.py v0.34.17
+```
+
+To republish an image without cutting a new release, run the workflow manually
+from the Actions tab and pass the version explicitly.
+
+**Required repository secrets:** `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+(a Docker Hub access token, not the account password).
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

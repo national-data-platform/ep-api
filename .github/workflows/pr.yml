@@ -27,7 +27,7 @@ jobs:
         run: black --check --diff .
 
       - name: Run Flake8 (linting)
-        run: flake8 api/ tests/ --max-line-length=88 --extend-ignore=E203,W503,E501,F401
+        run: flake8 api/ tests/ scripts/ --max-line-length=88 --extend-ignore=E203,W503,E501,F401
 
       - name: Run tests with coverage
         run: |
