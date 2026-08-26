@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.19] - 2026-08-26
+
 ### Changed
 - **The GitHub release is now created after the Docker image is published, not before.** The previous release flow published the release first and built the image from that event, so anything failing in between left a published release whose image had never been pushed — `docker pull` served the old version while the release notes described the new one. This was not hypothetical: it happened twice while releasing 0.34.18, once on a credentials error and once on a GitHub Actions outage. The workflow now triggers on a `v*` tag being pushed, and creates the release as its final step, once the image is on Docker Hub. A failed run leaves no release at all, and re-running the workflow for the same version finishes the job without cutting a new tag. Release notes are taken from that version's `CHANGELOG.md` section, so the release page and the changelog cannot drift apart, and a tag whose SemVer version carries a prerelease identifier (`v0.35.0-rc1`) is published as a prerelease without moving `latest`.
 
