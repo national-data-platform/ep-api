@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.20] - 2026-08-26
+
 ### Added
-- **The web UI tests now run in CI.** `ui/` carries 31 test cases covering OIDC enablement and callback handling, role resolution — including the `group:{uuid}:admin` bug that once locked endpoint administrators out of the management areas — and dataset metadata and spatial geometry parsing. None of them ran on a pull request: CI installed Python dependencies and ran `pytest`, and nothing installed npm dependencies. Frontend regressions could land unnoticed, which matters here because most recent changes are to the UI. A `ui-test` job now runs them on every pull request and on `main`, using Node 18 to match the build stage of `Dockerfile.allinone`.
+- **The web UI tests now run in CI.** `ui/` carries 37 test cases across three suites, covering OIDC enablement and callback handling, role resolution — including the `group:{uuid}:admin` bug that once locked endpoint administrators out of the management areas — and dataset metadata and spatial geometry parsing. None of them ran on a pull request: CI installed Python dependencies and ran `pytest`, and nothing installed npm dependencies. Frontend regressions could land unnoticed, which matters here because most recent changes are to the UI. A `ui-test` job now runs them on every pull request and on `main`, using Node 18 to match the build stage of `Dockerfile.allinone`.
 
 ### Removed
 - **The Create React App scaffold test.** `ui/src/App.test.js` was the untouched CRA template asserting that the page renders a "learn react" link. `App.js` renders the admin console router and has never contained that text, so the test could only fail; it survived unnoticed precisely because the UI suite was never run. Removed rather than rewritten: the value in this suite is in the behavioural tests, and a smoke test that mounts the whole router would have to stub `window.__EP_CONFIG__`, which only exists at container runtime.
