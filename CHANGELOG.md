@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`GET /pelican/subscribe` streams Pelican file events as Server-Sent Events.** The event server notifies subscribers whenever an object appears in a Pelican namespace, but that stream existed only in the `ndp-ep` client library; the API had no way to expose it, so an Endpoint could not offer subscriptions to its own callers. The new route returns a `text/event-stream` where each notification arrives as an `event: file` message carrying the object's `name`, `url`, `size` and `mod_time`. The `url` goes straight to `/pelican/read` for the contents or `/pelican/download` for the file, which is the pipeline the route exists to enable: subscribe, then read what arrived. A `: keepalive` comment is emitted during quiet periods so a proxy does not mistake an idle stream for a dead one, and `X-Accel-Buffering: no` stops nginx holding events back until its buffer fills.
+- **`GET /pelican/subscriptions` reports the upstream subscriptions the Endpoint holds**, with each one's connection state, listener count and how many events were dropped for slow listeners.
+
+### Changed
+- The event server speaks STOMP 1.2 over a WebSocket, so `websockets` is now a dependency.
+
+### Notes on the design
+- **One upstream subscription per event source, fanned out to every listener.** The event server requires a unique `client-id` per subscriber: two connections sharing one compete for the same events rather than both receiving them. Opening a subscription per SSE caller would therefore either split the stream between callers or leave an orphaned client id registered upstream on every connection. Instead the Endpoint subscribes once per event source under its own stable id and distributes each event to all its listeners. The upstream connection opens when the first listener arrives and closes when the last one leaves, so an idle Endpoint holds no connection at all.
+- **The STOMP protocol is implemented here rather than taken from the client library.** Depending on `ndp-ep` would make the API depend on its own client SDK and pull in `pelicanfs`, which pins Python 3.11. The cost is that the wire format now lives in two repositories and has to be kept in step by hand.
+- **Per-listener buffers are bounded**, unlike the client library's. A caller that stops reading must not be able to grow the Endpoint's memory without limit, so a full buffer drops its oldest event and counts it in `/pelican/subscriptions`.
+
+### Backwards compatibility
+- Purely additive. Both routes sit behind the authorization added in #261 and are only mounted when `PELICAN_ENABLED` is set. Subscriptions need `PELICAN_EVENT_CLIENT_ID` — or an `AFFINITIES_EP_UUID` to derive it from — and `/pelican/subscribe` answers 503 with the reason when the event server is not configured, so an Endpoint that never sets it is unaffected. The other new settings (`PELICAN_EVENT_SERVER_URL`, `PELICAN_EVENT_USERNAME`, `PELICAN_EVENT_PASSWORD`, `PELICAN_EVENT_VIRTUAL_HOST`, `PELICAN_EVENT_HEARTBEAT_MS`) are optional and documented in `example.env` and `docs/configuration.md`.
+
 ## [0.34.23] - 2026-08-30
 
 ### Added

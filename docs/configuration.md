@@ -349,6 +349,32 @@ the API's memory; a larger object is refused with 413 and must be fetched with
 default. **Where:** raise it only if your callers genuinely read larger objects
 inline.
 
+#### `PELICAN_EVENT_SERVER_URL`
+*Optional · default: the CHTC event server.*
+Event server backing `GET /pelican/subscribe`, as an `http(s)` or `ws(s)` URL.
+
+#### `PELICAN_EVENT_CLIENT_ID`
+*Optional · default: `AFFINITIES_EP_UUID`.*
+Identifies this Endpoint to the event server. **Must be unique**: two
+subscribers sharing an id compete for the same events instead of both receiving
+them. Must not contain `/`, since it is one segment of the STOMP destination.
+`GET /pelican/subscribe` returns 503 when neither this nor the Endpoint UUID is
+set. **Where:** leave empty unless one host runs several Endpoints.
+
+#### `PELICAN_EVENT_USERNAME` / `PELICAN_EVENT_PASSWORD`
+*Optional · default: empty. Set both or neither.*
+Credentials the event server checks against its own store — unrelated to the
+Endpoint token. Temporary: they are due to be replaced by an access token
+issued for NDP.
+
+#### `PELICAN_EVENT_VIRTUAL_HOST`
+*Optional · default: `playground`.*
+STOMP virtual host sent in the CONNECT frame.
+
+#### `PELICAN_EVENT_HEARTBEAT_MS`
+*Optional · default: `10000`. Minimum 1000.*
+Liveness interval. A non-numeric or too-small value falls back to the default.
+
 ---
 
 ## Remote execution (Rexec)
