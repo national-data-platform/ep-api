@@ -340,6 +340,15 @@ Default Pelican federation, format `pelican://host` (e.g. `pelican://osg-htc.org
 Read straight from origin servers instead of caches. **Where:** keep `False` for
 better performance unless you have a reason.
 
+#### `PELICAN_MAX_READ_BYTES`
+*Optional · default: `10485760` (10 MiB).*
+Largest object `GET /pelican/read` returns inline. That endpoint puts the
+contents in the response body, so this caps what a single request can pull into
+the API's memory; a larger object is refused with 413 and must be fetched with
+`/pelican/download`. A non-numeric or non-positive value falls back to the
+default. **Where:** raise it only if your callers genuinely read larger objects
+inline.
+
 ---
 
 ## Remote execution (Rexec)
