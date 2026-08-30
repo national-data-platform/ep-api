@@ -152,3 +152,134 @@ class TestImportMetadata:
             await import_metadata(request)
 
         assert exc_info.value.status_code == 400
+
+
+class TestPelicanRoutesAuthorization:
+    """
+    The Pelican routes shipped without any authentication (issue #261), so
+    these tests pin the gate down: no anonymous access, no access without a
+    role, and the write route demands more than the read routes.
+    """
+
+    @staticmethod
+    def _client():
+        """Mount the Pelican router on a bare app, independent of
+        ``PELICAN_ENABLED`` and of the rest of the application."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from api.routes.pelican_routes import router
+
+        app = FastAPI()
+        app.include_router(router)
+        return app, TestClient(app)
+
+    @staticmethod
+    def _as(roles):
+        """Build a ``get_current_user`` override for a user with ``roles``."""
+        return lambda: {
+            "roles": roles,
+            "groups": [],
+            "sub": "test_user",
+            "username": "Test User",
+        }
+
+    def test_read_route_rejects_anonymous_caller(self):
+        """A request with no Authorization header never reaches the route."""
+        _app, client = self._client()
+
+        response = client.get("/pelican/federations")
+
+        assert response.status_code == 401
+
+    @patch("api.routes.pelican_routes.browse_namespace")
+    def test_browse_rejects_anonymous_caller(self, mock_browse):
+        """Browsing is refused before the federation is contacted."""
+        _app, client = self._client()
+
+        response = client.get("/pelican/browse", params={"path": "/public"})
+
+        assert response.status_code == 401
+        mock_browse.assert_not_called()
+
+    @patch("api.routes.pelican_routes.download_file")
+    def test_download_rejects_anonymous_caller(self, mock_download):
+        """Downloading is refused before any byte leaves the federation."""
+        _app, client = self._client()
+
+        response = client.get("/pelican/download", params={"path": "/public/f.txt"})
+
+        assert response.status_code == 401
+        mock_download.assert_not_called()
+
+    def test_read_route_rejects_user_without_role(self):
+        """An authenticated user with no role tier still gets 403."""
+        from api.services.auth_services import get_current_user
+
+        app, client = self._client()
+        app.dependency_overrides[get_current_user] = self._as([])
+        try:
+            response = client.get("/pelican/federations")
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 403
+
+    def test_read_route_allows_viewer(self):
+        """A viewer may read: the gate is authorization, not a blanket block."""
+        from api.services.auth_services import get_current_user
+
+        app, client = self._client()
+        app.dependency_overrides[get_current_user] = self._as(["ndp_viewer"])
+        try:
+            response = client.get("/pelican/federations")
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    @patch("api.routes.pelican_routes.import_file_as_resource")
+    def test_import_metadata_rejects_viewer(self, mock_import):
+        """The write route is stricter than the read gate it sits behind."""
+        from api.services.auth_services import get_current_user
+
+        app, client = self._client()
+        app.dependency_overrides[get_current_user] = self._as(["ndp_viewer"])
+        try:
+            response = client.post(
+                "/pelican/import-metadata",
+                json={
+                    "pelican_url": "pelican://osg-htc.org/public/f.txt",
+                    "package_id": "pkg-1",
+                },
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 403
+        mock_import.assert_not_called()
+
+    @patch("api.routes.pelican_routes.get_pelican_repo")
+    @patch("api.routes.pelican_routes.import_file_as_resource")
+    def test_import_metadata_allows_writer(self, mock_import, mock_get_repo):
+        """A writer reaches the route body."""
+        from api.services.auth_services import get_current_user
+
+        mock_get_repo.return_value = MagicMock()
+        mock_import.return_value = {"success": True, "id": "res-1"}
+
+        app, client = self._client()
+        app.dependency_overrides[get_current_user] = self._as(["ndp_editor"])
+        try:
+            response = client.post(
+                "/pelican/import-metadata",
+                json={
+                    "pelican_url": "pelican://osg-htc.org/public/f.txt",
+                    "package_id": "pkg-1",
+                },
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        mock_import.assert_called_once()
