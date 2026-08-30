@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`GET /pelican/read` returns the contents of a Pelican object in the response body.** The Pelican integration could list objects (`/browse`, `/info`) and hand back a file to save (`/download`), but there was no way to get an object's contents inline — a caller wanting to work with the data had to write it to disk first and read it back. The new route returns the contents directly, so a subscriber can take the object referenced by an event and feed it straight into its own code. Text is returned as text; anything that is not valid UTF-8 is base64-encoded rather than refused, since Pelican namespaces hold binary payloads too, and the response says which of the two it is in an `encoding` field alongside `path`, `size` and `content`. The route is capped by `PELICAN_MAX_READ_BYTES` (10 MiB by default) because the contents travel in the response body; the cap is enforced while reading rather than after, so an oversized object is never pulled into the API's memory just to be rejected, and the caller is told to use `/download` instead. Failures are distinguishable from the status code: 404 when the object is not in the federation, 413 when it is past the limit, 502 when the federation cannot be reached.
+
+### Backwards compatibility
+- Purely additive. `PELICAN_MAX_READ_BYTES` is optional and defaults to 10 MiB, and a missing, non-numeric or non-positive value falls back to that default, so existing deployments need no change. The new route sits behind the same authorization as the rest of the Pelican routes, and is only mounted when `PELICAN_ENABLED` is set.
+
 ## [0.34.22] - 2026-08-30
 
 ### Fixed

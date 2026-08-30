@@ -15,6 +15,7 @@ from api.services.pelican_services.browse_federation import (
     get_file_info,
 )
 from api.services.pelican_services.download_file import download_file, stream_file
+from api.services.pelican_services.read_file import read_object
 from api.services.pelican_services.import_metadata import import_file_as_resource
 from api.services.auth_services import (
     get_user_for_read_operation,
@@ -24,6 +25,11 @@ import logging
 import os
 
 logger = logging.getLogger(__name__)
+
+# Largest object /pelican/read will return inline. Anything bigger is a
+# download, not a read: the contents go into the response body, so an
+# unbounded read would put an arbitrary object into the endpoint's memory.
+DEFAULT_MAX_READ_BYTES = 10 * 1024 * 1024
 
 # The read gate is declared on the router rather than on each route: these
 # endpoints shipped completely unauthenticated (issue #261), and a
@@ -243,6 +249,94 @@ async def download(
     except Exception as e:
         logger.error(f"Error downloading file {path}: {e}")
         raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
+
+
+def _max_read_bytes() -> int:
+    """
+    Resolve the inline read limit from ``PELICAN_MAX_READ_BYTES``.
+
+    Settings are declared with ``extra: "allow"``, so a malformed value
+    reaches this point instead of failing at startup; fall back to the
+    default rather than letting a typo disable the limit.
+
+    Returns
+    -------
+    int
+        Limit in bytes.
+    """
+    raw = os.getenv("PELICAN_MAX_READ_BYTES", "")
+    if not raw:
+        return DEFAULT_MAX_READ_BYTES
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            f"PELICAN_MAX_READ_BYTES is not an integer ({raw!r}); "
+            f"using {DEFAULT_MAX_READ_BYTES}."
+        )
+        return DEFAULT_MAX_READ_BYTES
+    if value <= 0:
+        logger.warning(
+            f"PELICAN_MAX_READ_BYTES must be positive (got {value}); "
+            f"using {DEFAULT_MAX_READ_BYTES}."
+        )
+        return DEFAULT_MAX_READ_BYTES
+    return value
+
+
+@router.get("/read")
+async def read_file_contents(
+    path: str = Query(..., description="Path of the object to read"),
+    federation: str = Query("osdf", description="Federation to query"),
+):
+    """
+    Read a Pelican object and return its contents in the response body.
+
+    ``/download`` hands back a file to save; this returns the contents
+    inline so they can be piped straight into the caller's own code.
+
+    Parameters
+    ----------
+    path : str
+        Path of the object to read
+    federation : str
+        Federation name (default "osdf")
+
+    Returns
+    -------
+    dict
+        ``path``, ``size``, ``encoding`` ("utf-8" or "base64") and
+        ``content``
+
+    Raises
+    ------
+    HTTPException
+        - 404: Object not found in the federation
+        - 413: Object larger than the inline read limit
+        - 502: The federation could not be reached
+    """
+    try:
+        pelican_repo = get_pelican_repo(federation)
+        result = read_object(pelican_repo, path, _max_read_bytes())
+
+        if not result["success"]:
+            status_by_reason = {
+                "not_found": 404,
+                "too_large": 413,
+                "unavailable": 502,
+            }
+            raise HTTPException(
+                status_code=status_by_reason.get(result.get("reason"), 502),
+                detail=result["error"],
+            )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reading Pelican object {path}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error reading object: {str(e)}")
 
 
 @router.post("/import-metadata")
