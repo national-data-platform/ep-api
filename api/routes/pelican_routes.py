@@ -5,7 +5,7 @@ API routes for Pelican federation access (Phase 1).
 These endpoints allow browsing and downloading from external Pelican federations.
 """
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
@@ -16,12 +16,24 @@ from api.services.pelican_services.browse_federation import (
 )
 from api.services.pelican_services.download_file import download_file, stream_file
 from api.services.pelican_services.import_metadata import import_file_as_resource
+from api.services.auth_services import (
+    get_user_for_read_operation,
+    get_user_for_write_operation,
+)
 import logging
 import os
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/pelican", tags=["Pelican Federation"])
+# The read gate is declared on the router rather than on each route: these
+# endpoints shipped completely unauthenticated (issue #261), and a
+# router-level dependency means a route added later cannot silently miss it.
+# Routes that write take the stricter write dependency on top of this one.
+router = APIRouter(
+    prefix="/pelican",
+    tags=["Pelican Federation"],
+    dependencies=[Depends(get_user_for_read_operation)],
+)
 
 
 # Pydantic models
@@ -234,7 +246,10 @@ async def download(
 
 
 @router.post("/import-metadata")
-async def import_metadata(request: ImportMetadataRequest):
+async def import_metadata(
+    request: ImportMetadataRequest,
+    _user=Depends(get_user_for_write_operation),
+):
     """
     Import a Pelican file as a resource in the local catalog.
 
