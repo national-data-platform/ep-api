@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.22] - 2026-08-30
+
 ### Fixed
 - **The Pelican federation routes required no credentials at all.** Every route in `api/routes/pelican_routes.py` — `GET /pelican/federations`, `/browse`, `/info`, `/download` and `POST /pelican/import-metadata` — was mounted with no authentication and no authorization: the module never imported `Depends`, the router carried no `dependencies`, and the only middlewares on the application are correlation IDs and CORS, so nothing gated them anywhere along the path. Anyone able to reach the port could enumerate a namespace, stream files out of the configured federation, and attach resources to an existing package. The `PELICAN_ENABLED` flag hid the problem rather than solving it: it decides whether the router is mounted, so the routes were only closed on deployments that had Pelican switched off entirely. The router now carries a read-tier dependency covering every route it holds, and `/import-metadata`, which writes to the catalog, additionally takes the write-tier dependency used by the rest of the registration routes. The gate is declared on the router rather than repeated on each route so that a Pelican route added later inherits it instead of shipping open.
 
