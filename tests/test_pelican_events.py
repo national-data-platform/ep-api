@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -189,6 +190,70 @@ class TestEventIdentity:
         frame = Frame("MESSAGE", {}, "not json")
 
         assert event_identity(frame) == "unknown-message"
+
+
+class TestCallerSuppliedCredentials:
+    """A caller may bring its own identity and credentials."""
+
+    @staticmethod
+    def _env(**overrides):
+        env = {
+            "PELICAN_EVENT_CLIENT_ID": "ep-test",
+            "PELICAN_EVENT_USERNAME": "ep-user",
+            "PELICAN_EVENT_PASSWORD": "ep-secret",
+        }
+        env.update(overrides)
+        return env
+
+    def test_caller_values_win_over_the_endpoint(self):
+        with patch.dict("os.environ", self._env(), clear=True):
+            config = load_config(
+                client_id="caller-1", username="mine", password="also-mine"
+            )
+
+        assert config.client_id == "caller-1"
+        assert config.username == "mine"
+        assert config.password == "also-mine"
+
+    def test_omitted_values_fall_back_to_the_endpoint(self):
+        """Callers without an account of their own still work."""
+        with patch.dict("os.environ", self._env(), clear=True):
+            config = load_config()
+
+        assert config.client_id == "ep-test"
+        assert config.username == "ep-user"
+
+    def test_a_caller_id_alone_still_uses_endpoint_credentials(self):
+        with patch.dict("os.environ", self._env(), clear=True):
+            config = load_config(client_id="caller-1")
+
+        assert config.client_id == "caller-1"
+        assert config.username == "ep-user"
+
+    def test_half_a_caller_credential_does_not_borrow_the_other_half(self):
+        """
+        Falling back per field would sign the caller in as the Endpoint
+        under a name of their choosing, so the pair is taken together.
+        """
+        with patch.dict("os.environ", self._env(), clear=True):
+            with pytest.raises(EventSubscriptionUnavailable) as exc:
+                load_config(username="mine")
+
+        assert "must be set together" in str(exc.value)
+
+    def test_a_caller_id_with_a_slash_is_refused(self):
+        with patch.dict("os.environ", self._env(), clear=True):
+            with pytest.raises(EventSubscriptionUnavailable):
+                load_config(client_id="a/b")
+
+    def test_a_caller_id_lets_an_unconfigured_endpoint_serve(self):
+        """An Endpoint with no event settings of its own still works."""
+        with patch.dict("os.environ", {}, clear=True):
+            config = load_config(
+                client_id="caller-1", username="mine", password="also-mine"
+            )
+
+        assert config.client_id == "caller-1"
 
 
 class TestLoadConfig:
@@ -392,10 +457,10 @@ class TestUpstreamMessages:
 
 
 class TestBroker:
-    """One upstream per event source, reference counted."""
+    """One upstream per destination, reference counted."""
 
     @pytest.mark.asyncio
-    async def test_two_listeners_share_one_upstream(self):
+    async def test_two_listeners_on_one_identity_share_an_upstream(self):
         broker = PelicanEventBroker()
         with patch.object(_Upstream, "start"):
             first = broker.listen("osdf/pub", CONFIG)
@@ -405,12 +470,40 @@ class TestBroker:
             await asyncio.sleep(0)
 
             assert len(broker._upstreams) == 1
-            upstream = broker._upstreams["osdf/pub"]
+            upstream = broker._upstreams["ep-test/osdf/pub"]
             assert len(upstream.listeners) == 2
 
             upstream._publish({"name": "a.csv"})
             assert await task_a == {"name": "a.csv"}
             assert await task_b == {"name": "a.csv"}
+
+            await first.aclose()
+            await second.aclose()
+
+    @pytest.mark.asyncio
+    async def test_a_caller_with_its_own_identity_gets_its_own_upstream(self):
+        """
+        Two identities cannot share one authenticated session, so the
+        upstream is keyed by client id as well as event source.
+        """
+        other = replace(CONFIG, client_id="caller-1", username="other")
+        broker = PelicanEventBroker()
+        with patch.object(_Upstream, "start"):
+            first = broker.listen("osdf/pub", CONFIG, idle_timeout=0.01)
+            second = broker.listen("osdf/pub", other, idle_timeout=0.01)
+            # A keepalive tick apiece registers both upstreams.
+            assert await first.__anext__() is None
+            assert await second.__anext__() is None
+
+            assert set(broker._upstreams) == {
+                "ep-test/osdf/pub",
+                "caller-1/osdf/pub",
+            }
+
+            # An event on one identity must not reach the other.
+            broker._upstreams["caller-1/osdf/pub"]._publish({"name": "a.csv"})
+            assert await second.__anext__() == {"name": "a.csv"}
+            assert await first.__anext__() is None
 
             await first.aclose()
             await second.aclose()
@@ -445,7 +538,7 @@ class TestBroker:
 
             assert await stream.__anext__() is None
 
-            upstream = broker._upstreams["osdf/pub"]
+            upstream = broker._upstreams["ep-test/osdf/pub"]
             upstream._publish({"name": "a.csv"})
             assert await stream.__anext__() == {"name": "a.csv"}
 
@@ -459,12 +552,27 @@ class TestBroker:
 
     def test_status_reports_each_upstream(self):
         broker = PelicanEventBroker()
-        broker._upstreams["osdf/pub"] = _Upstream("osdf/pub", CONFIG)
+        broker._upstreams["ep-test/osdf/pub"] = _Upstream("osdf/pub", CONFIG)
 
-        status = broker.status()
+        status = broker.status()["ep-test/osdf/pub"]
 
-        assert status["osdf/pub"]["destination"] == "ep-test/osdf/pub"
-        assert status["osdf/pub"]["listeners"] == 0
+        assert status["event_source"] == "osdf/pub"
+        assert status["client_id"] == "ep-test"
+        assert status["listeners"] == 0
+
+    def test_status_never_reports_a_credential(self):
+        """
+        Any viewer on the Endpoint can read this route, so it must not
+        echo back a password another caller supplied.
+        """
+        broker = PelicanEventBroker()
+        broker._upstreams["ep-test/osdf/pub"] = _Upstream("osdf/pub", CONFIG)
+
+        rendered = json.dumps(broker.status())
+
+        assert CONFIG.password not in rendered
+        assert CONFIG.username not in rendered
+        assert broker.status()["ep-test/osdf/pub"]["authenticated"] is True
 
 
 class TestSubscribeRoute:
@@ -496,6 +604,101 @@ class TestSubscribeRoute:
         response = client.get("/pelican/subscribe", params={"event_source": "osdf/pub"})
 
         assert response.status_code == 401
+
+    def _subscribe(self, params=None, headers=None):
+        """Call the route as a viewer, returning the response."""
+        from api.services.auth_services import get_current_user
+
+        app, client = self._client()
+        app.dependency_overrides[get_current_user] = self._as(["ndp_viewer"])
+        try:
+            return client.get(
+                "/pelican/subscribe",
+                params={"event_source": "osdf/pub", **(params or {})},
+                headers=headers or {},
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+    @patch("api.routes.pelican_routes.broker")
+    @patch("api.routes.pelican_routes.load_config")
+    def test_credentials_are_accepted_as_query_parameters(
+        self, mock_config, mock_broker
+    ):
+        mock_config.return_value = CONFIG
+
+        async def fake_listen(event_source, config, *args, **kwargs):
+            yield None
+
+        mock_broker.listen = fake_listen
+
+        self._subscribe(
+            {
+                "client_id": "caller-1",
+                "username": "mine",
+                "password": "also-mine",
+            }
+        )
+
+        mock_config.assert_called_once_with(
+            client_id="caller-1", username="mine", password="also-mine"
+        )
+
+    @patch("api.routes.pelican_routes.broker")
+    @patch("api.routes.pelican_routes.load_config")
+    def test_headers_win_over_query_parameters(self, mock_config, mock_broker):
+        """
+        A query string is written to the access log, so the header is
+        the safer way to pass a password and has to take precedence.
+        """
+        mock_config.return_value = CONFIG
+
+        async def fake_listen(event_source, config, *args, **kwargs):
+            yield None
+
+        mock_broker.listen = fake_listen
+
+        self._subscribe(
+            {"client_id": "from-query", "username": "q", "password": "q-pass"},
+            {
+                "X-Pelican-Event-Client-Id": "from-header",
+                "X-Pelican-Event-Username": "h",
+                "X-Pelican-Event-Password": "h-pass",
+            },
+        )
+
+        mock_config.assert_called_once_with(
+            client_id="from-header", username="h", password="h-pass"
+        )
+
+    @patch("api.routes.pelican_routes.broker")
+    @patch("api.routes.pelican_routes.load_config")
+    def test_nothing_supplied_falls_back_to_the_endpoint(
+        self, mock_config, mock_broker
+    ):
+        mock_config.return_value = CONFIG
+
+        async def fake_listen(event_source, config, *args, **kwargs):
+            yield None
+
+        mock_broker.listen = fake_listen
+
+        self._subscribe()
+
+        mock_config.assert_called_once_with(
+            client_id=None, username=None, password=None
+        )
+
+    @patch("api.routes.pelican_routes.load_config")
+    def test_a_rejected_credential_is_reported_not_swallowed(self, mock_config):
+        mock_config.side_effect = EventSubscriptionUnavailable(
+            "The username and password must be set together."
+        )
+
+        response = self._subscribe({"username": "mine"})
+
+        assert response.status_code == 503
+        assert "set together" in response.json()["detail"]
 
     @patch("api.routes.pelican_routes.load_config")
     def test_unconfigured_endpoint_reports_unavailable(self, mock_config):

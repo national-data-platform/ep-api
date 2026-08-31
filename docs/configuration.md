@@ -355,17 +355,29 @@ Event server backing `GET /pelican/subscribe`, as an `http(s)` or `ws(s)` URL.
 
 #### `PELICAN_EVENT_CLIENT_ID`
 *Optional · default: `AFFINITIES_EP_UUID`.*
-Identifies this Endpoint to the event server. **Must be unique**: two
-subscribers sharing an id compete for the same events instead of both receiving
-them. Must not contain `/`, since it is one segment of the STOMP destination.
-`GET /pelican/subscribe` returns 503 when neither this nor the Endpoint UUID is
-set. **Where:** leave empty unless one host runs several Endpoints.
+Identity this Endpoint presents to the event server, used for callers that do
+not bring their own. **Must be unique**: two subscribers sharing an id are
+served by splitting the events between them, so each sees only a fraction. Must
+not contain `/`, since it is one segment of the STOMP destination. When neither
+this, the Endpoint UUID, nor a caller-supplied id is available,
+`GET /pelican/subscribe` answers 503 saying so. **Where:** leave empty unless
+one host runs several Endpoints.
 
 #### `PELICAN_EVENT_USERNAME` / `PELICAN_EVENT_PASSWORD`
 *Optional · default: empty. Set both or neither.*
 Credentials the event server checks against its own store — unrelated to the
-Endpoint token. Temporary: they are due to be replaced by an access token
-issued for NDP.
+Endpoint token. Used for callers that do not supply their own. Temporary: they
+are due to be replaced by an access token issued for NDP.
+
+> **Callers may override all three.** `GET /pelican/subscribe` accepts
+> `client_id`, `username` and `password` as query parameters, and the same
+> three as the `X-Pelican-Event-Client-Id`, `X-Pelican-Event-Username` and
+> `X-Pelican-Event-Password` headers, which win. Prefer the headers: a query
+> string is written to the access logs of both uvicorn and nginx, so a password
+> passed that way lands on disk in plain text. Credentials are taken as a pair —
+> supplying only a username is refused rather than borrowing the Endpoint's
+> password. Subscribers presenting the same client id share one upstream
+> connection and each receive every event on it.
 
 #### `PELICAN_EVENT_VIRTUAL_HOST`
 *Optional · default: `playground`.*

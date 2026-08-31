@@ -8,6 +8,7 @@ These endpoints allow browsing and downloading from external Pelican federations
 from fastapi import (
     APIRouter,
     Depends,
+    Header,
     HTTPException,
     Query,
     Request,
@@ -363,13 +364,34 @@ async def subscribe_to_events(
     event_source: str = Query(
         ..., description="Namespace to watch, e.g. osdf/vdc/public/data"
     ),
+    client_id: Optional[str] = Query(
+        None,
+        description=(
+            "Identity to present to the event server. Must be unique: "
+            "two subscribers sharing one are served by splitting the "
+            "events between them. Defaults to the Endpoint's own."
+        ),
+    ),
+    username: Optional[str] = Query(
+        None,
+        description=(
+            "Event server username. Prefer the X-Pelican-Event-Username "
+            "header. Defaults to the Endpoint's own credentials."
+        ),
+    ),
+    password: Optional[str] = Query(
+        None,
+        description=(
+            "Event server password. Prefer the X-Pelican-Event-Password "
+            "header: a query string is written to the access log."
+        ),
+    ),
+    header_client_id: Optional[str] = Header(None, alias="X-Pelican-Event-Client-Id"),
+    header_username: Optional[str] = Header(None, alias="X-Pelican-Event-Username"),
+    header_password: Optional[str] = Header(None, alias="X-Pelican-Event-Password"),
 ):
     """
     Stream Pelican file events as Server-Sent Events.
-
-    The Endpoint holds one upstream subscription per event source and
-    fans it out, so every listener on a source receives every event
-    rather than competing for them.
 
     Each event arrives as an ``event: file`` message whose data carries
     the object's ``name``, ``url``, ``size`` and ``mod_time``. The
@@ -379,12 +401,29 @@ async def subscribe_to_events(
     A ``: keepalive`` comment is sent during quiet periods, so a proxy
     does not mistake an idle stream for a dead one.
 
+    The caller may bring its own event server identity and credentials;
+    anything it omits falls back to the Endpoint's configuration. They
+    are accepted both as query parameters and as headers, and the
+    headers win. **Prefer the headers**: a query string is recorded in
+    the access log of both uvicorn and nginx, so a password passed that
+    way is written to disk in plain text.
+
+    Subscribers presenting the same client id share one upstream
+    connection and each receive every event on it. A caller with its own
+    id gets its own connection, since the two cannot be served over a
+    single authenticated session.
+
     Parameters
     ----------
     request : Request
         Used to notice that the caller has gone away.
     event_source : str
         Namespace to watch.
+    client_id, username, password : str, optional
+        Event server identity and credentials, overriding the
+        Endpoint's.
+    header_client_id, header_username, header_password : str, optional
+        The same three, taken from headers, which take precedence.
 
     Returns
     -------
@@ -394,10 +433,14 @@ async def subscribe_to_events(
     Raises
     ------
     HTTPException
-        503 if the event server is not configured on this Endpoint.
+        503 if no usable event server configuration results.
     """
     try:
-        config = load_config()
+        config = load_config(
+            client_id=header_client_id or client_id,
+            username=header_username or username,
+            password=header_password or password,
+        )
     except EventSubscriptionUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 

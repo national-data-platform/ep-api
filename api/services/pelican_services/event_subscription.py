@@ -75,9 +75,28 @@ class EventServerConfig:
     heartbeat_ms: int
 
 
-def load_config() -> EventServerConfig:
+def load_config(
+    client_id: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+) -> EventServerConfig:
     """
-    Read the event server settings from the environment.
+    Resolve the event server settings for one subscription.
+
+    The caller may bring its own identity and credentials; whatever it
+    does not supply falls back to the Endpoint's own configuration. That
+    is what lets an Endpoint serve callers who have an account on the
+    event server and callers who do not, from the same route.
+
+    Parameters
+    ----------
+    client_id : str, optional
+        Identity to present to the event server, overriding
+        ``PELICAN_EVENT_CLIENT_ID``.
+    username : str, optional
+        Event server username, overriding ``PELICAN_EVENT_USERNAME``.
+    password : str, optional
+        Event server password, overriding ``PELICAN_EVENT_PASSWORD``.
 
     Returns
     -------
@@ -103,35 +122,47 @@ def load_config() -> EventServerConfig:
     except ValueError as exc:
         raise EventSubscriptionUnavailable(str(exc)) from exc
 
-    # A stable identity per Endpoint. Falling back to the Endpoint UUID
-    # keeps it unique across deployments without another thing to set.
-    client_id = (
-        os.getenv("PELICAN_EVENT_CLIENT_ID") or os.getenv("AFFINITIES_EP_UUID") or ""
+    # A caller's own identity wins; otherwise the Endpoint's, falling
+    # back to its UUID so a deployment has a unique one without another
+    # thing to set.
+    resolved_id = (
+        client_id
+        or os.getenv("PELICAN_EVENT_CLIENT_ID")
+        or os.getenv("AFFINITIES_EP_UUID")
+        or ""
     ).strip()
-    if not client_id:
+    if not resolved_id:
         raise EventSubscriptionUnavailable(
-            "PELICAN_EVENT_CLIENT_ID is not set and no Endpoint UUID is "
-            "available to derive it from. The event server requires a "
-            "unique client id per subscriber."
+            "No client id: pass one on the request, or set "
+            "PELICAN_EVENT_CLIENT_ID on the Endpoint. The event server "
+            "requires a unique client id per subscriber."
         )
-    if "/" in client_id:
+    if "/" in resolved_id:
         raise EventSubscriptionUnavailable(
-            "PELICAN_EVENT_CLIENT_ID must not contain '/': it is one "
-            "segment of the STOMP destination."
+            "The client id must not contain '/': it is one segment of "
+            "the STOMP destination."
         )
 
-    username = os.getenv("PELICAN_EVENT_USERNAME", "")
-    password = os.getenv("PELICAN_EVENT_PASSWORD", "")
-    if bool(username) != bool(password):
-        raise EventSubscriptionUnavailable(
-            "PELICAN_EVENT_USERNAME and PELICAN_EVENT_PASSWORD must be " "set together."
-        )
+    # Credentials are taken as a pair. Supplying only a username on the
+    # request must not silently fall back to the Endpoint's password,
+    # which would sign the caller in as the Endpoint under another name.
+    if username is not None or password is not None:
+        resolved_user = username or ""
+        resolved_password = password or ""
+        source = "The username and password"
+    else:
+        resolved_user = os.getenv("PELICAN_EVENT_USERNAME", "")
+        resolved_password = os.getenv("PELICAN_EVENT_PASSWORD", "")
+        source = "PELICAN_EVENT_USERNAME and PELICAN_EVENT_PASSWORD"
+
+    if bool(resolved_user) != bool(resolved_password):
+        raise EventSubscriptionUnavailable(f"{source} must be set together.")
 
     return EventServerConfig(
         url=url,
-        client_id=client_id,
-        username=username,
-        password=password,
+        client_id=resolved_id,
+        username=resolved_user,
+        password=resolved_password,
         virtual_host=os.getenv("PELICAN_EVENT_VIRTUAL_HOST", DEFAULT_VIRTUAL_HOST),
         heartbeat_ms=_heartbeat_ms(),
     )
@@ -380,23 +411,39 @@ class _Upstream:
 
 
 class PelicanEventBroker:
-    """Holds one :class:`_Upstream` per event source, reference counted."""
+    """
+    Holds one :class:`_Upstream` per destination, reference counted.
+
+    The key is the STOMP destination — client id *and* event source —
+    not the event source alone. Callers presenting the same identity
+    share one connection and every event on it; a caller bringing its
+    own credentials gets its own, because the two cannot be served over
+    a single authenticated session.
+    """
 
     def __init__(self) -> None:
         self._upstreams: Dict[str, _Upstream] = {}
         self._lock = asyncio.Lock()
 
     def status(self) -> Dict[str, dict]:
-        """Report what is currently subscribed, for diagnostics."""
+        """
+        Report what is currently subscribed, for diagnostics.
+
+        Keyed by destination. No credential appears here — the username
+        is reported only as a flag, since this route is readable by any
+        viewer on the Endpoint.
+        """
         return {
-            source: {
+            destination: {
                 "state": upstream.state,
-                "destination": upstream.destination,
+                "event_source": upstream.event_source,
+                "client_id": upstream.config.client_id,
+                "authenticated": bool(upstream.config.username),
                 "listeners": len(upstream.listeners),
                 "dropped_events": upstream.dropped,
                 "last_error": upstream.last_error,
             }
-            for source, upstream in self._upstreams.items()
+            for destination, upstream in self._upstreams.items()
         }
 
     async def listen(
@@ -438,11 +485,13 @@ class PelicanEventBroker:
                 "event_source must be a non-empty namespace path."
             )
 
+        key = f"{config.client_id}/{source}"
+
         async with self._lock:
-            upstream = self._upstreams.get(source)
+            upstream = self._upstreams.get(key)
             if upstream is None:
                 upstream = _Upstream(source, config)
-                self._upstreams[source] = upstream
+                self._upstreams[key] = upstream
                 upstream.start()
             queue = upstream.add_listener()
 
@@ -456,10 +505,16 @@ class PelicanEventBroker:
             async with self._lock:
                 upstream.remove_listener(queue)
                 if not upstream.listeners:
-                    self._upstreams.pop(source, None)
+                    self._upstreams.pop(key, None)
                     await upstream.stop()
 
 
-#: Process-wide broker. One per worker, which is what keeps the client
-#: id unique: two workers would otherwise share it and split the stream.
+#: Broker for this worker process.
+#:
+#: Note that it is per *process*, not per Endpoint: the shipped image
+#: runs uvicorn with several workers, so two callers presenting the same
+#: client id can land on different workers and open two upstream
+#: connections under one identity — which the event server serves by
+#: splitting the events between them. Callers that bring their own
+#: client id are unaffected. See the CHANGELOG for the open issue.
 broker = PelicanEventBroker()
