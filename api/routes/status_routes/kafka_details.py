@@ -15,7 +15,7 @@ router = APIRouter()
     summary="Get Kafka connection details",
     description=(
         "Returns Kafka host, port, connection status, prefix, "
-        "and max number of streams."
+        "and the optional per-user derived-stream quota."
     ),
 )
 async def get_kafka_details(
@@ -32,7 +32,7 @@ async def get_kafka_details(
           - port (int)
           - connection status (bool)
           - kafka_prefix (str, optional)
-          - max_streams (int, optional)
+          - max_streams (int | null): per-user quota; null means unlimited
 
     Raises
     ------
