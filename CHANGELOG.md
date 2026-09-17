@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.24] - 2026-09-17
+
 ### Added
 - **`GET /pelican/subscribe` streams Pelican file events as Server-Sent Events.** The event server notifies subscribers whenever an object appears in a Pelican namespace, but that stream existed only in the `ndp-ep` client library; the API had no way to expose it, so an Endpoint could not offer subscriptions to its own callers. The new route returns a `text/event-stream` where each notification arrives as an `event: file` message carrying the object's `name`, `url`, `size` and `mod_time`. The `url` goes straight to `/pelican/read` for the contents or `/pelican/download` for the file, which is the pipeline the route exists to enable: subscribe, then read what arrived. A `: keepalive` comment is emitted during quiet periods so a proxy does not mistake an idle stream for a dead one, and `X-Accel-Buffering: no` stops nginx holding events back until its buffer fills.
 - **`GET /pelican/subscriptions` reports the upstream subscriptions the Endpoint holds**, with each one's connection state, event source, client id, listener count and how many events were dropped for slow listeners. No credential appears in it — the username is reported only as an `authenticated` flag — since any viewer on the Endpoint can read the route.
