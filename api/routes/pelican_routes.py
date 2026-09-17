@@ -5,7 +5,15 @@ API routes for Pelican federation access (Phase 1).
 These endpoints allow browsing and downloading from external Pelican federations.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
@@ -16,11 +24,17 @@ from api.services.pelican_services.browse_federation import (
 )
 from api.services.pelican_services.download_file import download_file, stream_file
 from api.services.pelican_services.read_file import read_object
+from api.services.pelican_services.event_subscription import (
+    EventSubscriptionUnavailable,
+    broker,
+    load_config,
+)
 from api.services.pelican_services.import_metadata import import_file_as_resource
 from api.services.auth_services import (
     get_user_for_read_operation,
     get_user_for_write_operation,
 )
+import json
 import logging
 import os
 
@@ -337,6 +351,141 @@ async def read_file_contents(
     except Exception as e:
         logger.error(f"Error reading Pelican object {path}: {e}")
         raise HTTPException(status_code=500, detail=f"Error reading object: {str(e)}")
+
+
+def _sse(event: str, payload: dict) -> str:
+    """Format one Server-Sent Event message."""
+    return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
+
+
+@router.get("/subscribe")
+async def subscribe_to_events(
+    request: Request,
+    event_source: str = Query(
+        ..., description="Namespace to watch, e.g. osdf/vdc/public/data"
+    ),
+    client_id: Optional[str] = Query(
+        None,
+        description=(
+            "Identity to present to the event server. Must be unique: "
+            "two subscribers sharing one are served by splitting the "
+            "events between them. Defaults to the Endpoint's own."
+        ),
+    ),
+    username: Optional[str] = Query(
+        None,
+        description=(
+            "Event server username. Prefer the X-Pelican-Event-Username "
+            "header. Defaults to the Endpoint's own credentials."
+        ),
+    ),
+    password: Optional[str] = Query(
+        None,
+        description=(
+            "Event server password. Prefer the X-Pelican-Event-Password "
+            "header: a query string is written to the access log."
+        ),
+    ),
+    header_client_id: Optional[str] = Header(None, alias="X-Pelican-Event-Client-Id"),
+    header_username: Optional[str] = Header(None, alias="X-Pelican-Event-Username"),
+    header_password: Optional[str] = Header(None, alias="X-Pelican-Event-Password"),
+):
+    """
+    Stream Pelican file events as Server-Sent Events.
+
+    Each event arrives as an ``event: file`` message whose data carries
+    the object's ``name``, ``url``, ``size`` and ``mod_time``. The
+    ``url`` can be handed straight to ``/pelican/read`` to get the
+    contents, or to ``/pelican/download`` to fetch it as a file.
+
+    A ``: keepalive`` comment is sent during quiet periods, so a proxy
+    does not mistake an idle stream for a dead one.
+
+    The caller may bring its own event server identity and credentials;
+    anything it omits falls back to the Endpoint's configuration. They
+    are accepted both as query parameters and as headers, and the
+    headers win. **Prefer the headers**: a query string is recorded in
+    the access log of both uvicorn and nginx, so a password passed that
+    way is written to disk in plain text.
+
+    Subscribers presenting the same client id share one upstream
+    connection and each receive every event on it. A caller with its own
+    id gets its own connection, since the two cannot be served over a
+    single authenticated session.
+
+    Parameters
+    ----------
+    request : Request
+        Used to notice that the caller has gone away.
+    event_source : str
+        Namespace to watch.
+    client_id, username, password : str, optional
+        Event server identity and credentials, overriding the
+        Endpoint's.
+    header_client_id, header_username, header_password : str, optional
+        The same three, taken from headers, which take precedence.
+
+    Returns
+    -------
+    StreamingResponse
+        A ``text/event-stream``.
+
+    Raises
+    ------
+    HTTPException
+        503 if no usable event server configuration results.
+    """
+    try:
+        config = load_config(
+            client_id=header_client_id or client_id,
+            username=header_username or username,
+            password=header_password or password,
+        )
+    except EventSubscriptionUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    async def event_stream():
+        # Sent immediately, so the caller can tell the stream is open
+        # even while the namespace is quiet.
+        yield ": subscribed\n\n"
+        try:
+            async for event in broker.listen(event_source, config):
+                if await request.is_disconnected():
+                    break
+                if event is None:
+                    yield ": keepalive\n\n"
+                    continue
+                yield _sse("file", event)
+        except EventSubscriptionUnavailable as exc:
+            yield _sse("error", {"detail": str(exc)})
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"Pelican event stream failed: {exc}")
+            yield _sse("error", {"detail": f"{type(exc).__name__}: {exc}"})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            # Without this nginx buffers the stream and holds events
+            # back until the buffer fills, defeating the point.
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/subscriptions")
+async def list_subscriptions():
+    """
+    Report the upstream subscriptions this Endpoint currently holds.
+
+    Returns
+    -------
+    dict
+        One entry per event source with its connection state, listener
+        count, and how many events were dropped for slow listeners.
+    """
+    return {"success": True, "subscriptions": broker.status()}
 
 
 @router.post("/import-metadata")

@@ -5,6 +5,9 @@ import pytest
 from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 
+from api.config.affinities_settings import affinities_settings
+from api.config.swagger_settings import swagger_settings
+
 
 class TestListFederations:
     """Tests for list_federations endpoint."""
@@ -161,6 +164,19 @@ class TestPelicanRoutesAuthorization:
     role, and the write route demands more than the read routes.
     """
 
+    @pytest.fixture(autouse=True)
+    def _group_based_access_off(self):
+        """
+        Pin group-based access off rather than inherit it from ``.env``.
+
+        With it on, the dependencies check group membership before roles,
+        and the simulated users belong to no group — so these tests failed
+        on any machine that enabled it, while passing in CI (issue #268).
+        The group branch is covered explicitly further down instead.
+        """
+        with patch.object(swagger_settings, "enable_group_based_access", False):
+            yield
+
     @staticmethod
     def _client():
         """Mount the Pelican router on a bare app, independent of
@@ -283,3 +299,34 @@ class TestPelicanRoutesAuthorization:
 
         assert response.status_code == 200
         mock_import.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "groups,expected_status",
+        [([], 403), (["/pelican-readers"], 200)],
+    )
+    def test_group_based_access_gates_the_read_routes(self, groups, expected_status):
+        """
+        With group-based access on, a viewer outside the configured groups
+        is refused and one inside is let through. Covered on purpose here,
+        since the other tests pin the feature off.
+        """
+        from api.services.auth_services import get_current_user
+
+        app, client = self._client()
+        app.dependency_overrides[get_current_user] = lambda: {
+            "roles": ["ndp_viewer"],
+            "groups": groups,
+            "sub": "test_user",
+            "username": "Test User",
+        }
+        try:
+            with (
+                patch.object(swagger_settings, "enable_group_based_access", True),
+                patch.object(swagger_settings, "group_names", "pelican-readers"),
+                patch.object(affinities_settings, "ep_uuid", ""),
+            ):
+                response = client.get("/pelican/federations")
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == expected_status
