@@ -279,10 +279,10 @@ Kafka broker address. **Where:** your broker. With the bundled Compose
 Prefix applied to topics the EP manages. **Where:** you choose.
 
 #### `MAX_STREAMS`
-*Optional · default: unlimited.*
+*Optional · default: `10`.*
 Maximum number of concurrent derived streams per user. Set a non-negative
-integer (for example, `MAX_STREAMS=25`) to apply a quota. Omit it or leave it
-blank for unlimited streams.
+integer (for example, `MAX_STREAMS=25`) to change the quota. Omit it to retain
+the default of 10, or leave it blank for unlimited streams.
 
 ---
 

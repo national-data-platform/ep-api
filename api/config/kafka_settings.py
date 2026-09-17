@@ -10,7 +10,7 @@ class KafkaSettings(BaseSettings):
     kafka_port: int = 9092
     kafka_prefix: str = "data_stream_"
     # NDP-EP is the sole owner of this quota. None means unlimited.
-    max_streams: int | None = None
+    max_streams: int | None = 10
 
     @field_validator("kafka_port", mode="before")
     @classmethod
@@ -31,7 +31,7 @@ class KafkaSettings(BaseSettings):
     @field_validator("max_streams", mode="before")
     @classmethod
     def validate_max_streams(cls, v):
-        """Treat an omitted/blank MAX_STREAMS as an unlimited quota."""
+        """Treat a blank MAX_STREAMS as an unlimited quota."""
         if v is None or v == "":
             return None
         if isinstance(v, bool) or isinstance(v, float):
@@ -39,7 +39,9 @@ class KafkaSettings(BaseSettings):
         try:
             value = int(v)
         except (TypeError, ValueError) as exc:
-            raise ValueError("MAX_STREAMS must be a non-negative integer or blank.") from exc
+            raise ValueError(
+                "MAX_STREAMS must be a non-negative integer or blank."
+            ) from exc
         if value < 0:
             raise ValueError("MAX_STREAMS must be a non-negative integer or blank.")
         return value

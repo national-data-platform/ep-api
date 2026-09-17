@@ -20,7 +20,7 @@ class TestKafkaSettings:
         assert hasattr(settings, "max_streams")
         assert isinstance(settings.kafka_port, int)
         assert isinstance(settings.kafka_host, str)
-        assert settings.max_streams is None
+        assert settings.max_streams == 10
 
     def test_kafka_settings_connection_details_property(self):
         """Test the connection_details property."""
@@ -61,13 +61,26 @@ class TestKafkaSettings:
     def test_kafka_settings_blank_stream_quota_is_unlimited(self, value):
         assert KafkaSettings(max_streams=value).max_streams is None
 
+    def test_kafka_settings_unset_stream_quota_defaults_to_ten(self, monkeypatch):
+        monkeypatch.delenv("MAX_STREAMS", raising=False)
+
+        assert KafkaSettings(_env_file=None).max_streams == 10
+
+    def test_kafka_settings_blank_env_stream_quota_is_unlimited(self, monkeypatch):
+        monkeypatch.setenv("MAX_STREAMS", "")
+
+        assert KafkaSettings(_env_file=None).max_streams is None
+
     @pytest.mark.parametrize("value", (0, "12", 12))
     def test_kafka_settings_accepts_non_negative_stream_quota(self, value):
         assert KafkaSettings(max_streams=value).max_streams == int(value)
 
     @pytest.mark.parametrize("value", (-1, "-1", "many", True, 1.5))
     def test_kafka_settings_rejects_invalid_stream_quota(self, value):
-        with pytest.raises(ValidationError, match="MAX_STREAMS must be a non-negative integer or blank"):
+        with pytest.raises(
+            ValidationError,
+            match="MAX_STREAMS must be a non-negative integer or blank",
+        ):
             KafkaSettings(max_streams=value)
 
     def test_kafka_settings_global_instance(self):
