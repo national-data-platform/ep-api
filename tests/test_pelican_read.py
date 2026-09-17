@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from api.config.swagger_settings import swagger_settings
 from api.services.pelican_services.read_file import read_object
 
 
@@ -130,6 +131,15 @@ class TestMaxReadBytes:
 
 class TestReadRoute:
     """Tests for GET /pelican/read."""
+
+    @pytest.fixture(autouse=True)
+    def _group_based_access_off(self):
+        """
+        Pin group-based access off rather than inherit it from ``.env``;
+        the simulated users belong to no group (issue #268).
+        """
+        with patch.object(swagger_settings, "enable_group_based_access", False):
+            yield
 
     @staticmethod
     def _client():
