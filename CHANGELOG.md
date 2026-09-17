@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The Pelican route tests failed on any machine with group-based access enabled.** Six tests in `tests/test_pelican_routes.py` and `tests/test_pelican_read.py` simulate a user holding a role tier but no groups, and exercise the routes through `TestClient`. The read and write dependencies consult `ENABLE_GROUP_BASED_ACCESS` from the environment and, when it is on, check group membership before roles — so with that variable set in a developer's `.env` the routes answered 403 and the tests failed, while CI, where it is unset, stayed green. That is how it went unnoticed when the tests were added, until it surfaced in a contributor's full local run. The affected test classes now pin the setting off instead of inheriting it, so they test the role tiers in isolation, and a new parametrised case switches it on deliberately and asserts that a viewer outside the configured groups is refused while one inside is admitted. The suite now gives the same result whichever way a developer's `.env` sets the variable.
+
 ## [0.34.23] - 2026-08-30
 
 ### Added
