@@ -2,7 +2,6 @@
 
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
-from typing import Optional
 
 
 class KafkaSettings(BaseSettings):
@@ -10,7 +9,8 @@ class KafkaSettings(BaseSettings):
     kafka_host: str = "localhost"
     kafka_port: int = 9092
     kafka_prefix: str = "data_stream_"
-    max_streams: int = 10
+    # NDP-EP is the sole owner of this quota. None means unlimited.
+    max_streams: int | None = 10
 
     @field_validator("kafka_port", mode="before")
     @classmethod
@@ -27,6 +27,24 @@ class KafkaSettings(BaseSettings):
         if v is None or v == "":
             return "localhost"  # Return default value
         return v
+
+    @field_validator("max_streams", mode="before")
+    @classmethod
+    def validate_max_streams(cls, v):
+        """Treat a blank MAX_STREAMS as an unlimited quota."""
+        if v is None or v == "":
+            return None
+        if isinstance(v, bool) or isinstance(v, float):
+            raise ValueError("MAX_STREAMS must be a non-negative integer or blank.")
+        try:
+            value = int(v)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "MAX_STREAMS must be a non-negative integer or blank."
+            ) from exc
+        if value < 0:
+            raise ValueError("MAX_STREAMS must be a non-negative integer or blank.")
+        return value
 
     @property
     def connection_details(self):
