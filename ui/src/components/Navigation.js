@@ -36,6 +36,7 @@ const Navigation = () => {
   // default to false / no-catalog so nothing flashes in before status loads.
   const [s3Enabled, setS3Enabled] = useState(false);
   const [kafkaEnabled, setKafkaEnabled] = useState(false);
+  const [accessRequestsEnabled, setAccessRequestsEnabled] = useState(false);
   // A local catalog is what the organization, dataset and URL-resource
   // creators write to; with backend "none" there is nowhere to create them.
   const [hasLocalCatalog, setHasLocalCatalog] = useState(false);
@@ -76,6 +77,7 @@ const Navigation = () => {
         const data = response.data || {};
         setS3Enabled(data.s3_enabled === true);
         setKafkaEnabled(data.kafka_enabled === true);
+        setAccessRequestsEnabled(data.access_requests_enabled === true);
         setHasLocalCatalog(
           !!data.local_catalog_backend && data.local_catalog_backend !== 'none'
         );
@@ -84,6 +86,7 @@ const Navigation = () => {
         if (!cancelled) {
           setS3Enabled(false);
           setKafkaEnabled(false);
+          setAccessRequestsEnabled(false);
           setHasLocalCatalog(false);
         }
       });
@@ -533,8 +536,10 @@ const Navigation = () => {
                 </Link>
               )}
 
-              {/* Access Requests (admin only) */}
-              {isAdmin && (
+              {/* Access Requests (admin only). Hidden where the workflow is
+                  off: every call would 503 and the page could only show an
+                  error (issue #270). */}
+              {isAdmin && accessRequestsEnabled && (
                 <Link
                   to="/access-requests"
                   onMouseEnter={handleOtherNavEnter}

@@ -496,3 +496,39 @@ class TestGetServicesTitles:
         result = get_services_titles(mock_repo)
 
         assert result == ["Service 1", "", "Service 3"]
+
+
+class TestAccessRequestsFlag:
+    """
+    ``access_requests_enabled`` lets the UI hide the Access Requests page on
+    deployments where the workflow is off (issue #270). It must mirror the
+    flag the routes enforce, in both states.
+    """
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    @patch("api.services.status_services.check_api_status.check_backend_connection")
+    @patch("api.services.status_services.check_api_status.s3_settings")
+    @patch("api.services.status_services.check_api_status.kafka_settings")
+    @patch("api.services.status_services.check_api_status.ckan_settings")
+    @patch("api.services.status_services.check_api_status.catalog_settings")
+    @patch("api.services.status_services.check_api_status.swagger_settings")
+    def test_status_reports_the_enforced_flag(
+        self,
+        mock_swagger,
+        mock_catalog,
+        mock_ckan,
+        mock_kafka,
+        mock_s3,
+        mock_backend,
+        enabled,
+    ):
+        mock_swagger.enable_access_requests = enabled
+        mock_swagger.use_jupyterlab = False
+        mock_ckan.pre_ckan_enabled = False
+        mock_kafka.kafka_connection = False
+        mock_s3.s3_enabled = False
+        mock_backend.return_value = True
+
+        result = get_status()
+
+        assert result["access_requests_enabled"] is enabled

@@ -7,9 +7,58 @@ import {
   ShieldAlert,
   XCircle,
   BookOpen,
+  Info,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { accessRequestsAPI } from '../services/api';
+
+/**
+ * Shown instead of the request list when the workflow is off on this
+ * deployment. It used to render as a red error, which read like a fault and
+ * sent an administrator chasing an unrelated problem down the wrong path
+ * (issue #270). It is a configuration choice, so it is explained as one,
+ * with the way to turn it on.
+ */
+const WorkflowDisabledNotice = () => {
+  const epUuid = (window.__EP_CONFIG__?.affinitiesEpUuid || '').trim();
+  return (
+    <div
+      role="status"
+      style={{
+        backgroundColor: '#f8fafc',
+        border: '1px solid #cbd5e1',
+        borderRadius: '8px',
+        padding: '1.25rem',
+        display: 'flex',
+        gap: '0.75rem',
+        alignItems: 'flex-start',
+        color: '#334155',
+        fontSize: '0.9rem',
+        lineHeight: 1.55,
+      }}
+    >
+      <Info size={20} style={{ color: '#2563eb', flexShrink: 0, marginTop: '2px' }} />
+      <div>
+        <p style={{ margin: '0 0 0.5rem', fontWeight: 600, color: '#1e293b' }}>
+          Access requests are turned off on this endpoint
+        </p>
+        <p style={{ margin: '0 0 0.5rem' }}>
+          This endpoint does not collect access requests, so there is nothing
+          to review here. Users are granted access directly instead: an
+          administrator adds them to this endpoint&apos;s group in the identity
+          provider{epUuid ? <> (<code>{epUuid}</code>)</> : null}.
+        </p>
+        <p style={{ margin: 0 }}>
+          To let users request access from the login page and review the
+          requests here, set <code>ENABLE_ACCESS_REQUESTS=True</code> in the
+          endpoint&apos;s <code>.env</code> and restart it. Requests are stored
+          in MongoDB, so <code>MONGODB_CONNECTION_STRING</code> must point to a
+          reachable instance.
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const STATUS_TABS = [
   { key: 'pending', label: 'Pending' },
@@ -41,6 +90,7 @@ const AccessRequests = () => {
   const [statusFilter, setStatusFilter] = useState('pending');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [workflowDisabled, setWorkflowDisabled] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
 
@@ -53,20 +103,22 @@ const AccessRequests = () => {
     try {
       setLoading(true);
       setError(null);
+      setWorkflowDisabled(false);
       const response = await accessRequestsAPI.list(statusFilter);
       setRequests(response.data || []);
     } catch (err) {
-      console.error('Failed to load access requests:', err);
       if (err.response?.status === 503) {
-        setError(
-          'The access-request workflow is disabled on this deployment.'
-        );
+        // The workflow is switched off, not broken: explained rather than
+        // reported as an error.
+        setWorkflowDisabled(true);
       } else if (err.response?.status === 403) {
+        console.error('Failed to load access requests:', err);
         setError(
           err.response.data?.detail ||
             'Administrator role required to view this page.'
         );
       } else {
+        console.error('Failed to load access requests:', err);
         setError(
           err.response?.data?.detail ||
             err.message ||
@@ -166,6 +218,27 @@ const AccessRequests = () => {
       setBusyId(null);
     }
   };
+
+  // With the workflow off, the tabs, the Refresh button and the empty
+  // "no requests" state would all describe a list that cannot exist.
+  if (workflowDisabled) {
+    return (
+      <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
+        <h1
+          style={{
+            margin: '0 0 1.5rem',
+            color: '#1e293b',
+            fontSize: '1.75rem',
+            fontWeight: 700,
+          }}
+        >
+          <ShieldAlert size={24} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
+          Access Requests
+        </h1>
+        <WorkflowDisabledNotice />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
