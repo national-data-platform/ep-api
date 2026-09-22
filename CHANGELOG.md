@@ -10,8 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **`MAX_STREAMS` configures the per-user derived-stream quota advertised by `GET /status/kafka-details`.** The Endpoint now returns the quota that the streaming client uses when allocating derived-stream topic names, so an operator can set a non-negative limit such as `MAX_STREAMS=25` without changing client code. An explicitly blank value means unlimited streams and is returned as `null`.
 
+### Fixed
+- **The admin console offered the Access Requests page on endpoints where the workflow is switched off.** The navigation showed **Access Requests** to every administrator, but `ENABLE_ACCESS_REQUESTS` defaults to `False` and the installer only enables it when the operator opts in, so on many endpoints the page could do nothing: every call it made returned 503 and it rendered a red error, "The access-request workflow is disabled on this deployment." That read like a fault rather than a configuration choice, and in practice sent an endpoint administrator — trying to work out why an approved user could not see their endpoint in JupyterHub — down the wrong path. `GET /status/` now reports `access_requests_enabled`, read from the same setting the routes enforce, and the navigation hides the entry unless it is `true`, the way it already hides the S3, streaming and catalog entries. When the page is reached anyway, from a bookmark or a direct link, it now explains that access requests are off on this endpoint, that access is granted directly through the endpoint's group in the identity provider meanwhile, and how to turn them on, instead of showing an error.
+
 ### Backwards compatibility
 - Existing deployments that do not set `MAX_STREAMS` keep the previous quota of 10. The setting is optional, `example.env` documents that default, and only an explicitly blank value changes the behaviour to unlimited streams.
+- `GET /status/` gains an `access_requests_enabled` field; nothing is removed or renamed, so existing consumers are unaffected. Endpoints running with access requests enabled see no change in the admin console.
 
 ## [0.34.24] - 2026-09-17
 

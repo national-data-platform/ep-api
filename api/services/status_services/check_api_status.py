@@ -92,6 +92,10 @@ def get_status():
         "kafka_enabled": kafka_settings.kafka_connection,
         "jupyterlab_enabled": swagger_settings.use_jupyterlab,
         "s3_enabled": s3_settings.s3_enabled,
+        # Read from the same flag the access-request routes enforce, so the
+        # UI can hide the page on deployments where every call would 503
+        # (issue #270).
+        "access_requests_enabled": swagger_settings.enable_access_requests,
         "auth_api_url": swagger_settings.auth_api_url,
         "metrics_endpoint": swagger_settings.metrics_endpoint,
         "metrics_interval_seconds": swagger_settings.metrics_interval_seconds,
