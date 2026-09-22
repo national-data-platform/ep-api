@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.25] - 2026-09-22
+
 ### Added
 - **`MAX_STREAMS` configures the per-user derived-stream quota advertised by `GET /status/kafka-details`.** The Endpoint now returns the quota that the streaming client uses when allocating derived-stream topic names, so an operator can set a non-negative limit such as `MAX_STREAMS=25` without changing client code. An explicitly blank value means unlimited streams and is returned as `null`.
 
