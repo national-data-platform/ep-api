@@ -1,0 +1,8 @@
+# Keep shell scripts LF whatever the platform sets. Git for Windows
+# defaults to core.autocrlf=true, which rewrote entrypoint.sh with CRLF in
+# the working tree; the image is built from there, so the container died on
+# every start with "exec /app/entrypoint.sh: no such file or directory" —
+# the kernel reading the shebang as /bin/sh\r (issue #276).
+* text=auto
+*.sh text eol=lf
+entrypoint.sh text eol=lf
