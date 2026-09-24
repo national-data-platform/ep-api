@@ -4,6 +4,7 @@ import json
 from typing import Optional
 
 from api.config.ckan_settings import ckan_settings
+from api.services.metadata_services import preserve_ndp_metadata
 
 RESERVED_KEYS = {
     "name",
@@ -64,7 +65,7 @@ def update_kafka(
             raise KeyError(
                 "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
             )
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
 
     # Update mapping, processing, and Kafka-specific extras
     if mapping:
@@ -136,7 +137,7 @@ def patch_kafka(
             raise KeyError(
                 "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
             )
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
 
     # Update mapping, processing, and Kafka-specific extras if provided
     if mapping is not None:

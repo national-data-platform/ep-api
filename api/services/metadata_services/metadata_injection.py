@@ -92,3 +92,47 @@ def inject_ndp_metadata(
     )
 
     return updated_extras
+
+
+#: Extras the Endpoint owns and writes itself. They identify who created a
+#: dataset — ``ndp_creator_md5`` is the hash the NDP catalog matches against
+#: — so they must not be settable from outside.
+NDP_MANAGED_EXTRAS = frozenset({"ndp_creator_md5", "ndp_user_id", "ndp_group_id"})
+
+
+def preserve_ndp_metadata(
+    current_extras: Dict[str, Any], incoming_extras: Dict[str, Any] = None
+) -> Dict[str, Any]:
+    """
+    Merge caller-supplied extras over the stored ones, keeping identity.
+
+    The update services merge with the incoming values winning, which let
+    any caller rewrite the creator hash by sending it in ``extras`` — the
+    dataset then reported a creator who never touched it (issue #272).
+    The keys in :data:`NDP_MANAGED_EXTRAS` are therefore dropped from the
+    incoming side and whatever is stored survives. A dataset that carries
+    no hash acquires none: filling it in here would record the editor as
+    the creator.
+
+    Dropping is silent rather than a 400, because clients routinely read a
+    dataset and send its extras back unchanged; the stored value is kept
+    either way. The NDP catalog plugin behaves the same way.
+
+    Parameters
+    ----------
+    current_extras : Dict[str, Any]
+        Extras already stored on the dataset, as a key/value mapping.
+    incoming_extras : Dict[str, Any], optional
+        Extras supplied by the caller.
+
+    Returns
+    -------
+    Dict[str, Any]
+        The merged mapping, with the Endpoint-owned keys untouched.
+    """
+    merged = dict(current_extras or {})
+    for key, value in (incoming_extras or {}).items():
+        if key in NDP_MANAGED_EXTRAS:
+            continue
+        merged[key] = value
+    return merged

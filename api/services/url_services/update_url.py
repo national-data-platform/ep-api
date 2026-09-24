@@ -5,6 +5,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from api.config.ckan_settings import ckan_settings
+from api.services.metadata_services import preserve_ndp_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ async def update_url(
             raise KeyError(
                 "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
             )
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
 
     # Update extras with new mapping, processing, file_type if provided
     if file_type:
@@ -173,7 +174,7 @@ async def patch_url(
             raise KeyError(
                 "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
             )
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
 
     # Update extras with new mapping, processing, file_type if provided
     if file_type is not None:

@@ -1,6 +1,7 @@
 # api/services/url_services/update_dataset.py
 from api.config import ckan_settings
 from api.models.update_dataset_model import DatasetUpdateRequest
+from api.services.metadata_services import preserve_ndp_metadata
 
 
 async def update_dataset(
@@ -25,7 +26,8 @@ async def update_dataset(
     existing_extras = {e["key"]: e["value"] for e in dataset.get("extras", [])}
     new_extras = data.extras or {}
     merged_extras = [
-        {"key": k, "value": v} for k, v in {**existing_extras, **new_extras}.items()
+        {"key": k, "value": v}
+        for k, v in preserve_ndp_metadata(existing_extras, new_extras).items()
     ]
 
     patch_fields = {

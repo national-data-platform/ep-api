@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 
 from api.config import catalog_settings, ckan_settings
 from api.repositories import CKANRepository
+from api.services.metadata_services import preserve_ndp_metadata
 
 RESERVED_KEYS = {
     "name",
@@ -127,7 +128,7 @@ def update_service(
             service_extras["documentation_url"] = documentation_url
 
         # Merge user extras with service-specific extras
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
         current_extras.update(service_extras)
 
         service["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
@@ -285,7 +286,7 @@ def patch_service(
 
     # Merge user extras with existing/service extras if provided
     if extras is not None:
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
 
     service["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
 
