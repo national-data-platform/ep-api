@@ -31,6 +31,47 @@ EXCLUDED_FIELDS = {
 SUBMITTED_STATUS_EXTRA = {"key": "status", "value": "submitted"}
 
 
+def _empty_organization_hint(error_msg: str, dataset_dict: Dict[str, Any]) -> str:
+    """
+    Explain an authorization failure caused by an unset staging organization.
+
+    With ``PRE_CKAN_ORGANIZATION`` empty a promoted dataset keeps the
+    organization it has locally, and the staging credentials are normally
+    scoped to one organization of their own, so the write is refused. The
+    rejection names a user the operator never chose and an organization
+    they never typed, with nothing tying it to a setting that is empty —
+    which is how an Endpoint in the field sat unable to publish while
+    reporting the staging catalog as connected (issue #274).
+
+    Parameters
+    ----------
+    error_msg : str
+        The message the staging catalog rejected the write with.
+    dataset_dict : Dict[str, Any]
+        The dataset as it was sent, used to name the organization it
+        carried.
+
+    Returns
+    -------
+    str
+        The explanation to append, or an empty string when it does not
+        apply — another kind of failure, or the setting is configured.
+    """
+    if ckan_settings.pre_ckan_organization:
+        return ""
+    if not any(
+        marker in error_msg
+        for marker in ("Access denied", "Authorization Error", "not authorized")
+    ):
+        return ""
+    return (
+        f" PRE_CKAN_ORGANIZATION is not set, so the dataset was sent with its "
+        f"local organization '{dataset_dict.get('owner_org')}', which the "
+        f"PRE-CKAN credentials are usually not allowed to write to. Set "
+        f"PRE_CKAN_ORGANIZATION to the organization those credentials own."
+    )
+
+
 def _with_submitted_status(
     extras: Optional[List[Dict[str, Any]]],
 ) -> List[Dict[str, Any]]:
@@ -123,6 +164,16 @@ def publish_dataset_to_preckan(
             f"(original: '{original_org}')"
         )
     else:
+        # Publishing without it works only where the staging catalog holds
+        # the same organizations and the credentials can write to them.
+        # Everywhere else this is what makes the write be refused, so it is
+        # said out loud before the attempt rather than guessed at
+        # afterwards (issue #274).
+        logger.warning(
+            "PRE_CKAN_ORGANIZATION is not set; the dataset keeps its local "
+            "organization and PRE-CKAN will refuse the write unless those "
+            "credentials own it."
+        )
         # Resolve owner_org: if it's a UUID, get the org name from local catalog
         owner_org = dataset_dict.get("owner_org")
         if owner_org:
@@ -222,7 +273,10 @@ def publish_dataset_to_preckan(
                 "does not exist in PRE-CKAN. Create it first."
             )
         else:
-            raise Exception(f"Error creating dataset in PRE-CKAN: {error_msg}")
+            raise Exception(
+                "Error creating dataset in PRE-CKAN: "
+                f"{error_msg}{_empty_organization_hint(error_msg, dataset_dict)}"
+            )
 
     # Mirror the submitted status on the local dataset so the originating
     # Endpoint can tell which of its datasets are already pending review.

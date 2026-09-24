@@ -74,11 +74,25 @@ def _check_pre_ckan() -> Dict[str, Any]:
     if not ckan_settings.pre_ckan_url or not ckan_settings.pre_ckan_api_key:
         return {"status": "disabled"}
 
+    # Reported alongside the connection because a reachable staging catalog
+    # still refuses every publish when this is unset: the dataset keeps its
+    # local organization, which those credentials rarely own. Detail rather
+    # than a failure, since deployments whose staging catalog holds the same
+    # organizations work without it (issue #274).
+    organization_configured = bool(ckan_settings.pre_ckan_organization)
+
     try:
         repo = catalog_settings.pre_catalog
-        return _check_with_latency(repo.check_health)
+        return {
+            **_check_with_latency(repo.check_health),
+            "organization_configured": organization_configured,
+        }
     except Exception as e:
-        return {"status": "down", "error": str(e)}
+        return {
+            "status": "down",
+            "error": str(e),
+            "organization_configured": organization_configured,
+        }
 
 
 def _check_kafka() -> Dict[str, Any]:
