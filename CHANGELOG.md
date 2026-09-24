@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Publishing failed with an unexplained authorization error when `PRE_CKAN_ORGANIZATION` was empty.** With that setting unset, a promoted dataset keeps the organization it has locally — usually `services` — and the staging catalog's credentials are normally scoped to an organization of their own, so every publish was refused with "Access denied: User … not authorized to add dataset to this organization". Nothing connected that to an empty setting: the error named a user the operator never chose and an organization they never typed, while `GET /ready` reported the staging catalog as healthy, because it checked the URL and the API key but not the organization. An Endpoint installed before 0.34.8, when the installer began writing the value, was still in the field unable to publish for exactly this reason. Now `GET /ready` reports `organization_configured` alongside the connection, publishing logs a warning before sending a dataset with the setting empty, and an authorization refusal in that state carries the explanation: the dataset kept its local organization, those credentials are usually not allowed to write there, and setting `PRE_CKAN_ORGANIZATION` is what fixes it.
+
+### Backwards compatibility
+- Nothing is refused that used to succeed. An empty setting is still allowed, because deployments whose staging catalog holds the same organizations publish fine without it; it is reported and explained, not enforced. `GET /ready` gains a field on the existing pre-CKAN entry, and the failure message gains a sentence — the underlying error text and status are unchanged.
+
 ## [0.34.26] - 2026-09-24
 
 ### Fixed
