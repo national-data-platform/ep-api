@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The NDP creator hash could be overwritten through any update route.** `ndp_creator_md5` records who created a dataset — it is the MD5 of the creator's Keycloak `sub`, it travels with the dataset when it is published to Pre-CKAN, and the NDP catalog computes the same field the same way and is expected to decide on trust with it. Every update path merged extras with the incoming values winning, so `PUT /dataset/{id}` carrying `{"extras": {"ndp_creator_md5": "000...0"}}` answered 200 and left the dataset reporting a creator who never touched it; `ndp_user_id` and `ndp_group_id` could be replaced the same way. The catalog plugin deliberately restores the stored value on update, and the Endpoint now does the same: the three Endpoint-owned keys are dropped from incoming extras in all six update paths (general dataset update and patch, URL datasets, Kafka, S3 and services), while every other extra still updates normally. A dataset that carries no hash acquires none, because filling it in on update would record whoever edited last as its creator.
+
+### Backwards compatibility
+- Requests that send these three keys are no longer rejected or honoured — the keys are ignored and the stored values kept, so a client that reads a dataset and sends its extras back unchanged keeps working. Any dataset whose hash was already overwritten keeps the wrong value; the fix stops it happening again but does not restore what was lost.
+
 ## [0.34.25] - 2026-09-22
 
 ### Added

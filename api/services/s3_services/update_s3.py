@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 from api.config import catalog_settings, ckan_settings
 from api.repositories import CKANRepository
+from api.services.metadata_services import preserve_ndp_metadata
 
 RESERVED_KEYS = {"name", "title", "owner_org", "notes", "id", "resources", "collection"}
 
@@ -50,7 +51,7 @@ async def update_s3(
             raise KeyError(
                 "Extras contain reserved keys: " f"{RESERVED_KEYS.intersection(extras)}"
             )
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
 
     resource["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
 
@@ -127,7 +128,7 @@ async def patch_s3(
             current_extras = {
                 extra["key"]: extra["value"] for extra in resource.get("extras", [])
             }
-            current_extras.update(extras)
+            current_extras = preserve_ndp_metadata(current_extras, extras)
             patch_dict["extras"] = [
                 {"key": k, "value": v} for k, v in current_extras.items()
             ]

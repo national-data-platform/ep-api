@@ -5,7 +5,10 @@ from typing import Any, Dict, List, Optional
 
 from api.config.catalog_settings import catalog_settings
 from api.config.ckan_settings import ckan_settings
-from api.services.metadata_services import inject_ndp_metadata
+from api.services.metadata_services import (
+    inject_ndp_metadata,
+    preserve_ndp_metadata,
+)
 
 RESERVED_KEYS = {
     "name",
@@ -260,7 +263,7 @@ def update_general_dataset(
         current_extras = {
             extra["key"]: extra["value"] for extra in dataset.get("extras", [])
         }
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
         dataset["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
 
     # Handle resources - REPLACE all resources (PUT behavior)
@@ -387,7 +390,7 @@ def patch_general_dataset(
         current_extras = {
             extra["key"]: extra["value"] for extra in dataset.get("extras", [])
         }
-        current_extras.update(extras)
+        current_extras = preserve_ndp_metadata(current_extras, extras)
         dataset["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
 
     # Handle resources - ADD new resources to existing ones (PATCH behavior)
