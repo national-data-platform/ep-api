@@ -11,6 +11,38 @@ from api.repositories import CKANRepository
 
 logger = logging.getLogger(__name__)
 
+
+class PreCkanPublishError(Exception):
+    """
+    A publish the staging catalog refused, carrying how to report it.
+
+    The failure used to leave the service as a bare ``Exception`` and the
+    route answered 500 for every one of them, so an authorization refusal
+    — the commonest misconfiguration — was indistinguishable from the
+    catalog being down (issue #263). The status belongs to the code that
+    knows which failure it was, not to the route guessing from text.
+    """
+
+    def __init__(self, detail: str, status_code: int):
+        super().__init__(detail)
+        self.detail = detail
+        self.status_code = status_code
+
+
+def _describe(exc: Exception) -> str:
+    """
+    Describe an exception so the reason survives an empty message.
+
+    ``ckanapi`` raises its errors with the response body when there is
+    one, but ``str(NotAuthorized())`` is the string ``"None"``. Naming
+    the class keeps a failure identifiable when its message is not.
+    """
+    detail = str(exc)
+    if not detail or detail == "None":
+        return type(exc).__name__
+    return f"{type(exc).__name__}: {detail}"
+
+
 # Fields to exclude when copying dataset to PRE-CKAN
 EXCLUDED_FIELDS = {
     "id",
@@ -29,6 +61,46 @@ EXCLUDED_FIELDS = {
 }
 
 SUBMITTED_STATUS_EXTRA = {"key": "status", "value": "submitted"}
+
+
+def _publish_failure(
+    exc: Exception, dataset_dict: Dict[str, Any]
+) -> PreCkanPublishError:
+    """
+    Turn a refusal from the staging catalog into a reportable failure.
+
+    The status comes from the type ``ckanapi`` raised, not from matching
+    English text: a refused write is the caller's problem to fix (403), a
+    rejected payload is a bad request (400), and anything else is the
+    remote catalog failing us (502) rather than this Endpoint breaking
+    (issue #263).
+
+    Parameters
+    ----------
+    exc : Exception
+        What the staging catalog raised.
+    dataset_dict : Dict[str, Any]
+        The dataset as sent, used to explain an unset organization.
+
+    Returns
+    -------
+    PreCkanPublishError
+        Carrying the description and the status to answer with.
+    """
+    from ckanapi.errors import NotAuthorized, ValidationError
+
+    described = _describe(exc)
+    if isinstance(exc, NotAuthorized):
+        status_code = 403
+    elif isinstance(exc, ValidationError):
+        status_code = 400
+    else:
+        status_code = 502
+
+    hint = _empty_organization_hint(described, dataset_dict)
+    return PreCkanPublishError(
+        f"Error creating dataset in PRE-CKAN: {described}{hint}", status_code
+    )
 
 
 def _empty_organization_hint(error_msg: str, dataset_dict: Dict[str, Any]) -> str:
@@ -59,9 +131,16 @@ def _empty_organization_hint(error_msg: str, dataset_dict: Dict[str, Any]) -> st
     """
     if ckan_settings.pre_ckan_organization:
         return ""
+    # "NotAuthorized" covers the bare refusal, whose message is empty and
+    # which is described by its class name instead.
     if not any(
         marker in error_msg
-        for marker in ("Access denied", "Authorization Error", "not authorized")
+        for marker in (
+            "Access denied",
+            "Authorization Error",
+            "not authorized",
+            "NotAuthorized",
+        )
     ):
         return ""
     return (
@@ -266,17 +345,14 @@ def publish_dataset_to_preckan(
                 new_dataset_id = new_dataset["id"]
                 logger.info(f"Dataset created in PRE-CKAN with ID: {new_dataset_id}")
             except Exception as retry_exc:
-                raise Exception(f"Error creating dataset in PRE-CKAN: {str(retry_exc)}")
+                raise _publish_failure(retry_exc, dataset_dict)
         elif "Organization does not exist" in error_msg:
             raise ValueError(
                 f"Organization '{dataset_dict.get('owner_org')}' "
                 "does not exist in PRE-CKAN. Create it first."
             )
         else:
-            raise Exception(
-                "Error creating dataset in PRE-CKAN: "
-                f"{error_msg}{_empty_organization_hint(error_msg, dataset_dict)}"
-            )
+            raise _publish_failure(exc, dataset_dict)
 
     # Mirror the submitted status on the local dataset so the originating
     # Endpoint can tell which of its datasets are already pending review.

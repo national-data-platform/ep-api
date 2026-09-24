@@ -324,8 +324,15 @@ class TestPublishDatasetToPreckan:
         mock_catalog_settings.local_catalog = local_repo
         mock_ckan_repo_cls.return_value = preckan_repo
 
+        # The exception class now prefixes the message, so a failure stays
+        # identifiable when its body is empty — str(NotAuthorized()) is the
+        # string "None" (issue #263).
         with pytest.raises(
-            Exception, match="Error creating dataset in PRE-CKAN: Some other CKAN error"
+            Exception,
+            match=(
+                "Error creating dataset in PRE-CKAN: Exception: "
+                "Some other CKAN error"
+            ),
         ):
             publish_dataset_to_preckan(dataset_id="my-dataset")
 
