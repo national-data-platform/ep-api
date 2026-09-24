@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **On Windows the image built with a CRLF entrypoint and the container could not start.** Git for Windows defaults to `core.autocrlf=true`, and with no `.gitattributes` in the repository `entrypoint.sh` landed in the working tree with CRLF endings. The image is built from the working tree, so the kernel read the shebang as `/bin/sh`, which does not exist, and every start died with `exec /app/entrypoint.sh: no such file or directory` — an error that names the script rather than the interpreter and so reads as a missing file. The container restart-looped until the file was converted by hand. `install/install.sh` and `install/tests/sandbox.sh` had the same exposure. A `.gitattributes` now pins shell scripts to LF whatever the platform sets, and normalises text files so the class of problem does not return.
+
+### Backwards compatibility
+- No application code changed. An existing Windows checkout picks the rule up with `git add --renormalize .` or a fresh checkout; on Linux and macOS nothing changes, since those files were already LF.
+
+### Fixed
 - **Publishing failed with an unexplained authorization error when `PRE_CKAN_ORGANIZATION` was empty.** With that setting unset, a promoted dataset keeps the organization it has locally — usually `services` — and the staging catalog's credentials are normally scoped to an organization of their own, so every publish was refused with "Access denied: User … not authorized to add dataset to this organization". Nothing connected that to an empty setting: the error named a user the operator never chose and an organization they never typed, while `GET /ready` reported the staging catalog as healthy, because it checked the URL and the API key but not the organization. An Endpoint installed before 0.34.8, when the installer began writing the value, was still in the field unable to publish for exactly this reason. Now `GET /ready` reports `organization_configured` alongside the connection, publishing logs a warning before sending a dataset with the setting empty, and an authorization refusal in that state carries the explanation: the dataset kept its local organization, those credentials are usually not allowed to write there, and setting `PRE_CKAN_ORGANIZATION` is what fixes it.
 
 ### Backwards compatibility
