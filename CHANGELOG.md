@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A publish the staging catalog refused was reported as an internal error, sometimes with no reason at all.** Everything that went wrong past the two recognised cases became a bare `Exception`, which the route answered with 500 and the message `str(exc)` produced. For `ckanapi` that is the response body when there is one, but `str(NotAuthorized())` is the string `"None"` — so a wrong or missing `PRE_CKAN_API_KEY`, the likeliest misconfiguration, reached the operator as `Error creating dataset in PRE-CKAN: None` with a 500, indistinguishable from the Endpoint itself breaking. Failures are now classified by the exception type the catalog raised rather than by matching English text: a refused write answers **403**, a rejected payload **400**, and anything else **502**, since an unreachable or failing remote catalog is not this Endpoint erroring. Every message names the exception class, so a failure stays identifiable when its body is empty, and the explanation about an unset `PRE_CKAN_ORGANIZATION` still reaches the bare refusal, which is the case they occur in together. The name-collision retry keeps matching on CKAN's wording, because that reason is genuinely only in the message text.
+
+### Backwards compatibility
+- A failed publish can now answer 403, 400 or 502 where it previously always answered 500; a client that treats any non-2xx as a failure is unaffected, one that specifically tests for 500 needs updating. Successful publishes, the name-collision retry and its warning are unchanged.
+
 ## [0.34.27] - 2026-09-24
 
 ### Fixed

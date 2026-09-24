@@ -8,7 +8,10 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from api.services.auth_services import get_user_for_write_operation
-from api.services.dataset_services.publish_dataset import publish_dataset_to_preckan
+from api.services.dataset_services.publish_dataset import (
+    PreCkanPublishError,
+    publish_dataset_to_preckan,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +193,11 @@ async def publish_dataset_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_msg,
         )
+    except PreCkanPublishError as exc:
+        # The service knows which failure it was; answering 500 for all of
+        # them made a misconfigured key look like a broken Endpoint (#263).
+        logger.error(f"Error publishing dataset to PRE-CKAN: {exc.detail}")
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
     except Exception as exc:
         logger.error(f"Error publishing dataset to PRE-CKAN: {exc}")
         raise HTTPException(
