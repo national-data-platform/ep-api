@@ -1,7 +1,7 @@
 # tests/test_health_routes.py
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -34,48 +34,77 @@ class TestHealthEndpoint:
 class TestReadyEndpoint:
     """Tests for the /ready endpoint."""
 
+    @patch(
+        "api.routes.health_routes.ready._check_affinities",
+        new_callable=AsyncMock,
+    )
     @patch("api.routes.health_routes.ready._check_local_catalog")
     @patch("api.routes.health_routes.ready._check_pre_ckan")
     @patch("api.routes.health_routes.ready._check_minio")
     @patch("api.routes.health_routes.ready._check_kafka")
     def test_ready_all_healthy(
-        self, mock_kafka, mock_minio, mock_pre_ckan, mock_local_catalog
+        self,
+        mock_kafka,
+        mock_minio,
+        mock_pre_ckan,
+        mock_local_catalog,
+        mock_affinities,
     ):
         """Test /ready returns 200 when all services are healthy."""
         mock_local_catalog.return_value = {"status": "up", "latency_ms": 5}
         mock_pre_ckan.return_value = {"status": "up", "latency_ms": 10}
         mock_minio.return_value = {"status": "up", "latency_ms": 8}
         mock_kafka.return_value = {"status": "disabled"}
+        mock_affinities.return_value = {"status": "disabled"}
 
         response = client.get("/ready")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
 
+    @patch(
+        "api.routes.health_routes.ready._check_affinities",
+        new_callable=AsyncMock,
+    )
     @patch("api.routes.health_routes.ready._check_local_catalog")
     @patch("api.routes.health_routes.ready._check_pre_ckan")
     @patch("api.routes.health_routes.ready._check_minio")
     @patch("api.routes.health_routes.ready._check_kafka")
     def test_ready_all_disabled(
-        self, mock_kafka, mock_minio, mock_pre_ckan, mock_local_catalog
+        self,
+        mock_kafka,
+        mock_minio,
+        mock_pre_ckan,
+        mock_local_catalog,
+        mock_affinities,
     ):
         """Test /ready returns 200 when all services are disabled."""
         mock_local_catalog.return_value = {"status": "disabled"}
         mock_pre_ckan.return_value = {"status": "disabled"}
         mock_minio.return_value = {"status": "disabled"}
         mock_kafka.return_value = {"status": "disabled"}
+        mock_affinities.return_value = {"status": "disabled"}
 
         response = client.get("/ready")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
 
+    @patch(
+        "api.routes.health_routes.ready._check_affinities",
+        new_callable=AsyncMock,
+    )
     @patch("api.routes.health_routes.ready._check_local_catalog")
     @patch("api.routes.health_routes.ready._check_pre_ckan")
     @patch("api.routes.health_routes.ready._check_minio")
     @patch("api.routes.health_routes.ready._check_kafka")
     def test_ready_service_down_returns_503(
-        self, mock_kafka, mock_minio, mock_pre_ckan, mock_local_catalog
+        self,
+        mock_kafka,
+        mock_minio,
+        mock_pre_ckan,
+        mock_local_catalog,
+        mock_affinities,
     ):
         """Test /ready returns 503 when a service is down."""
         mock_local_catalog.return_value = {
@@ -85,24 +114,35 @@ class TestReadyEndpoint:
         mock_pre_ckan.return_value = {"status": "disabled"}
         mock_minio.return_value = {"status": "disabled"}
         mock_kafka.return_value = {"status": "disabled"}
+        mock_affinities.return_value = {"status": "disabled"}
 
         response = client.get("/ready")
         assert response.status_code == 503
         data = response.json()
         assert data["status"] == "unhealthy"
 
+    @patch(
+        "api.routes.health_routes.ready._check_affinities",
+        new_callable=AsyncMock,
+    )
     @patch("api.routes.health_routes.ready._check_local_catalog")
     @patch("api.routes.health_routes.ready._check_pre_ckan")
     @patch("api.routes.health_routes.ready._check_minio")
     @patch("api.routes.health_routes.ready._check_kafka")
     def test_ready_includes_all_checks(
-        self, mock_kafka, mock_minio, mock_pre_ckan, mock_local_catalog
+        self,
+        mock_kafka,
+        mock_minio,
+        mock_pre_ckan,
+        mock_local_catalog,
+        mock_affinities,
     ):
         """Test /ready includes all dependency checks."""
         mock_local_catalog.return_value = {"status": "up", "latency_ms": 5}
         mock_pre_ckan.return_value = {"status": "disabled"}
         mock_minio.return_value = {"status": "up", "latency_ms": 8}
         mock_kafka.return_value = {"status": "disabled"}
+        mock_affinities.return_value = {"status": "disabled"}
 
         response = client.get("/ready")
         data = response.json()
@@ -112,19 +152,30 @@ class TestReadyEndpoint:
         assert "pre_ckan" in data["checks"]
         assert "minio" in data["checks"]
         assert "kafka" in data["checks"]
+        assert "affinities" in data["checks"]
 
+    @patch(
+        "api.routes.health_routes.ready._check_affinities",
+        new_callable=AsyncMock,
+    )
     @patch("api.routes.health_routes.ready._check_local_catalog")
     @patch("api.routes.health_routes.ready._check_pre_ckan")
     @patch("api.routes.health_routes.ready._check_minio")
     @patch("api.routes.health_routes.ready._check_kafka")
     def test_ready_includes_timestamp(
-        self, mock_kafka, mock_minio, mock_pre_ckan, mock_local_catalog
+        self,
+        mock_kafka,
+        mock_minio,
+        mock_pre_ckan,
+        mock_local_catalog,
+        mock_affinities,
     ):
         """Test /ready includes a timestamp."""
         mock_local_catalog.return_value = {"status": "disabled"}
         mock_pre_ckan.return_value = {"status": "disabled"}
         mock_minio.return_value = {"status": "disabled"}
         mock_kafka.return_value = {"status": "disabled"}
+        mock_affinities.return_value = {"status": "disabled"}
 
         response = client.get("/ready")
         data = response.json()

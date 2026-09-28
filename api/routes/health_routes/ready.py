@@ -95,6 +95,46 @@ def _check_pre_ckan() -> Dict[str, Any]:
         }
 
 
+async def _check_affinities() -> Dict[str, Any]:
+    """
+    Check Affinities and whether it knows AFFINITIES_EP_UUID.
+
+    Reported because nothing else surfaced a wrong UUID: the value is issued
+    by Affinities and never verified here, so an endpoint that was never
+    registered kept recording datasets nobody could attribute to it, and
+    every response said the registration had succeeded (issue #281).
+    """
+    from api.services.affinities_services import AffinitiesClient
+
+    client = AffinitiesClient()
+    if not client.is_enabled:
+        return {"status": "disabled"}
+
+    start = time.time()
+    probe = await client.check_registration()
+    latency_ms = round((time.time() - start) * 1000, 2)
+
+    if not probe["reachable"]:
+        return {
+            "status": "down",
+            "latency_ms": latency_ms,
+            "error": probe["detail"],
+        }
+
+    result: Dict[str, Any] = {
+        "status": "up",
+        "latency_ms": latency_ms,
+        "endpoint_registered": probe["endpoint_registered"],
+    }
+
+    # Kept out of "error": Affinities answered, so the check itself did not
+    # fail. What is wrong is this Endpoint's configuration.
+    if probe["detail"]:
+        result["detail"] = probe["detail"]
+
+    return result
+
+
 def _check_kafka() -> Dict[str, Any]:
     """Check Kafka connection."""
     if not kafka_settings.kafka_connection:
@@ -145,11 +185,21 @@ async def readiness_check(response: Response):
         "pre_ckan": _check_pre_ckan(),
         "minio": _check_minio(),
         "kafka": _check_kafka(),
+        "affinities": await _check_affinities(),
     }
+
+    # Affinities is reported but deliberately left out of the verdict. No
+    # request ever reads from it, so an orchestrator taking the container out
+    # of rotation over it would stop serving the catalog for a system that
+    # serves no traffic -- and doing so would turn a deployment that is
+    # healthy today into a 503 purely because it has the integration on.
+    # Same reason an unknown endpoint UUID is a detail rather than a failure:
+    # it is reported so it stops being invisible, not enforced (issue #281).
+    required = {name: c for name, c in checks.items() if name != "affinities"}
 
     # Determine overall status - only fail if an enabled service is down
     all_healthy = all(
-        check.get("status") in ("up", "disabled") for check in checks.values()
+        check.get("status") in ("up", "disabled") for check in required.values()
     )
 
     overall_status = "healthy" if all_healthy else "unhealthy"

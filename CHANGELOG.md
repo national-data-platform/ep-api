@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A refused Affinities relationship was swallowed, and the affinity triple was built on top of it anyway.** Registering a dataset or a service in Affinities is three calls: the record, a relationship tying it to this endpoint, and an affinity triple over the pair. The relationship's result was discarded, so the triple was created whether or not the link existed, naming an endpoint Affinities could not resolve. Nothing said so: the only trace was a bare `Affinities request failed: POST .../dataset-endpoints - Status 404` that named neither the endpoint UUID nor the setting behind it, the response to the caller reported the registration as successful, and the dataset kept the `ndp_affinity_uuid` extra as if it had been attributed. The trigger is `AFFINITIES_EP_UUID`: the value is issued by Affinities when the endpoint is registered there, this Endpoint has no way to register itself, and the setting was never checked against anything — so a value copied from another instance, or simply mistyped, failed on every single write and nowhere else. The triple is now created only when the relationship succeeded, a refused link is logged at error level naming the record, the endpoint UUID and the setting to look at, and the skipped triple is logged as well.
+- **`GET /ready` said nothing about Affinities, including whether it knows this endpoint at all.** The readiness report covered the local catalog, pre-CKAN, MinIO and Kafka, so an Endpoint whose Affinities UUID was wrong looked entirely healthy while everything it registered was being recorded attributed to nobody. There is now an `affinities` entry reporting whether Affinities answered and, separately, whether it knows `AFFINITIES_EP_UUID`, with a `detail` explaining how to fix an endpoint it does not have.
+
+### Changed
+- `docs/affinities-integration.md` now documents the affinity triple, which was missing from both registration walkthroughs, and states that non-blocking is not silent: a refused link is an error in the logs and a visible entry in `GET /ready`, not something the caller is told about. Its troubleshooting section leads with the new readiness entry, and the connection test no longer suggests `GET /endpoints/`, which does not exist in the Affinities API — the route is `GET /ep`.
+
+### Backwards compatibility
+- Nothing that used to succeed is refused. Registration stays non-blocking and still returns the UUID Affinities assigned even when the link failed, because that UUID is the only reference back to the record that was created, and the caller stores it as `ndp_affinity_uuid`. What changes is that no affinity triple is created for an unlinked record, which is the case that was producing triples pointing at a relationship that does not exist.
+- The new `affinities` entry in `GET /ready` is reported but deliberately excluded from the readiness verdict, so no deployment starts answering 503 because it has the integration enabled. An unknown endpoint UUID is likewise a detail rather than a failure. Nothing reads from Affinities to serve a request, and pulling a container out of rotation over it would stop the catalog for a system that serves no traffic.
+- The readiness probe result is cached for 30 seconds and its timeout capped at 5, so an unreachable Affinities costs one slow probe per window instead of one per call. A configuration change can therefore take up to 30 seconds to show up in `GET /ready`.
+
 ## [0.34.28] - 2026-09-24
 
 ### Fixed
