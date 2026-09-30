@@ -9,6 +9,24 @@ from fastapi import HTTPException
 class TestCreateServiceRoute:
     """Tests for create_service endpoint."""
 
+    @pytest.fixture(autouse=True)
+    def _affinities_is_off(self):
+        """
+        Keep Affinities out of these tests.
+
+        Left to the environment, a developer .env with
+        AFFINITIES_ENABLED=True turned each successful creation into a real
+        call to the configured Affinities: 21s of connect timeout per test,
+        and the assertions passed anyway because the registration path is
+        non-blocking, so nothing reported that the call had been made at all
+        (issue #283).
+        """
+        with patch(
+            "api.routes.register_routes.post_service.AffinitiesClient"
+        ) as client:
+            client.return_value.is_enabled = False
+            yield client
+
     @pytest.fixture
     def mock_service_request(self):
         """Create a mock ServiceRequest."""
