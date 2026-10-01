@@ -90,6 +90,28 @@ same script usable unattended. Prompts are skipped entirely when there is no
 terminal (CI, the sandbox) or when `--yes` is given, so automation never hangs
 waiting for input.
 
+## Remembered settings
+
+A Federation registration records eleven things, and none of them is the
+catalog, object storage, access requests or the ports. Those are asked at the
+prompt, whether or not you installed with a `--config-id` — before, a
+configuration id skipped the questions entirely and every one of them took its
+default, which meant an Endpoint installed from the platform had no local
+catalog and was never offered one.
+
+With a configuration id, the installer offers to keep those answers in the
+Federation under that same id, so installing the Endpoint again — here or on
+another machine — reuses them instead of asking you to remember. Accepting asks
+for your NDP access token, the same one registering uses; declining asks for
+nothing and sends nothing, and the answers are still kept locally in
+`.env.install-state` for the next run on this machine.
+
+Only answers travel. Credentials — the CKAN and S3 keys, the token itself — are
+not remembered, and `install/remembered_settings.py` is the list of what is.
+
+Nothing here is required: if the Federation cannot be reached, or does not
+offer remembered settings yet, the installer says so and carries on.
+
 ## Options
 
 | Option | |
