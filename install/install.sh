@@ -723,6 +723,107 @@ PY
 }
 
 # --------------------------------------------------------------
+# Settings the Federation remembers for this Endpoint
+# --------------------------------------------------------------
+# A Federation configuration records eleven things. The rest of what an
+# Endpoint runs with has lived only in the local .env.install-state, so
+# reinstalling on another machine meant answering from memory. These two
+# halves put the answers under the configuration id instead (issue #287).
+#
+# The token is this operator's own NDP access token, the same one registering
+# uses. It is asked for only when they accept, because in this flow the
+# registration happened in the browser and the installer never sees one.
+remember_token=""
+
+offer_remembered_settings() {
+  local answer stored
+
+  section "Remembered settings" \
+    "Your Federation configuration can also hold the answers below, so" \
+    "installing this Endpoint again — here or on another machine — reuses" \
+    "them instead of asking you to remember." \
+    "" \
+    "This needs your NDP access token, from the user section of the" \
+    "platform. Say no and nothing is sent anywhere; the answers are still" \
+    "kept on this machine for the next run."
+  ask_yes_no answer "Use your Federation configuration to remember these?" "yes"
+
+  [[ "$answer" == "yes" ]] || return 0
+
+  ask_secret remember_token "Your NDP access token (not shown)"
+  if [[ -z "$remember_token" ]]; then
+    warn "No token given — the answers will only be kept on this machine."
+    return 0
+  fi
+
+  stored="$(fetch_remembered_settings)" || {
+    warn "Could not read the remembered settings. Carrying on without them."
+    remember_token=""
+    return 0
+  }
+
+  apply_remembered_settings "$stored"
+}
+
+fetch_remembered_settings() {
+  local http_code body
+  body="$(curl -s -m 20 -w $'\n%{http_code}' \
+    -H "Authorization: Bearer $remember_token" \
+    "${federation_url%/}/ep/${config_id}/settings" 2>/dev/null || true)"
+
+  http_code="${body##*$'\n'}"
+  body="${body%$'\n'*}"
+
+  case "$http_code" in
+    200) echo "$body"; return 0 ;;
+    401) warn "The Federation did not accept that access token." ;;
+    403) warn "That token does not own configuration ${config_id}." ;;
+    404) echo "{}"; return 0 ;;
+    *)   warn "The Federation answered HTTP ${http_code:-000} for the remembered settings." ;;
+  esac
+
+  return 1
+}
+
+apply_remembered_settings() {
+  # Only the answers this installer knows are taken back; see
+  # install/remembered_settings.py for which, and why credentials are not
+  # among them.
+  eval "$(python3 "$REPO_ROOT/install/remembered_settings.py" load "$1")"
+
+  ok "Loaded the settings remembered for this Endpoint."
+}
+
+save_remembered_settings() {
+  [[ -n "$remember_token" && -n "$config_id" ]] || return 0
+
+  local payload http_code
+  payload="$(python3 "$REPO_ROOT/install/remembered_settings.py" save \
+    "backend=$backend" \
+    "want_s3=$want_s3" \
+    "s3_endpoint=$s3_endpoint" \
+    "s3_secure=$s3_secure" \
+    "ep_api_port=$ep_api_port" \
+    "auth_api_url=$auth_api_url" \
+    "want_access_requests=$want_access_requests" \
+    "mongodb_url=$mongodb_url" \
+    "ckan_url=$ckan_url")"
+
+  http_code="$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
+    -X PUT "${federation_url%/}/ep/${config_id}/settings" \
+    -H "Authorization: Bearer $remember_token" \
+    -H "Content-Type: application/json" \
+    -d "$payload" 2>/dev/null || echo 000)"
+
+  case "$http_code" in
+    200) ok "Saved these answers to configuration ${config_id}." ;;
+    404) warn "This Federation does not offer remembered settings yet. Nothing was saved." ;;
+    *)   warn "Could not save the answers (HTTP ${http_code}). The install is unaffected." ;;
+  esac
+}
+
+
+# --------------------------------------------------------------
 # Ask, when there is nobody to ask but the person running this.
 # --------------------------------------------------------------
 # A Federation registration answers most of these. Without one, and on a
@@ -731,11 +832,19 @@ organization=""
 ep_name=""
 auth_api_url=""
 
-if [[ -z "$config_id" ]] && interactive; then
+# Asked whether or not there is a configuration id. A registration answers
+# eleven things; none of them is the catalog, object storage, access requests
+# or the ports. Gating the whole block on not having a configuration id meant
+# the platform's flow -- which passes one and nothing else, and is the flow
+# almost every Endpoint is installed through -- asked nothing and took every
+# default, LOCAL_CATALOG_BACKEND=none among them (issue #287). The questions
+# that only make sense without a configuration id are guarded individually.
+if interactive; then
   echo
   echo "  A few questions, then nothing is written until you confirm."
   echo "  Press Enter to accept the value in brackets."
 
+  if [[ -z "$config_id" ]]; then
   section "Configuration id" \
     "Identifies this Endpoint's registration in the NDP Federation, the" \
     "central registry of all Endpoints. The registration holds the settings" \
@@ -745,6 +854,14 @@ if [[ -z "$config_id" ]] && interactive; then
     "Paste it if you already registered (on the platform or a previous run)." \
     "Leave blank and the next step offers to register now."
   ask config_id "Configuration id (blank to skip)" ""
+  fi
+
+  # With a configuration id in hand, offer to use the Federation as the memory
+  # for everything it does not itself record. Opt-in on purpose: declining
+  # asks for no token and leaves the run exactly as it was before.
+  if [[ -n "$config_id" ]]; then
+    offer_remembered_settings
+  fi
 
   # Catalog first, so the reason the later CKAN questions (ports, sysadmin)
   # appear is already established, and the registration does not ask about a
@@ -867,6 +984,11 @@ if [[ -z "$config_id" ]] && interactive; then
     "The requests are stored in MongoDB, whatever the catalog is. One is" \
     "installed for it unless the catalog already provides one."
   ask_yes_no want_access_requests "Enable access requests?" "no"
+
+  # Last, so it stores what was actually answered rather than what was
+  # offered. A failure here warns and nothing else: the Endpoint installs
+  # the same whether or not the Federation accepted the answers.
+  save_remembered_settings
 
 fi
 
