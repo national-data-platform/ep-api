@@ -63,11 +63,17 @@ fi
 
 REPO_ROOT="$_here"
 FEDERATION_URL_DEFAULT="https://federation.ndp.utah.edu"
+FEDERATION_URL_TEST="https://federation.ndp.utah.edu/test"
 
 CKAN_REPO_DEFAULT="https://github.com/sci-ndp/pop-ckan-docker.git"
 
 config_id=""
 federation_url="$FEDERATION_URL_DEFAULT"
+# Set by --federation-url, so --env cannot overrule a URL that was asked for
+# by name. The platform sends both, and the script it replaces resolved them
+# in this order (issue #285).
+federation_url_explicit="false"
+federation_env=""
 # The lightest Endpoint there is: no catalog to install, nothing to store, and
 # every optional integration off. It authenticates users, searches the
 # platform's global catalog and reports to the Federation. Asking for MongoDB
@@ -147,7 +153,14 @@ Usage:
 
 Options:
   --config-id <id>        Federation configuration id for this Endpoint.
+                          --config_id is accepted too: it is what the
+                          platform's create-endpoint page sends.
   --federation-url <url>  Default: $FEDERATION_URL_DEFAULT
+                          --federation_url is accepted too.
+  --env prod|test         Pick the Federation by name instead of by URL.
+                          prod: $FEDERATION_URL_DEFAULT
+                          test: $FEDERATION_URL_TEST
+                          Ignored when --federation-url is given.
   --backend <name>        Local catalog backend: none | mongodb | ckan.
                           Default: none
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
@@ -197,8 +210,16 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --config-id)       config_id="${2:-}"; shift 2 ;;
-    --federation-url)  federation_url="${2:-}"; shift 2 ;;
+    # The underscore spellings are what the platform's "create endpoint"
+    # page sends, and --env is how it selects the test federation. They are
+    # accepted so this installer is a drop-in for the script that page used
+    # to call; the hyphenated spellings remain the documented ones (#285).
+    --config-id|--config_id)
+                       config_id="${2:-}"; shift 2 ;;
+    --federation-url|--federation_url)
+                       federation_url="${2:-}"
+                       federation_url_explicit="true"; shift 2 ;;
+    --env)             federation_env="${2:-}"; shift 2 ;;
     --backend)         backend="${2:-}"; shift 2 ;;
     --mongodb-url)     mongodb_url="${2:-}"; shift 2 ;;
     --ckan-url)        ckan_url="${2:-}"; shift 2 ;;
@@ -227,10 +248,22 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+case "$federation_env" in
+  "")   ;;
+  prod) [[ "$federation_url_explicit" == "true" ]] || federation_url="$FEDERATION_URL_DEFAULT" ;;
+  test) [[ "$federation_url_explicit" == "true" ]] || federation_url="$FEDERATION_URL_TEST" ;;
+  *)    fail "--env must be prod or test (got: $federation_env)" ;;
+esac
+
 [[ "$backend" == "none" || "$backend" == "mongodb" || "$backend" == "ckan" ]] \
   || fail "--backend must be none, mongodb or ckan (got: $backend)"
 
 banner
+
+# Which Federation this run will talk to, before anything happens. The script
+# this installer replaces printed it, and with --env selecting the URL by name
+# it is no longer evident from the command line (issue #285).
+info "Federation: $federation_url"
 
 # --------------------------------------------------------------
 step "Checking prerequisites"

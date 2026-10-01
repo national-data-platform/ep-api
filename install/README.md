@@ -96,6 +96,7 @@ waiting for input.
 |---|---|
 | `--config-id <id>` | Federation configuration id |
 | `--federation-url <url>` | defaults to `https://federation.ndp.utah.edu` |
+| `--env prod\|test` | pick the Federation by name; ignored when `--federation-url` is given |
 | `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--ep-api-port <port>` | host port for the API, default `8002` |
 | `--access-requests` | enable the access-request workflow, installing MongoDB for it unless the catalog already provides one |
@@ -105,6 +106,15 @@ waiting for input.
 
 `--dry-run` is the quickest way to see what a registration would produce. It
 never installs anything, including CKAN.
+
+`--config_id` and `--federation_url`, with underscores, are accepted as well.
+They are the spellings the platform's create-endpoint page sends, and they
+exist so the command that page hands an operator runs against this installer
+unchanged. The hyphenated ones above are the documented spellings.
+
+Whichever way the Federation is chosen, the installer prints the URL it
+resolved to before it does anything, so `--env` never hides which Federation a
+run is about to register against.
 
 ### No local catalog
 
