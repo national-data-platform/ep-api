@@ -173,6 +173,24 @@ class TestTheShellReadsThemSafely:
     def test_nothing_remembered_renders_nothing(self):
         assert as_shell_assignments({}) == ""
 
+    @pytest.mark.parametrize(
+        "body",
+        [
+            '{"settings": {}}',
+            '{"detail": "Not Found"}',
+            "",
+        ],
+    )
+    def test_nothing_to_load_renders_nothing_at_all(self, body):
+        """
+        The installer tells "loaded something" from "there was nothing" by
+        whether this is empty, so an empty render is the contract, not a
+        detail. A Federation without the settings routes answers 404, and
+        saying "loaded" there claimed a restore that never happened
+        (issue #289).
+        """
+        assert as_shell_assignments(from_payload(body)) == ""
+
 
 class TestTheCommandLine:
     """How install.sh calls it."""
