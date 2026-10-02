@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The installer sandbox could not run on Windows, which is the platform that needs it most.** `install/tests/sandbox.sh` is the only way to exercise the installer without a spare machine, and from Git Bash it died at once with `bash: C:/Program Files/Git/opt/ep-api/install/install.sh: No such file or directory`. MSYS rewrites any argument that looks like an absolute POSIX path into a Windows one before handing it to `docker exec`, so the container was asked for a path that only means anything on the host — an error naming something nobody had written, in the same family as the CRLF entrypoint of 0.34.27. The script now disables that rewriting, which is read only by MSYS and inert on Linux and macOS.
+
 ## [0.34.30] - 2026-10-02
 
 ### Added

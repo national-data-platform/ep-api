@@ -16,6 +16,12 @@
 
 set -euo pipefail
 
+# Git Bash rewrites arguments that look like absolute POSIX paths into Windows
+# ones before handing them to docker, so the container was asked for
+# C:/Program Files/Git/opt/ep-api/... and answered that there is no such file.
+# Read only by MSYS, so it is inert everywhere else (issue #291).
+export MSYS_NO_PATHCONV=1
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONTAINER="ep-installer-sandbox"
 IMAGE="docker:28-dind"
