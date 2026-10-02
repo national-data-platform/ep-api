@@ -59,7 +59,16 @@ services:
   # MinIO - S3-Compatible Object Storage
   # ==============================================
   minio:
-    image: minio/minio:latest
+    # pgsty/silo, a community fork of MinIO, rather than MinIO itself: the
+    # minio/minio images were deleted from Docker Hub in September 2026 and
+    # quay.io stopped serving them anonymously days later, so there is no
+    # MinIO image left that an operator can pull. Pinning does not help --
+    # every tag is gone. Silo keeps the S3 API, the MINIO_* variables and the
+    # server command unchanged, so nothing else here moves (issue #293).
+    #
+    # Pinned rather than :latest. The whole point of this change is that an
+    # image we do not control vanished underneath installations.
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: ndp-minio
     profiles: ["s3", "full"]
     ports:
