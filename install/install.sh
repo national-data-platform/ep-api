@@ -48,10 +48,23 @@ if [[ -z "$_here" || ! -f "$_here/example.env" ]]; then
 
   if [[ -d "$target/.git" ]]; then
     echo "    Reusing existing checkout at $target"
-    git -C "$target" fetch --depth 1 origin "$repo_ref" >/dev/null 2>&1 \
-      && git -C "$target" checkout -q "$repo_ref" \
-      && git -C "$target" reset --hard "origin/$repo_ref" >/dev/null 2>&1 || true
-  else
+    # FETCH_HEAD is what was just fetched, whether $repo_ref names a tag or a
+    # branch. Checking the ref out by name does not work for a tag: a shallow
+    # fetch leaves it in FETCH_HEAD without writing refs/tags/, and
+    # "origin/<tag>" never existed at all, that namespace being for branches.
+    # Both commands failed, "|| true" hid it, and the run carried on against
+    # whatever was already there -- so re-running after an upgrade silently
+    # reinstalled the version the machine had seen first (issue #295).
+    if ! { git -C "$target" fetch --depth 1 origin "$repo_ref" >/dev/null 2>&1 \
+           && git -C "$target" checkout -q --detach FETCH_HEAD; }; then
+      # Starting again rather than carrying on: a checkout that cannot be
+      # moved to the requested version is not one worth reusing.
+      echo "    Could not update it to $repo_ref — cloning again" >&2
+      rm -rf "$target"
+    fi
+  fi
+
+  if [[ ! -d "$target/.git" ]]; then
     echo "    Cloning $repo_url ($repo_ref) into $target"
     git clone --depth 1 --branch "$repo_ref" "$repo_url" "$target" \
       || { echo "Could not clone $repo_url" >&2; exit 1; }
