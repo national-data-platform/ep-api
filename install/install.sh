@@ -789,8 +789,20 @@ apply_remembered_settings() {
   # Only the answers this installer knows are taken back; see
   # install/remembered_settings.py for which, and why credentials are not
   # among them.
-  eval "$(python3 "$REPO_ROOT/install/remembered_settings.py" load "$1")"
+  local assignments
+  assignments="$(python3 "$REPO_ROOT/install/remembered_settings.py" load "$1")"
 
+  # Reported by what came back, not by the request having been made. A
+  # Federation old enough to lack the settings routes answers 404, which is
+  # nothing to load rather than a failure -- but saying "loaded" there told
+  # every operator their settings had been restored when none existed and
+  # none could (issue #289).
+  if [[ -z "$assignments" ]]; then
+    info "Nothing is remembered for this Endpoint yet."
+    return 0
+  fi
+
+  eval "$assignments"
   ok "Loaded the settings remembered for this Endpoint."
 }
 
