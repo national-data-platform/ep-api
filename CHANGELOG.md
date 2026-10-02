@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Re-running the installer silently reinstalled the previous version.** When it found a checkout from an earlier run it updated that instead of cloning again, with `git checkout <ref>` followed by `git reset --hard origin/<ref>`. Both fail for a tag — a shallow fetch leaves it in `FETCH_HEAD` without writing `refs/tags/`, and `origin/<tag>` never existed at all, that namespace being for remote-tracking branches — and `|| true` hid both, so the run carried on against whatever was already on disk. An operator upgrading saw a successful installation of the version their machine had happened to see first, with nothing to suggest otherwise. It is also what defeated the release pin in the platform's `setup.sh`, whose whole purpose is that an installation gets a known version. The installer now checks out `FETCH_HEAD`, which is what was actually fetched and works for a tag and a branch alike, and re-clones when a checkout cannot be moved rather than reusing one that is not what was asked for.
+
 ## [0.34.31] - 2026-10-02
 
 ### Fixed
