@@ -14,6 +14,10 @@ vertical lifeline and time runs downwards.
 | [Publishing a dataset](publishing-a-dataset.md) | Where a dataset goes — registered locally, promoted to the staging catalog, and why the global one is read-only — with every switch that stops it and the status code it produces |
 | [Registering, reaching and publishing a service](registering-and-using-a-service.md) | A service registered in the catalog, reached through the Endpoint's proxy — which takes no token and calls out from inside the container — and promoted for review |
 
+For every call between an Endpoint and the Federation — registration,
+configuration bootstrap, remembered settings and metrics — in one place, see
+[../architecture/federation-and-metrics.md](../architecture/federation-and-metrics.md).
+
 For the static picture of the system — layers, routes, repositories — see
 [../architecture-diagrams.md](../architecture-diagrams.md). These diagrams
 complement it with the order things happen in.

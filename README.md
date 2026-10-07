@@ -478,6 +478,12 @@ permission level. The same reference is available inside the UI from the
 
 For detailed usage examples and tutorials, please check the documentation in the `/docs` folder.
 
+How an Endpoint registers with the NDP Federation, bootstraps from a
+configuration id and reports metrics is documented in
+[docs/architecture/federation-and-metrics.md](docs/architecture/federation-and-metrics.md);
+the Endpoint's building blocks and their reuse in a connector node are in
+[docs/architecture/connector-nodes-ep-inventory.md](docs/architecture/connector-nodes-ep-inventory.md).
+
 ## 🤖 AI Agent Integration (MCP)
 
 The NDP-EP API includes built-in support for the **Model Context Protocol (MCP)**, enabling AI assistants and agents to interact programmatically with all API endpoints.
@@ -535,6 +541,11 @@ The MCP endpoint works with any MCP-compatible client. Example clients include:
 For configuration examples and integration guides, visit the [FastAPI-MCP documentation](https://fastapi-mcp.tadata.com).
 
 ## 📊 System Metrics
+
+> The full metrics contract — every field and its type, when reports are sent,
+> and what happens when the Federation cannot be reached — is in
+> [docs/architecture/federation-and-metrics.md](docs/architecture/federation-and-metrics.md#2-metrics).
+> The example below predates it.
 
 > **⚠️ CAUTION**: This API automatically collects and logs system metrics (default: every 55 minutes, configurable via `METRICS_INTERVAL_SECONDS`).
 
