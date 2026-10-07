@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.34] - 2026-10-07
+
+### Removed
+- **`DELETE /resource/{resource_id}`, which could never be reached.** `api/routes/resource_routes/resource_by_id.py` declared it to delete a resource by id, but `DELETE /resource/{resource_name}` in `delete_routes`, which deletes a dataset by name, has the same path pattern and is registered first, so Starlette always matched that one. Since the route was added in December 2025, deleting a resource by its id answered 404 "Resource not found" and left the resource in place, while the OpenAPI schema documented both operations. Its unit tests passed only because they called the handler function directly. The route and those tests are removed; `DELETE /resource/{resource_name}` keeps doing what every client has actually been getting, and a single resource is deleted with `DELETE /dataset/{dataset_id}/resource/{resource_id}`. A new test asserts that only one `DELETE /resource/{...}` is registered, and fails against the previous code. Verified against a running Endpoint with a local CKAN catalog (#299).
+
+### Backwards compatibility
+- No behaviour changes: the removed route never ran. The schema stops advertising an operation that did not work.
+
 ## [0.34.33] - 2026-10-07
 
 ### Fixed
