@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.33] - 2026-10-07
+
+### Fixed
+- **The delete routes accepted requests without a token.** `DELETE /resource`, `DELETE /resource/{resource_name}`, `DELETE /organization/{organization_name}` and `DELETE /dataset/{dataset_id}/resource/{resource_id}` declared no dependency on `get_user_for_write_operation`, which every other write route uses, so anyone who could reach an Endpoint with a local catalog could delete its datasets and resources — and, because `DELETE /organization/{name}` cascades by default, remove an organization together with every dataset in it, all with a single anonymous request. It was easy to miss: the generated OpenAPI schema marks every route as requiring a bearer token, `/health` included, and Swagger sends the token everywhere once "Authorize" is clicked, so these calls looked protected; the existing tests call the handlers directly, which bypasses dependency injection. The four routes now require the writer tier, the same as creating or updating. New tests in `tests/test_delete_routes_auth.py` drive them through real HTTP requests, and fail against the previous code. Verified against a running Endpoint with a local CKAN catalog: without a token every route answers 401 and nothing is deleted; with a writer token they behave exactly as before. The same routes exposed as MCP tools through `/mcp` are covered by the same guard (#297).
+
+### Backwards compatibility
+- A client that deleted without sending a token now gets 401. The bundled UI is unaffected, since it sends the bearer token on every request.
+
 ## [0.34.32] - 2026-10-02
 
 ### Fixed

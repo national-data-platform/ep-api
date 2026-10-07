@@ -1,12 +1,13 @@
 # api/routes/delete_routes/delete_organization_route.py
 
-from typing import Literal
+from typing import Any, Dict, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.config import catalog_settings, ckan_settings
 from api.repositories import CKANRepository
 from api.services import organization_services
+from api.services.auth_services import get_user_for_write_operation
 
 router = APIRouter()
 
@@ -59,6 +60,7 @@ async def delete_organization(
             "can clean them up explicitly before retrying."
         ),
     ),
+    _: Dict[str, Any] = Depends(get_user_for_write_operation),
 ):
     """
     Endpoint to delete an organization in CKAN by its name.
