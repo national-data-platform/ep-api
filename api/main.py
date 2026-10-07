@@ -18,7 +18,6 @@ from api.exceptions import register_exception_handlers
 from api.config import ckan_settings, swagger_settings
 from api.config.catalog_settings import catalog_settings
 from api.config.minio_settings import s3_settings
-from api.routes.update_routes.put_dataset import router as dataset_update_router
 from api.tasks.metrics_task import record_system_metrics
 from api.telemetry import setup_telemetry
 
@@ -148,7 +147,6 @@ if local_catalog_enabled:
 app.include_router(routes.search_router, tags=["Search"])
 if local_catalog_enabled:
     app.include_router(routes.update_router, tags=["Update"])
-    app.include_router(dataset_update_router, tags=["Update"])
 if local_catalog_enabled:
     app.include_router(routes.delete_router, tags=["Delete"])
     app.include_router(routes.resource_router, tags=["Resources"])
