@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.35] - 2026-10-07
+
+### Fixed
+- **Swagger documented the wrong `PUT /dataset/{dataset_id}`.** `api/main.py` mounted it twice: `put_general_dataset` through `update_router`, and `put_dataset` as a separate router right after. Requests always reached the first, but the later registration overwrote it in the OpenAPI schema, so Swagger showed the handler that never ran — summary "Update Dataset Endpoint", with a `DatasetUpdateRequest` body that lists `groups`, which is not accepted, and leaves out `name`, `owner_org`, `private`, `license_id` and `version`, which are. The unreachable route was also guarded only by `get_current_user`, so a change in include order would have let any signed-in user with no role overwrite datasets. `put_dataset.py` and its include are removed; `PUT /dataset/{dataset_id}` behaves exactly as it did, and the schema now describes it. `tests/test_put_dataset_route_unique.py` imports the app with a local catalog enabled and checks what the schema documents for the route; it fails against the previous code. Verified against a running Endpoint with a local CKAN catalog (#301).
+
+### Backwards compatibility
+- No behaviour changes: the removed route never ran. Generated clients built from the old schema were sending the documented body, which the real handler accepts except for `groups`.
+
 ## [0.34.34] - 2026-10-07
 
 ### Removed
