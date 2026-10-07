@@ -100,31 +100,3 @@ class TestGeneralDatasetUpdatePaths:
         extras = _extras_sent_to_ckan(repository)
         assert extras["ndp_creator_md5"] == REAL_HASH
         assert extras["topic"] == "new"
-
-
-class TestUrlDatasetUpdatePath:
-    """`PUT /dataset/{id}` for URL-backed datasets."""
-
-    @pytest.mark.asyncio
-    async def test_the_stored_hash_survives_a_forgery_attempt(self):
-        from api.models.update_dataset_model import DatasetUpdateRequest
-        from api.services.url_services.update_dataset import update_dataset
-
-        ckan = MagicMock()
-        ckan.action.package_show.return_value = _dataset_with_hash()
-        with patch(
-            "api.services.url_services.update_dataset.ckan_settings"
-        ) as settings:
-            settings.ckan = ckan
-            await update_dataset(
-                "pkg-1",
-                DatasetUpdateRequest(
-                    extras={"ndp_creator_md5": FORGED, "topic": "new"}
-                ),
-                ckan_instance=ckan,
-            )
-
-        patched = ckan.action.package_patch.call_args.kwargs
-        extras = {e["key"]: e["value"] for e in patched["extras"]}
-        assert extras["ndp_creator_md5"] == REAL_HASH
-        assert extras["topic"] == "new"

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.36] - 2026-10-07
+
+### Removed
+- **The dataset update service and model that only the removed `PUT /dataset` route used.** 0.34.35 removed `api/routes/update_routes/put_dataset.py`, the duplicate `PUT /dataset/{dataset_id}` that never ran, and left behind the two modules nothing else imports: `api/services/url_services/update_dataset.py` and `api/models/update_dataset_model.py` (`DatasetUpdateRequest`, `CKANResource`). They still had their own tests, which made a second, divergent copy of the dataset update logic look live. Both modules are removed, along with `tests/test_update_dataset_service.py` and `TestUrlDatasetUpdatePath` in `tests/test_ndp_identity_extras.py`, which covered only them. The protection that last test checked — the creator hash cannot be forged on update — is still checked on the update path that runs, by `TestGeneralDatasetUpdatePaths`. Verified against a running Endpoint with a local CKAN catalog: it starts cleanly, and `PUT` and `PATCH /dataset/{id}` and `PUT /url/{id}` update as before (#303).
+
+### Backwards compatibility
+- No behaviour changes: nothing called the removed code.
+
 ## [0.34.35] - 2026-10-07
 
 ### Fixed
