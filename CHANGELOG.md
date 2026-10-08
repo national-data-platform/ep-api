@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.47] - 2026-10-08
+
+### Fixed
+- **Re-running the installer to upgrade stopped on the Endpoint's own port.** Before starting, the installer fails when the Endpoint's port is in use. Re-running it on a running Endpoint — the documented way to upgrade or reconfigure one — always found that port held by the Endpoint's own `ndp-ep-api` container, the one `docker compose up -d --build` replaces, and stopped with "Port … is already in use by container 'ndp-ep-api'". The check now lets the port through when it is held by the `ndp-ep-api` container started from this same checkout (its Compose working directory), and says that container will be replaced; anything else holding the port, including an Endpoint started from another checkout, still stops the installer. New tests in `install/tests/test_port_in_use.py`. Verified by re-running `install.sh --backend ckan --yes` with the Endpoint running on port 8002: it rebuilt and recreated the container and the Endpoint came back healthy (#332).
+
 ## [0.34.46] - 2026-10-08
 
 ### Fixed

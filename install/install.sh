@@ -1511,8 +1511,19 @@ fi
 
 if (exec 3<>"/dev/tcp/127.0.0.1/$ep_api_port") 2>/dev/null; then
   holder="$(docker ps --format '{{.Names}}\t{{.Ports}}' | awk -v p=":$ep_api_port->" '$0 ~ p {print $1; exit}')"
-  fail "Port $ep_api_port is already in use${holder:+ by container '$holder'}.
+  # Re-running the installer is how an Endpoint is upgraded, and the port is
+  # then held by this checkout's own Endpoint container -- the one the
+  # "up -d --build" below replaces. That is not a conflict (issue #332).
+  holder_dir=""
+  if [[ "$holder" == "ndp-ep-api" ]]; then
+    holder_dir="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$holder" 2>/dev/null || true)"
+  fi
+  if [[ -n "$holder_dir" && "$(cd "$holder_dir" 2>/dev/null && pwd -P)" == "$(cd "$REPO_ROOT" && pwd -P)" ]]; then
+    info "Port $ep_api_port is held by this Endpoint's running container; it will be replaced."
+  else
+    fail "Port $ep_api_port is already in use${holder:+ by container '$holder'}.
        Choose another with --ep-api-port, or stop what is using it."
+  fi
 fi
 
 profile_args=()
