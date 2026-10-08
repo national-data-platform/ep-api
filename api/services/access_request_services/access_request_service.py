@@ -60,14 +60,32 @@ def reset_repository_for_tests() -> None:
             _repository = None
 
 
-def _require_endpoint_uuid() -> str:
+def _endpoint_group() -> str:
+    """
+    The identity-provider group an approval grants access through.
+
+    The first GROUP_NAMES entry, which on a registered Endpoint is the group
+    the Federation created for it (``ndp_ep/ep-<config-id>``) and the one the
+    access gate checks. Approval used to require AFFINITIES_EP_UUID, which
+    the installer never sets, so it failed with 503 on every Endpoint the
+    installer made (issue #325); that UUID is still used when no GROUP_NAMES
+    are configured.
+    """
+    group_names = swagger_settings.group_names
+    if isinstance(group_names, str):
+        for name in group_names.split(","):
+            if name.strip():
+                return name.strip()
     ep_uuid = (affinities_settings.ep_uuid or "").strip()
-    if not ep_uuid:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Endpoint UUID is not configured; cannot grant access.",
-        )
-    return ep_uuid
+    if ep_uuid:
+        return ep_uuid
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=(
+            "No endpoint group is configured (GROUP_NAMES or "
+            "AFFINITIES_EP_UUID); cannot grant access."
+        ),
+    )
 
 
 def create_access_request(
@@ -138,20 +156,20 @@ def _grant_via_aai(
     - ``admin``: group membership plus the per-endpoint admin role.
 
     For the role-assignment calls we pass the bare tier name
-    (``"writer"`` / ``"admin"``) plus ``group_name=ep_uuid``. The AAI
-    builds the fully-qualified ``group:{ep_uuid}:{tier}`` server-side;
-    passing the qualified form here makes it double-prefix.
+    (``"writer"`` / ``"admin"``) plus the group name. The AAI builds the
+    fully-qualified ``group:{group}:{tier}`` server-side; passing the
+    qualified form here makes it double-prefix.
     """
-    ep_uuid = _require_endpoint_uuid()
+    group = _endpoint_group()
 
-    aai_client.add_user_to_group(admin_token, ep_uuid, username)
+    aai_client.add_user_to_group(admin_token, group, username)
 
     if grant_type in ("writer", "admin"):
         aai_client.assign_role(
             admin_token,
             grant_type,
             username,
-            ep_uuid,
+            group,
         )
 
 

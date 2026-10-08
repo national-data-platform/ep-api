@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.46] - 2026-10-08
+
+### Fixed
+- **Approving an access request failed with 503 on every Endpoint the installer made.** Approval added the user to a group named after `AFFINITIES_EP_UUID` and assigned the role on it, and answered 503 "Endpoint UUID is not configured" when the variable was empty — which the installer always leaves it. The group that controls access to a registered Endpoint is the one the Federation creates for it, `ndp_ep/ep-<config-id>`, which the installer writes to `GROUP_NAMES` and which the access gate and the role names already use. Approval now grants membership, and for writer and admin the role, on the first `GROUP_NAMES` entry, and falls back to `AFFINITIES_EP_UUID` only when there is none; with neither it still answers 503, naming both settings. New tests in `tests/test_access_request_group.py`. Verified end to end against a stand-in AAI API, with the Endpoint configured as the installer leaves it: the released 0.34.45 answered 503; this version answered 200, the AAI received `/group/add-user` and `/role/assign` (writer) for `ndp_ep/ep-123` with the administrator's token, and the user, holding that group and role, entered the Endpoint as writer where before approval they got 403. Not yet confirmed against the production AAI API (#325).
+
 ## [0.34.45] - 2026-10-08
 
 ### Fixed
