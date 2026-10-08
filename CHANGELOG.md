@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.41] - 2026-10-08
+
+### Removed
+- **`nginx.conf`, which was copied into the image but never used.** `Dockerfile.allinone` copied it to `/etc/nginx/sites-available/default`, and `entrypoint.sh` overwrote that file on every start with the configuration it generates from `ROOT_PATH`. The copy described an older setup — no `ROOT_PATH`, a redirect that dropped the published port, no `/api/` alias — and so misled anyone reading the repository to learn how the container serves the API and the UI. The file and its `COPY` line are removed; `entrypoint.sh` is the one place the nginx configuration lives. Verified by building the image and running it with and without `ROOT_PATH`: the API, the UI, `/docs` and the `/api/` alias answer, `/ui` redirects with the port kept, and `nginx -t` passes (#315).
+
 ## [0.34.40] - 2026-10-08
 
 ### Fixed
