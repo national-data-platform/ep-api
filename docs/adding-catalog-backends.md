@@ -1,125 +1,202 @@
-# Adding New Catalog Backend Implementations
+# Adding a catalog backend
 
-This guide explains how to add support for new catalog backend systems (e.g., Elasticsearch, PostgreSQL, or any other storage system) to the NDP-EP API.
+How the Endpoint talks to its local catalog, and what it takes to add a
+backend next to CKAN and MongoDB. For where this sits in the whole system, see
+[architecture/overview.md](architecture/overview.md#7-the-repository-pattern).
 
-## Table of Contents
+## Contents
 
-1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Step-by-Step Implementation](#step-by-step-implementation)
-4. [Example: Adding Elasticsearch Backend](#example-adding-elasticsearch-backend)
-5. [Testing Your Implementation](#testing-your-implementation)
-6. [Best Practices](#best-practices)
+1. [How catalogs are reached](#1-how-catalogs-are-reached)
+2. [The interface](#2-the-interface)
+3. [What the services expect from a backend](#3-what-the-services-expect-from-a-backend)
+4. [Step by step](#4-step-by-step)
+5. [Testing](#5-testing)
+6. [Code that does not go through the repository](#6-code-that-does-not-go-through-the-repository)
 
-## Overview
+---
 
-The NDP-EP API uses the **Repository Pattern** to abstract catalog operations. This allows you to swap out the underlying storage system (CKAN, MongoDB, etc.) without changing any business logic or API endpoints.
+## 1. How catalogs are reached
 
-### Current Supported Backends
+The Endpoint works with three catalogs. Only the **local** one has a choice of
+backend:
 
-- **CKAN**: Traditional CKAN catalog system (default)
-- **MongoDB**: NoSQL document database
+| Catalog | Backend | Selected by |
+|---|---|---|
+| Local | `CKANRepository`, `MongoDBRepository`, or none | `LOCAL_CATALOG_BACKEND` = `ckan` (default), `mongodb` or `none` |
+| Global (read-only) | always `CKANRepository` | `CKAN_GLOBAL_URL` |
+| Pre-CKAN (staging) | always `CKANRepository` | `PRE_CKAN_*` |
 
-### What You Can Add
-
-Any system that can store and retrieve datasets, resources, and organizations can be implemented as a catalog backend:
-
-- **Elasticsearch**: Full-text search engine
-- **PostgreSQL**: Relational database
-- **SQLite**: Lightweight file-based database
-- **Neo4j**: Graph database
-- **Redis**: In-memory data store
-- **Custom REST API**: Any external catalog service
-
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│     FastAPI Routes                      │
-│     (No changes needed)                 │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│     Service Layer                       │
-│     (No changes needed)                 │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│   CatalogSettings (Factory)             │
-│   - Selects repository based on config  │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│   DataCatalogRepository Interface       │
-│   (Abstract base class)                 │
-└──────────────┬──────────────────────────┘
-               │
-       ┌───────┴────────┬──────────────────┐
-       │                │                  │
-┌──────▼──────┐  ┌──────▼────────┐  ┌─────▼──────────┐
-│  CKAN       │  │  MongoDB      │  │  Your New      │
-│  Repository │  │  Repository   │  │  Repository    │
-└─────────────┘  └───────────────┘  └────────────────┘
+```mermaid
+flowchart TD
+    Routes["Routes (api/routes/)"] --> Services["Services (api/services/)"]
+    Services --> Factory["catalog_settings<br/>(api/config/catalog_settings.py)"]
+    Factory -->|"local_catalog"| Choice{LOCAL_CATALOG_BACKEND}
+    Choice -->|ckan| CKAN["CKANRepository(ckan_settings.ckan)"]
+    Choice -->|mongodb| Mongo["MongoDBRepository(MONGODB_CONNECTION_STRING, MONGODB_DATABASE)"]
+    Choice -->|none| None["ValueError: no local catalog"]
+    Factory -->|"global_catalog"| G["CKANRepository(ckan_settings.ckan_global)"]
+    Factory -->|"pre_catalog"| P["CKANRepository(ckan_settings.pre_ckan)"]
+    CKAN --> Base["DataCatalogRepository<br/>(api/repositories/base_repository.py)"]
+    Mongo --> Base
 ```
 
-## Step-by-Step Implementation
+The factory is the module-level `catalog_settings` object
+([`api/config/catalog_settings.py`](../api/config/catalog_settings.py)):
 
-### Step 1: Create Your Repository Class
+- `local_catalog` builds the repository for `LOCAL_CATALOG_BACKEND`
+  (case-insensitive). For `none` it raises `ValueError` explaining that the
+  Endpoint has no local catalog; for an unknown value it raises
+  `ValueError("Unsupported catalog backend: …")`.
+- `has_local_catalog` is `False` only for `none`. `api/main.py` mounts the
+  catalog write routes only when it is true **and** `CKAN_LOCAL_ENABLED` is
+  true; the metrics task and `/ready` also check it before asking for the
+  repository.
+- `global_catalog`, `pre_catalog` and `get_repository_by_name("local" |
+  "global" | "pre")` complete it.
 
-Create a new file in `api/repositories/` for your backend implementation:
+The properties build a **new repository object on every access**; a backend's
+constructor therefore runs once per request that touches the catalog (the
+MongoDB backend opens a `MongoClient` and checks its indexes each time). Keep
+constructors cheap, or cache the client at module level.
 
-```bash
-touch api/repositories/your_backend_repository.py
+Services receive a repository as an argument or ask `catalog_settings` for
+one, e.g. `create_general_dataset(..., repository=None)` falls back to
+`catalog_settings.local_catalog`.
+
+---
+
+## 2. The interface
+
+`DataCatalogRepository` in
+[`api/repositories/base_repository.py`](../api/repositories/base_repository.py)
+is an `ABC`. A backend must implement every abstract method — a missing one
+makes instantiation fail with `TypeError`:
+
+| Method | Called with | Must return |
+|---|---|---|
+| `package_create(**kwargs)` | `name`, `title`, `owner_org`, and optionally `notes`, `extras`, `tags`, `groups`, `resources`, `private`, `license_id`, `version`, … | the created package, with at least `id` and `name` |
+| `package_show(id)` | id **or** name | the package |
+| `package_update(**kwargs)` | the full package (as returned by `package_show`, modified) | the updated package, with `id` |
+| `package_patch(**kwargs)` | `id` plus the fields to change | the updated package |
+| `package_delete(id)` | id or name | `None` |
+| `package_search(q="*:*", fq="", rows=10, start=0, sort="score desc, metadata_modified desc", **kwargs)` | see [§3](#3-what-the-services-expect-from-a-backend) | `{"count": int, "results": [package, …]}` |
+| `resource_create(**kwargs)` | `package_id`, `url`, `name`, and optionally `description`, `format`, … | the resource, with `id` |
+| `resource_show(id)` | resource id | the resource |
+| `resource_delete(id)` | resource id | `None` |
+| `resource_patch(**kwargs)` | `id` plus any of `name`, `url`, `description`, `format` | the updated resource |
+| `organization_create(**kwargs)` | `name`, `title`, `description`, and the creator hashes `ndp_user_id` and `ndp_creator_md5` as top-level keyword arguments | the organization, with `id` |
+| `organization_show(id)` | id or name | the organization, with `id` and `name` |
+| `organization_list(all_fields=False, **kwargs)` | `all_fields=True, include_extras=True` for `?mine=true` | a list of names, or of full organizations with `all_fields=True` |
+| `organization_delete(id)` | organization id | `None` |
+| `check_health()` | | `True` when the backend is reachable, `False` otherwise (must not raise) |
+
+`resource_search(query, name, url, format, description, limit=100, offset=0)`
+is **not** abstract. Its default implementation calls
+`package_search(q="*:*", rows=1000)` and filters the resources in Python,
+returning `{"count": n, "results": [...]}` with `dataset_id`, `dataset_name`
+and `dataset_title` added to each resource. Override it when the backend can
+query resources directly (`MongoDBRepository` does).
+
+Data follows the shapes of CKAN's action API, because the services were
+written against CKAN and the global and staging catalogs are CKAN:
+
+```python
+{
+    "id": "uuid",
+    "name": "unique-name",
+    "title": "Title",
+    "owner_org": "organization id",
+    "notes": "description",
+    "extras": [{"key": "k", "value": "v"}],
+    "tags": [{"name": "tag"}],
+    "groups": [{"name": "group"}],
+    "private": False,
+    "resources": [{"id": "uuid", "package_id": "…", "name": "…", "url": "…",
+                   "format": "…", "description": "…"}],
+    "metadata_created": "ISO 8601",
+    "metadata_modified": "ISO 8601",
+    "state": "active",
+}
 ```
 
-### Step 2: Implement the DataCatalogRepository Interface
+---
 
-Your class must inherit from `DataCatalogRepository` and implement all abstract methods:
+## 3. What the services expect from a backend
+
+Beyond the signatures, the services rely on behaviour that CKAN has and a new
+backend must reproduce.
+
+**`package_search` arguments.** Callers pass:
+
+- `q`: `"*:*"` for everything; a free-text string; or `field:value` parts
+  joined with ` AND ` (for example `name:x AND organization:y`). `organization`
+  means the owning organization by name.
+- `fq`: a single `field:value` filter, e.g. `owner_org:<id>` or
+  `owner_org:services` (an organization **name** in the second case — the
+  metrics task counts services this way).
+- `fq_list`: a list of `field:value` filters (`POST /search`); it arrives in
+  `**kwargs`.
+- `rows`: up to 1000, and `0` when only `count` is wanted; `start` for paging;
+  `sort`.
+
+`MongoDBRepository.package_search` is a worked example of mapping these onto a
+non-Solr store: `$text` for free text (with a weighted text index on `title`,
+`tags.name` and `notes`), equality filters for `field:value`, and organization
+names resolved to ids.
+
+**Error messages.** Routes and services choose status codes by looking for
+text in the exception message:
+
+| Text in the exception | Effect |
+|---|---|
+| `That name is already in use` / `That URL is already in use` | `POST /dataset` and publish retry with a timestamp suffix; `POST /kafka` and `POST /services` answer 409 |
+| `not found` (any case) | 404 on show, delete and resource routes |
+| `Organization not found` | 404 on `DELETE /organization/…` |
+| `No scheme supplied` | 400 "Server is not configured or unreachable." |
+
+The MongoDB backend raises `Package with name '…' already exists` for a
+duplicate name, so on MongoDB a duplicate is a 400 and nothing is renamed. A
+new backend that should behave like CKAN must raise CKAN's text.
+
+**Organizations.** `package_create` should refuse an `owner_org` that does not
+exist (CKAN does; MongoDB raises CKAN's validation-error text for it).
+`DELETE /organization/…` also calls `organization_purge(id=…)` when the
+repository has it and skips it otherwise.
+
+**Creator attribution on organizations.** `GET /organization?mine=true`
+reads `ndp_user_id` from each full organization, either as a top-level field
+(how MongoDB stores it) or as an `extras` entry (how `CKANRepository` stores
+it, after moving the keyword arguments into `extras` because CKAN rejects
+unknown keys). A new backend must return it in one of those two places.
+
+**`check_health`** is used by `/ready` (`local_catalog` check) and by
+`/status/` (`backend_connected`).
+
+---
+
+## 4. Step by step
+
+### 4.1 Write the repository
 
 ```python
 # api/repositories/your_backend_repository.py
 from typing import Any, Dict, List
+
 from api.repositories.base_repository import DataCatalogRepository
 
+
 class YourBackendRepository(DataCatalogRepository):
-    """
-    Your backend implementation of the catalog repository.
+    """Local catalog stored in <your backend>."""
 
-    Parameters
-    ----------
-    connection_params : dict
-        Connection parameters specific to your backend
-    """
+    def __init__(self, connection_string: str):
+        self.client = ...  # connect; this runs on every catalog access
 
-    def __init__(self, connection_params: dict):
-        self.client = YourBackendClient(**connection_params)
-        # Initialize your connection here
-
-    def package_create(self, **kwargs) -> Dict[str, Any]:
-        """Create a package in your backend."""
-        # Your implementation here
-        # Must return dict with at least {"id": "...", "name": "..."}
-        pass
-
-    def package_show(self, id: str) -> Dict[str, Any]:
-        """Retrieve a package from your backend."""
-        # Your implementation here
-        pass
-
-    def package_update(self, **kwargs) -> Dict[str, Any]:
-        """Update a package in your backend."""
-        # Your implementation here
-        pass
-
-    def package_patch(self, **kwargs) -> Dict[str, Any]:
-        """Partially update a package in your backend."""
-        # Your implementation here
-        pass
-
-    def package_delete(self, id: str) -> None:
-        """Delete a package from your backend."""
-        # Your implementation here
-        pass
+    # Packages
+    def package_create(self, **kwargs) -> Dict[str, Any]: ...
+    def package_show(self, id: str) -> Dict[str, Any]: ...
+    def package_update(self, **kwargs) -> Dict[str, Any]: ...
+    def package_patch(self, **kwargs) -> Dict[str, Any]: ...
+    def package_delete(self, id: str) -> None: ...
 
     def package_search(
         self,
@@ -128,557 +205,172 @@ class YourBackendRepository(DataCatalogRepository):
         rows: int = 10,
         start: int = 0,
         sort: str = "score desc, metadata_modified desc",
-        **kwargs,
-    ) -> Dict[str, Any]:
-        """
-        Search packages in your backend.
+        **kwargs,  # fq_list arrives here
+    ) -> Dict[str, Any]: ...
 
-        Must return dict with {"count": int, "results": []}
-        """
-        # Your implementation here
-        pass
+    # Resources
+    def resource_create(self, **kwargs) -> Dict[str, Any]: ...
+    def resource_show(self, id: str) -> Dict[str, Any]: ...
+    def resource_delete(self, id: str) -> None: ...
+    def resource_patch(self, **kwargs) -> Dict[str, Any]: ...
+    # resource_search is optional; override it if the backend can do better
+    # than the default scan over package_search.
 
-    def resource_create(self, **kwargs) -> Dict[str, Any]:
-        """Create a resource in your backend."""
-        # Your implementation here
-        pass
-
-    def resource_show(self, id: str) -> Dict[str, Any]:
-        """Retrieve a resource from your backend."""
-        # Your implementation here
-        pass
-
-    def resource_delete(self, id: str) -> None:
-        """Delete a resource from your backend."""
-        # Your implementation here
-        pass
-
-    def organization_create(self, **kwargs) -> Dict[str, Any]:
-        """Create an organization in your backend."""
-        # Your implementation here
-        pass
-
-    def organization_show(self, id: str) -> Dict[str, Any]:
-        """Retrieve an organization from your backend."""
-        # Your implementation here
-        pass
-
+    # Organizations
+    def organization_create(self, **kwargs) -> Dict[str, Any]: ...
+    def organization_show(self, id: str) -> Dict[str, Any]: ...
     def organization_list(
         self, all_fields: bool = False, **kwargs
-    ) -> List[Dict[str, Any]]:
-        """List organizations from your backend."""
-        # Your implementation here
-        pass
+    ) -> List[Dict[str, Any]]: ...
+    def organization_delete(self, id: str) -> None: ...
 
-    def organization_delete(self, id: str) -> None:
-        """Delete an organization from your backend."""
-        # Your implementation here
-        pass
+    # Health
+    def check_health(self) -> bool: ...
 ```
 
-### Step 3: Register Your Repository in the Module
+Export it from [`api/repositories/__init__.py`](../api/repositories/__init__.py)
+next to `CKANRepository` and `MongoDBRepository`.
 
-Update `api/repositories/__init__.py` to export your new repository:
+### 4.2 Register it in the factory
 
-```python
-# api/repositories/__init__.py
-from api.repositories.base_repository import DataCatalogRepository
-from api.repositories.ckan_repository import CKANRepository
-from api.repositories.mongodb_repository import MongoDBRepository
-from api.repositories.your_backend_repository import YourBackendRepository  # Add this
-
-__all__ = [
-    "DataCatalogRepository",
-    "CKANRepository",
-    "MongoDBRepository",
-    "YourBackendRepository",  # Add this
-]
-```
-
-### Step 4: Add Configuration Settings
-
-Update `api/config/catalog_settings.py` to support your new backend:
+In [`api/config/catalog_settings.py`](../api/config/catalog_settings.py), add
+its settings to `CatalogSettings` (they are read from the environment and
+`.env` like the others) and a branch in `local_catalog`:
 
 ```python
-# api/config/catalog_settings.py
-from api.repositories.your_backend_repository import YourBackendRepository
-
 class CatalogSettings(BaseSettings):
-    # Existing settings...
     local_catalog_backend: str = "ckan"
-
-    # Add your backend settings
-    your_backend_connection_string: str = "your-default-connection"
-    your_backend_param1: str = "default-value"
-    your_backend_param2: int = 5432
+    mongodb_connection_string: str = "mongodb://localhost:27017"
+    mongodb_database: str = "ndp_local_catalog"
+    your_backend_connection_string: str = ""      # YOUR_BACKEND_CONNECTION_STRING
 
     @property
     def local_catalog(self) -> DataCatalogRepository:
         backend = self.local_catalog_backend.lower()
 
-        if backend == "your_backend":
-            return YourBackendRepository(
-                connection_params={
-                    "connection_string": self.your_backend_connection_string,
-                    "param1": self.your_backend_param1,
-                    "param2": self.your_backend_param2,
-                }
-            )
+        if backend == "none":
+            raise ValueError(...)                   # unchanged
         elif backend == "mongodb":
-            return MongoDBRepository(...)
+            return MongoDBRepository(...)           # unchanged
         elif backend == "ckan":
-            return CKANRepository(...)
+            return CKANRepository(ckan_settings.ckan)
+        elif backend == "your_backend":
+            return YourBackendRepository(self.your_backend_connection_string)
         else:
             raise ValueError(
                 f"Unsupported catalog backend: {backend}. "
-                f"Supported backends: 'ckan', 'mongodb', 'your_backend'"
+                f"Supported backends: 'ckan', 'mongodb', 'your_backend', 'none'"
             )
 ```
 
-### Step 5: Update Environment Configuration
-
-Add your backend configuration to `example.env`:
-
-```bash
-# ==============================================
-# LOCAL CATALOG CONFIGURATION
-# ==============================================
-
-# Backend for local catalog: "ckan", "mongodb", or "your_backend"
-LOCAL_CATALOG_BACKEND=ckan
-
-# ... existing CKAN and MongoDB config ...
-
-# ==============================================
-# Your Backend Configuration (if LOCAL_CATALOG_BACKEND=your_backend)
-# ==============================================
-
-YOUR_BACKEND_CONNECTION_STRING=your-connection-string-here
-YOUR_BACKEND_PARAM1=value1
-YOUR_BACKEND_PARAM2=5432
-```
-
-### Step 6: Add Dependencies
-
-If your backend requires additional Python packages, add them to `requirements.txt`:
-
-```txt
-# requirements.txt
-...existing packages...
-your-backend-client>=1.0.0
-```
-
-## Example: Adding Elasticsearch Backend
-
-Here's a complete example of adding Elasticsearch as a catalog backend:
-
-### 1. Create Elasticsearch Repository
-
-```python
-# api/repositories/elasticsearch_repository.py
-from typing import Any, Dict, List
-from datetime import datetime
-from elasticsearch import Elasticsearch
-from api.repositories.base_repository import DataCatalogRepository
-
-class ElasticsearchRepository(DataCatalogRepository):
-    """Elasticsearch implementation of catalog repository."""
-
-    def __init__(self, hosts: List[str], index_prefix: str = "ndp"):
-        self.es = Elasticsearch(hosts=hosts)
-        self.index_prefix = index_prefix
-        self.packages_index = f"{index_prefix}_packages"
-        self.resources_index = f"{index_prefix}_resources"
-        self.orgs_index = f"{index_prefix}_organizations"
-
-        # Create indices if they don't exist
-        self._create_indices()
-
-    def _create_indices(self):
-        """Create Elasticsearch indices with mappings."""
-        package_mapping = {
-            "mappings": {
-                "properties": {
-                    "id": {"type": "keyword"},
-                    "name": {"type": "keyword"},
-                    "title": {"type": "text"},
-                    "notes": {"type": "text"},
-                    "owner_org": {"type": "keyword"},
-                    "extras": {"type": "object"},
-                    "resources": {"type": "nested"},
-                    "metadata_created": {"type": "date"},
-                    "metadata_modified": {"type": "date"},
-                }
-            }
-        }
-
-        if not self.es.indices.exists(index=self.packages_index):
-            self.es.indices.create(index=self.packages_index, body=package_mapping)
-
-        # Similar for resources and organizations...
-
-    def package_create(self, **kwargs) -> Dict[str, Any]:
-        """Create a package in Elasticsearch."""
-        import uuid
-
-        package_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
-
-        doc = {
-            "id": package_id,
-            "name": kwargs.get("name"),
-            "title": kwargs.get("title", ""),
-            "owner_org": kwargs.get("owner_org"),
-            "notes": kwargs.get("notes", ""),
-            "extras": kwargs.get("extras", []),
-            "resources": [],
-            "metadata_created": now,
-            "metadata_modified": now,
-            "state": "active",
-        }
-
-        self.es.index(
-            index=self.packages_index,
-            id=package_id,
-            document=doc,
-            refresh=True  # Make immediately searchable
-        )
-
-        return doc
-
-    def package_show(self, id: str) -> Dict[str, Any]:
-        """Retrieve a package from Elasticsearch."""
-        try:
-            result = self.es.get(index=self.packages_index, id=id)
-            return result["_source"]
-        except Exception as e:
-            raise Exception(f"Package '{id}' not found: {str(e)}")
-
-    def package_search(
-        self,
-        q: str = "*:*",
-        fq: str = "",
-        rows: int = 10,
-        start: int = 0,
-        sort: str = "score desc, metadata_modified desc",
-        **kwargs,
-    ) -> Dict[str, Any]:
-        """Search packages using Elasticsearch query DSL."""
-        query = {
-            "query": {
-                "query_string": {
-                    "query": q if q != "*:*" else "*",
-                    "fields": ["title^2", "notes", "name"]
-                }
-            },
-            "from": start,
-            "size": rows,
-        }
-
-        # Add filters if provided
-        if fq:
-            # Parse fq and add to query
-            pass
-
-        result = self.es.search(index=self.packages_index, body=query)
-
-        return {
-            "count": result["hits"]["total"]["value"],
-            "results": [hit["_source"] for hit in result["hits"]["hits"]]
-        }
-
-    # Implement other methods...
-    def package_update(self, **kwargs) -> Dict[str, Any]:
-        package_id = kwargs.get("id")
-        kwargs["metadata_modified"] = datetime.utcnow().isoformat()
-
-        self.es.update(
-            index=self.packages_index,
-            id=package_id,
-            doc=kwargs,
-            refresh=True
-        )
-
-        return self.package_show(package_id)
-
-    def package_delete(self, id: str) -> None:
-        self.es.delete(index=self.packages_index, id=id, refresh=True)
-
-    # ... implement remaining methods
-```
-
-### 2. Register in Catalog Settings
-
-```python
-# api/config/catalog_settings.py
-from api.repositories.elasticsearch_repository import ElasticsearchRepository
-
-class CatalogSettings(BaseSettings):
-    local_catalog_backend: str = "ckan"
-
-    # Elasticsearch settings
-    elasticsearch_hosts: List[str] = ["http://localhost:9200"]
-    elasticsearch_index_prefix: str = "ndp"
-
-    @property
-    def local_catalog(self) -> DataCatalogRepository:
-        backend = self.local_catalog_backend.lower()
-
-        if backend == "elasticsearch":
-            return ElasticsearchRepository(
-                hosts=self.elasticsearch_hosts,
-                index_prefix=self.elasticsearch_index_prefix
-            )
-        # ... other backends
-```
-
-### 3. Update Configuration Files
-
-```bash
-# example.env
-LOCAL_CATALOG_BACKEND=elasticsearch
-
-# ==============================================
-# Elasticsearch Configuration
-# ==============================================
-ELASTICSEARCH_HOSTS=["http://localhost:9200"]
-ELASTICSEARCH_INDEX_PREFIX=ndp
-```
-
-```txt
-# requirements.txt
-elasticsearch>=8.0.0
-```
-
-## Testing Your Implementation
-
-### 1. Unit Tests
-
-Create unit tests for your repository:
-
-```python
-# tests/test_your_backend_repository.py
-import pytest
-from api.repositories.your_backend_repository import YourBackendRepository
-
-@pytest.fixture
-def repository():
-    return YourBackendRepository(connection_params={...})
-
-def test_package_create(repository):
-    package = repository.package_create(
-        name="test-package",
-        title="Test Package",
-        owner_org="test-org",
-        notes="Test description"
-    )
-
-    assert "id" in package
-    assert package["name"] == "test-package"
-
-def test_package_show(repository):
-    # Create a package first
-    created = repository.package_create(name="test", title="Test", owner_org="org")
-
-    # Retrieve it
-    retrieved = repository.package_show(created["id"])
-
-    assert retrieved["id"] == created["id"]
-    assert retrieved["name"] == "test"
-
-# Add more tests...
-```
-
-### 2. Integration Tests
-
-Test the full stack with your backend:
-
-```python
-# tests/test_integration_your_backend.py
-from fastapi.testclient import TestClient
-from api.main import app
-import os
-
-# Set environment to use your backend
-os.environ["LOCAL_CATALOG_BACKEND"] = "your_backend"
-
-client = TestClient(app)
-
-def test_create_s3_resource_with_your_backend():
-    response = client.post(
-        "/s3",
-        json={
-            "resource_name": "test-s3",
-            "resource_title": "Test S3 Resource",
-            "owner_org": "test-org",
-            "resource_s3": "s3://bucket/key"
-        }
-    )
-
-    assert response.status_code == 200
-    assert "id" in response.json()
-```
-
-## Best Practices
-
-### 1. **Match CKAN's Response Format**
-
-To ensure compatibility, your responses should match CKAN's structure:
-
-```python
-# Package response example
-{
-    "id": "uuid-string",
-    "name": "package-name",
-    "title": "Package Title",
-    "owner_org": "org-id",
-    "notes": "Description",
-    "extras": [{"key": "k1", "value": "v1"}],
-    "resources": [...],
-    "metadata_created": "2024-01-01T00:00:00",
-    "metadata_modified": "2024-01-01T00:00:00",
-    "state": "active"
-}
-```
-
-### 2. **Handle Errors Gracefully**
-
-Always raise descriptive exceptions:
-
-```python
-def package_show(self, id: str) -> Dict[str, Any]:
-    try:
-        result = self.backend.get(id)
-        if not result:
-            raise Exception(f"Package '{id}' not found")
-        return result
-    except ConnectionError as e:
-        raise Exception(f"Backend connection error: {str(e)}")
-    except Exception as e:
-        raise Exception(f"Error retrieving package: {str(e)}")
-```
-
-### 3. **Implement Efficient Indexing**
-
-Create indexes for commonly queried fields:
-
-```python
-def _create_indexes(self):
-    # For MongoDB
-    self.packages.create_index("name", unique=True)
-    self.packages.create_index("owner_org")
-    self.packages.create_index([("title", "text"), ("notes", "text")])
-```
-
-### 4. **Support Transactions (if possible)**
-
-For backends that support transactions, use them for multi-step operations:
-
-```python
-def package_delete(self, id: str) -> None:
-    with self.backend.transaction():
-        # Delete resources first
-        self.resources.delete_many({"package_id": id})
-        # Then delete package
-        self.packages.delete_one({"id": id})
-```
-
-### 5. **Document Your Implementation**
-
-Add comprehensive docstrings:
-
-```python
-class YourBackendRepository(DataCatalogRepository):
-    """
-    Your Backend implementation of the catalog repository.
-
-    This repository uses YourBackend to store catalog data,
-    providing [specific features/advantages].
-
-    Connection Parameters
-    ---------------------
-    param1 : str
-        Description of param1
-    param2 : int
-        Description of param2
-
-    Examples
-    --------
-    >>> repo = YourBackendRepository(param1="value", param2=42)
-    >>> package = repo.package_create(name="test", title="Test", owner_org="org")
-
-    Notes
-    -----
-    - [Important note 1]
-    - [Important note 2]
-    """
-```
-
-### 6. **Optimize for Your Backend's Strengths**
-
-Take advantage of your backend's unique features:
-
-- **Elasticsearch**: Use full-text search capabilities
-- **PostgreSQL**: Use SQL joins for complex queries
-- **Neo4j**: Use graph traversals for relationships
-- **Redis**: Use pub/sub for real-time updates
-
-### 7. **Handle Extras/Metadata Properly**
-
-Extras can contain any user-defined metadata:
-
-```python
-def package_create(self, **kwargs) -> Dict[str, Any]:
-    extras = kwargs.get("extras", [])
-
-    # Convert extras list to dict for easier handling
-    extras_dict = {e["key"]: e["value"] for e in extras}
-
-    # Store in your backend's preferred format
-    # Convert back to list format when returning
-    return {
-        "id": package_id,
-        "extras": [{"key": k, "value": v} for k, v in extras_dict.items()]
-    }
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**
-   - Make sure to add your repository to `__init__.py`
-   - Check that all dependencies are in `requirements.txt`
-
-2. **Configuration Not Loading**
-   - Verify environment variables are set correctly
-   - Check `pydantic_settings` is reading from `.env`
-
-3. **Type Mismatches**
-   - Ensure your return types match the interface
-   - Use `typing` hints consistently
-
-4. **Tests Failing**
-   - Mock external dependencies in unit tests
-   - Use test containers for integration tests
-   - Clean up test data between tests
-
-## Contributing Your Backend
-
-If you've implemented a backend that others might find useful, consider contributing it to the project:
-
-1. Ensure all tests pass
-2. Add comprehensive documentation
-3. Update the main README.md
-4. Submit a pull request with your implementation
-
-## Resources
-
-- [Repository Pattern Explained](https://martinfowler.com/eaaCatalog/repository.html)
-- [CKAN API Documentation](https://docs.ckan.org/en/latest/api/index.html)
-- [Python Abstract Base Classes](https://docs.python.org/3/library/abc.html)
-- [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)
+`has_local_catalog` needs no change: it is true for every value except `none`.
+
+### 4.3 Configuration and dependencies
+
+- Add the new variables to [`example.env`](../example.env), next to
+  `LOCAL_CATALOG_BACKEND`, and to [configuration.md](configuration.md).
+- Add the client library to [`requirements.txt`](../requirements.txt).
+- If the backend should be offered by the installer or started by Compose,
+  that is a separate change in [`install/install.sh`](../install/install.sh)
+  and [`docker-compose.yml`](../docker-compose.yml).
 
 ---
 
-For questions or support, please open an issue on the GitHub repository.
+## 5. Testing
+
+### Unit tests for the repository
+
+[`tests/repositories/`](../tests/repositories/) holds the existing backends'
+tests (`test_ckan_repository.py`, `test_mongodb_repository.py`, the latter on
+`mongomock`). Follow them for the new class: create, show by id and by name,
+update, patch, delete, search with `q`, `fq` and `fq_list`, `rows=0`,
+duplicate names, unknown organization, and `check_health` returning `False`
+instead of raising.
+
+### An integration test through the API
+
+Routes are mounted, and settings read, when `api.main` is **imported**, so the
+environment must be set before the import. This test exercises the full stack
+— authentication, the write guard, the services and your repository — without
+an identity provider:
+
+```python
+# tests/test_your_backend_integration.py
+import os
+
+# Before importing the app: settings and route mounting happen at import.
+os.environ["LOCAL_CATALOG_BACKEND"] = "your_backend"
+os.environ["YOUR_BACKEND_CONNECTION_STRING"] = "..."
+os.environ["CKAN_LOCAL_ENABLED"] = "True"   # otherwise POST /dataset is not mounted
+os.environ["TEST_TOKEN"] = "integration-test-token"
+os.environ["ENABLE_GROUP_BASED_ACCESS"] = "False"
+os.environ["AFFINITIES_ENABLED"] = "False"
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from api.main import app  # noqa: E402
+
+client = TestClient(app)
+AUTH = {"Authorization": "Bearer integration-test-token"}
+
+
+def test_create_organization_and_dataset():
+    response = client.post(
+        "/organization",
+        json={"name": "test-org", "title": "Test Org"},
+        headers=AUTH,
+    )
+    assert response.status_code == 201, response.text
+
+    response = client.post(
+        "/dataset",
+        json={"name": "test-dataset", "title": "Test Dataset", "owner_org": "test-org"},
+        headers=AUTH,
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["name"] == "test-dataset"
+    assert body["warning"] is None
+
+    response = client.post(
+        "/search", json={"dataset_name": "test-dataset", "server": "local"}
+    )
+    assert response.status_code == 200, response.text
+    assert [d["id"] for d in response.json()] == [body["id"]]
+```
+
+Points that make or break it:
+
+- **Environment before import.** If another test module in the same pytest
+  session imported `api.main` first, these variables have no effect. Run the
+  file on its own (`pytest tests/test_your_backend_integration.py`), or import
+  the app in a subprocess the way
+  [`tests/test_put_dataset_route_unique.py`](../tests/test_put_dataset_route_unique.py)
+  does.
+- **`TEST_TOKEN`** is accepted without calling `AUTH_API_URL` and carries
+  `ndp_admin`, so it passes the writer guard.
+- **`CKAN_LOCAL_ENABLED=True`** is required with any backend: without it the
+  registration routes are not mounted and `POST /dataset` is 404.
+- **201**, not 200, is the success status of every creation route.
+- `TestClient(app)` used without `with` does not run the lifespan, so the
+  metrics loop and the `services` organization bootstrap do not start.
+- A `.env` in the working directory is still read for anything the test does
+  not set; the environment variables above take precedence over it.
+
+---
+
+## 6. Code that does not go through the repository
+
+A new backend is used by most of the API, but not all of it. As of v0.34.45
+these paths reach CKAN directly, whatever `LOCAL_CATALOG_BACKEND` says:
+
+- `PUT`/`PATCH /url/{id}`, `/s3/{id}` and `/kafka/{id}` with `server=local`:
+  the routes pass `ckan_settings.ckan` (the CKAN at `CKAN_URL`) to the update
+  services.
+- `api/services/organization_services/delete_organization_and_datasets.py`
+  and `api/services/status_services/check_ckan_status.py` use
+  `ckan_settings.ckan` directly.
+
+Everything else — creation routes, dataset `PUT`/`PATCH`, services, search,
+resources, deletes, publish, the metrics counts and `/ready` — goes through
+`catalog_settings`.

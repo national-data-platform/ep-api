@@ -30,14 +30,31 @@ Run it and answer the prompts. Each has a short explanation on screen; the main
 choices are:
 
 1. **Configuration id** — leave blank the first time and it offers to register.
+   With an id, it offers to keep your answers in the Federation registration
+   (this needs your token) so a later run can reuse them.
 2. **Local catalog** — where this Endpoint stores its datasets, or whether it
    stores any at all (see below).
-3. **Register with the Federation** — answer yes and give your token; this is
-   what lists the Endpoint on the platform and creates its Keycloak group,
-   which the group-based access control is keyed on. Answer no for a
-   standalone Endpoint: it will not be listed, and it reports nothing back.
-4. **Endpoint port** and **authentication service** — sensible defaults are
-   offered; press Enter to accept.
+3. **S3 object storage** — off by default. Answer yes and choose between a
+   MinIO installed alongside the Endpoint and an S3-compatible service you
+   already run (see [S3 object storage](#s3-object-storage)).
+4. **Register with the Federation** (only without a configuration id) —
+   answer yes and give your token; this is what lists the Endpoint on the
+   platform and creates its Keycloak group, which the group-based access
+   control is keyed on. Registering asks for the organization, Endpoint name,
+   a contact email, whether to list the Endpoint on the platform, and the
+   optional features below. Answer no for a standalone Endpoint: you are asked
+   only for the organization and Endpoint name, it will not be listed, and it
+   reports nothing back.
+5. **Endpoint port** — the first free port from 8002 is offered. With a CKAN
+   installed by the script, its three ports and sysadmin name follow.
+6. **Authentication service** — the AAI URL; the default is the National Data
+   Platform's.
+7. **Access requests** — off by default. Answer yes to let people without
+   access ask for it from the login screen and have an administrator approve
+   it in the UI. The requests are stored in MongoDB: the one the catalog uses,
+   or a MongoDB installed for this alone when the catalog is not MongoDB.
+
+Press Enter at any prompt to accept the value in brackets.
 
 When it finishes you'll see `Endpoint healthy` and a URL like
 `http://localhost:8002/ui/`.
@@ -97,6 +114,32 @@ the installer verifies both before writing anything.
 <!-- video: existing CKAN -->
 📹 _Recording: coming soon_
 
+## S3 object storage
+
+Answering yes to "Enable S3 object storage?" offers two choices:
+
+1. **MinIO, installed alongside the Endpoint** — adds the Compose `s3` profile
+   (the `pgsty/silo` image, a community fork of MinIO) and writes
+   `S3_ENDPOINT=minio:9000` with the development credentials
+   `minioadmin` / `minioadmin123`. Its API is published on the host as port
+   9002 and its console as 9003.
+2. **An S3-compatible service you already have** — asks for the endpoint
+   (`host:port`, or `s3.amazonaws.com`), access key, secret key, region
+   (default `us-east-1`) and whether to use https.
+
+Either way `S3_ENABLED=True` is written, which adds the S3 Management tool to
+the UI. See [minio-setup.md](minio-setup.md).
+
+## Listed on the platform
+
+Registration asks "List this Endpoint on the platform?" (default yes). The
+answer is stored in the Federation registration, and the installer writes it
+to `IS_PUBLIC`: `True` makes the Endpoint post its periodic metrics report to
+the Federation (`METRICS_ENDPOINT`, which the installer sets to the Federation
+it was pointed at), so it shows up as active; `False` keeps the report local.
+It does not affect who can read the Endpoint's data. An Endpoint that is not
+registered always gets `IS_PUBLIC=False`.
+
 ## Optional features
 
 During registration the installer can turn on extra features. Each is off by
@@ -104,8 +147,8 @@ default; answer yes to enable it:
 
 - **JupyterHub** — shows a JupyterHub link in the UI. Asks for the URL it should
   point to.
-- **Data streaming (Kafka)** — lets the Endpoint manage and stream Kafka topics,
-  and starts a Kafka broker alongside it.
+- **Data streaming (Kafka)** — sets `KAFKA_CONNECTION=True` and starts a Kafka
+  broker alongside the Endpoint (Compose `kafka` profile).
 - **Remote execution** — lets the Endpoint drive the Remote Execution API. Asks
   for that service's URL.
 
