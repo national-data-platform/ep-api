@@ -12,6 +12,19 @@ and test when this was written (both report `1.12.0` on their public `/info`
 and `/health/` routes). Statements that could not be confirmed from this side
 are marked **Unverified**.
 
+**Summary**
+
+- At install time the installer can register the Endpoint (`POST /ep/simple`
+  with the operator's NDP token) and then bootstraps it from the returned
+  config id (`GET /ep/{id}`), mapping the configuration into `.env`.
+- At runtime the Endpoint's only call to the Federation is a metrics report:
+  at startup and every 55 minutes, only when `IS_PUBLIC` is true, without
+  authentication, without retries.
+- Main gaps (§4): reports carry no stable Endpoint identifier and no schema
+  version, measurements are strings, each Endpoint sends four reports per
+  interval, and an Endpoint installed against the test Federation still
+  reports to production.
+
 Placeholders: `<federation-url>` is the Federation base URL, `<config-id>` the
 id a registration returns, `<token>` an NDP user access token.
 

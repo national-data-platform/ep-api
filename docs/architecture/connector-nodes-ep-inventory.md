@@ -10,6 +10,19 @@ whether it could be reused in a **connector node**.
 > below depends on that assumption and should be revisited once Q5 is
 > decided.
 
+**Summary**
+
+- 19 building blocks, most of which can already be switched off by
+  configuration; the main exceptions are the core API, global search, the
+  service proxy, the MCP server and the UI.
+- The pieces closest to what an external node would need are the
+  config-id installer bootstrap, the metrics loop (as a future heartbeat),
+  authentication, and the ways of exposing data: catalog, S3, Pelican and the
+  service proxy.
+- What a connector node is has not been decided (Q5); the verdicts below are
+  provisional and the open questions at the end are what that decision has to
+  answer.
+
 Read from ep-api **v0.34.36**. Each row separates **Facts** (read from the
 code, with a reference) from **Assessment** (judgement about reuse, which is
 an opinion, not a fact). The Federation's own building blocks are inventoried
@@ -294,10 +307,8 @@ What still runs: the API with health, search, status, user and
 service-redirect routes, the MCP server, the metrics loop, authentication, and
 the UI.
 
-**Assessment** — that is a *read-only Endpoint*, not a connector node: it
-exposes nothing local. A connector node would rather be the reverse — no
-search or UI, but one exposure mechanism (catalog, S3, Pelican origin or
-service proxy) plus the heartbeat.
+**Assessment** — that profile is a read-only Endpoint: it exposes nothing
+local. Which exposure mechanisms a connector node needs depends on Q5.
 
 ## Open questions the connector-node definition must answer
 
