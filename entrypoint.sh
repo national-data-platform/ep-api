@@ -43,10 +43,14 @@ server {
         return 301 ${ROOT_PATH}/ui/;
     }
 
+    # Host is passed as \$http_host, which keeps the port the client used:
+    # FastAPI builds its trailing-slash redirects (/status -> /status/) from
+    # it, and with \$host they pointed at port 80 (issue #319).
+
     # Alternative API path (also works via ${ROOT_PATH}/api/)
     location ${ROOT_PATH}/api/ {
         proxy_pass http://127.0.0.1:8000/;
-        proxy_set_header Host \$host;
+        proxy_set_header Host \$http_host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
@@ -55,7 +59,7 @@ server {
     # Root = API
     location ${ROOT_PATH}/ {
         proxy_pass http://127.0.0.1:8000/;
-        proxy_set_header Host \$host;
+        proxy_set_header Host \$http_host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;

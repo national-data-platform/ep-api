@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.43] - 2026-10-08
+
+### Fixed
+- **Trailing-slash redirects dropped the Endpoint's port.** A request without the trailing slash a route expects — `/status`, `/s3/buckets`, `/docs/` — gets a 307 from FastAPI, which builds the target from the `Host` header nginx forwards. The configuration `entrypoint.sh` generates forwarded `Host $host`, which carries no port, so on an Endpoint published on 8002 the redirect pointed at `http://localhost/status/` and any client that followed it hit port 80 and failed. nginx now forwards `$http_host`, which keeps the port. `tests/test_entrypoint_nginx.py` checks every proxied location in the generated configuration. Verified with a built image: `/status` now redirects to `http://localhost:8010/status/` and following it answers 200. With `ROOT_PATH` set, the same redirects keep the port but still lose the prefix; that is tracked separately in #320 (#319).
+
 ## [0.34.42] - 2026-10-08
 
 ### Fixed
