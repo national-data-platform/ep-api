@@ -1143,6 +1143,14 @@ elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "The Endpoint will not be listed in the Federation."
 fi
 
+# Metrics go to the Federation this run was pointed at. Left to example.env,
+# METRICS_ENDPOINT stayed on production whatever --env or --federation-url
+# said, so an Endpoint registered with the test Federation reported to
+# production instead and was never seen as alive where it was registered
+# (issue #307). Written unconditionally: without a registration IS_PUBLIC is
+# False and nothing is posted, but the setting still names the right place.
+put METRICS_ENDPOINT "${federation_url%/}/metrics/"
+
 # --------------------------------------------------------------
 step "Selecting the local catalog backend"
 # --------------------------------------------------------------

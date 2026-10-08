@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.37] - 2026-10-08
+
+### Fixed
+- **An Endpoint installed against a non-production Federation reported its metrics to production.** `install.sh` uses `--env test` or `--federation-url` to register and to fetch the configuration, but never wrote `METRICS_ENDPOINT`, so the rendered `.env` kept `example.env`'s production value. An Endpoint registered with the test Federation was therefore never seen as alive there, while production received reports from an Endpoint it had no configuration for. The installer now writes `METRICS_ENDPOINT=<federation-url>/metrics/` for whichever Federation the run was pointed at — production when nothing is chosen, as before. New tests in `install/tests/test_metrics_endpoint.py` run the installer against a Federation served from the test itself and fail against the previous code. Verified with a full installation against a local Federation: the Endpoint's reports arrived there and it was listed as alive (#307).
+
+### Backwards compatibility
+- Existing installations keep their `.env` until the installer is run again. A deployment pointed at a Federation by a URL only the host can resolve (for example `localhost`) now posts metrics to that URL from inside the container, where it does not resolve; use an address the container can reach.
+
 ## [0.34.36] - 2026-10-07
 
 ### Removed
