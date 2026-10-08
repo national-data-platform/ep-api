@@ -65,14 +65,16 @@ class TestMongoDBFullTextSearch:
         index_spec = fulltext_call[0][0]
         fields = [field[0] for field in index_spec]
         assert "title" in fields
-        assert "tags" in fields
+        # Tags are stored as [{"name": ...}]; a text index only reads strings,
+        # so it must name the subfield (issue #311).
+        assert "tags.name" in fields
         assert "notes" in fields
 
         # Verify weights are specified
         assert "weights" in fulltext_call[1]
         weights = fulltext_call[1]["weights"]
         assert weights["title"] == 10
-        assert weights["tags"] == 5
+        assert weights["tags.name"] == 5
         assert weights["notes"] == 1
 
     def test_package_search_uses_text_operator_for_simple_query(self, repository):
