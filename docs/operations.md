@@ -86,8 +86,10 @@ means moving the checkout to the new version and rebuilding.
   `EP_INSTALL_DIR` (default `~/ndp-ep`) and runs from there.
 - Run from an existing checkout, it uses that checkout as it is: update it
   first (`git fetch --tags && git checkout vX.Y.Z`).
-- It refuses a host port that is already in use, including by the running
-  `ndp-ep-api`, so stop the API first: `docker compose stop api`.
+- It refuses a host port that is already in use, except when the holder is
+  the `ndp-ep-api` container started from this same checkout: that one is
+  replaced by `up -d --build`, so the Endpoint does not need to be stopped
+  first (since 0.34.47).
 - `.env` is rendered again from `example.env` plus the installer's answers;
   edits made by hand to `.env` are in the `.env.backup.<timestamp>` it saves.
 
@@ -183,8 +185,9 @@ connected).
 
 **The installer stops with "Port N is already in use".** The installer checks
 the API port before starting and names the container holding it, if any.
-Choose another with `--ep-api-port <port>`, or stop what is using it (for an
-upgrade, `docker compose stop api`). CKAN's ports are checked the same way;
+Choose another with `--ep-api-port <port>`, or stop what is using it. The
+Endpoint's own `ndp-ep-api` container, started from the same checkout, does not
+count (since 0.34.47); one started from another checkout does. CKAN's ports are checked the same way;
 change them with `--ckan-ssl-port`, `--ckan-http-port` and `--ckan-app-port`.
 
 **`/search` answers 503 "Global catalog is not reachable" or "Global catalog
@@ -224,9 +227,10 @@ recreate it with `EP_API_PORT=<port> docker compose up -d --force-recreate api`
 **Access requests answer 503.** "Access-request workflow is disabled on this
 deployment" means `ENABLE_ACCESS_REQUESTS` is not true. Requests are stored in
 MongoDB through `MONGODB_CONNECTION_STRING`, so that MongoDB must be reachable
-whatever the catalog backend is. Approving a request answers 503 "Endpoint UUID
-is not configured" when `AFFINITIES_EP_UUID` is empty: the user is added to the
-group named by that UUID.
+whatever the catalog backend is. Approving a request adds the user to the
+Endpoint's group — the first entry of `GROUP_NAMES`, or `AFFINITIES_EP_UUID`
+when `GROUP_NAMES` is empty — and answers 503 "No endpoint group is configured
+(GROUP_NAMES or AFFINITIES_EP_UUID)" when both are empty.
 
 **Metrics do not reach the Federation.** The report is posted only when
 `IS_PUBLIC=True`; with `False` it is collected and logged and nothing leaves
