@@ -1,128 +1,64 @@
-# National Data Platform - EndPoint Admin Console (NDP-EP Frontend)
+# NDP Endpoint web UI
 
-A React-based **administrative web interface** for managing and monitoring [NDP-EP API](https://github.com/national-data-platform/ep-api) instances. This console provides system administrators with comprehensive tools to manage datasets, organizations, services, and system health across multiple CKAN environments.
+The React web interface of the NDP Endpoint. It lives in this directory of the
+[ep-api](https://github.com/national-data-platform/ep-api) repository and is
+not deployed on its own: it is built into the Endpoint's Docker image and
+served by the same container as the API.
 
-## 🌐 About the NDP-EP Admin Console
+From the UI, users sign in and work with the Endpoint's API: search, datasets,
+organizations, URL / S3 / Kafka resources, services, S3 buckets and objects,
+and, for admins, access requests. What a user may do is decided by the API
+(see [../docs/roles-and-permissions.md](../docs/roles-and-permissions.md)); the
+UI reads the user's `effective_role` from `GET /user/info` to decide which
+actions to show.
 
-The NDP-EP Admin Console is designed specifically for **system administrators** who need to:
+## How it is built and served
 
-- **🔧 Manage API Instances**: Configure and monitor NDP-EP API deployments
-- **📊 Administer Catalogs**: Control datasets across Local CKAN, Pre-CKAN, and NDP Central environments  
-- **🏢 Organization Management**: Create and manage organizational structures within CKAN instances
-- **🔍 System Monitoring**: Monitor API health, connectivity, and service status
-- **⚙️ Service Registry**: Register and manage microservices, APIs, and applications
-- **🚀 Resource Administration**: Bulk manage Kafka topics, S3 resources, and URL resources
-- **☁️ S3 Management**: Direct S3 bucket and object management with presigned URLs (API v0.2.0+)
+- [Dockerfile.allinone](../Dockerfile.allinone), stage 1 (`node:18-alpine`),
+  runs `npm ci` and `npm run build` here; the build is copied to
+  `/app/ui/build` in the final image.
+- nginx serves it at `${ROOT_PATH}/ui/` (`package.json` sets
+  `"homepage": "/ui"`).
+- API calls are relative to the page's origin, prefixed with `ROOT_PATH`, so
+  the UI always talks to the API of the container that served it. No API URL
+  is configured.
 
-## ⚡ Quick Start for Administrators
+## Runtime configuration
 
-Deploy the admin console for your NDP-EP API instance in under 5 minutes:
+At every container start, [entrypoint.sh](../entrypoint.sh) writes
+`/app/ui/build/config.js`, loaded by `public/index.html`, which sets
+`window.__EP_CONFIG__` from the container's environment:
 
-### Prerequisites
-- Docker (for production deployment)
-- Running [NDP-EP API](https://hub.docker.com/r/rbardaji/ndp-ep-api) instance
+| Key | From |
+|---|---|
+| `rootPath` | `ROOT_PATH` |
+| `affinitiesEpUuid` | `AFFINITIES_EP_UUID` |
+| `oidcEnabled` | `OIDC_ENABLED` (default `False`) |
+| `oidcIssuer`, `oidcClientId`, `oidcScope` | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_SCOPE` |
+| `oidcButtonLabel`, `oidcHelpText` | `OIDC_BUTTON_LABEL`, `OIDC_HELP_TEXT` |
 
-### Option 1: Docker Hub (Production Ready)
+It also rewrites the `/ui/` asset paths in `index.html` to
+`${ROOT_PATH}/ui/`. These variables are documented in
+[../docs/configuration.md](../docs/configuration.md).
+
+## Development
+
+Node 18, as in the image and in CI:
 
 ```bash
-# Deploy latest version with S3 management features (v0.2.0+)
-docker run -p 3000:80 \
-  -e NDP_EP_API="https://your-ndp-api.company.com" \
-  rbardaji/ndp-ep-frontend:latest
-
-# Or deploy specific version
-docker run -p 3000:80 \
-  -e NDP_EP_API="https://your-ndp-api.company.com" \
-  rbardaji/ndp-ep-frontend:0.2.0
+npm ci
+npm test -- --watchAll=false   # what CI runs
+npm run build                  # production build into build/
 ```
 
-**Access the admin console**: http://localhost:3000
+`npm start` runs the `react-scripts` development server. No proxy is
+configured and `config.js` is only generated inside the container, so a page
+served by the development server sends its API calls to the development
+server itself.
 
-### Option 2: Local Development
+To see a UI change in a running Endpoint, rebuild the image from the
+repository root (`docker compose up -d --build`).
 
-```bash
-# Clone the repository
-git clone https://github.com/your-username/ndp-ep-frontend.git
-cd ndp-ep-frontend
+## License
 
-# Install dependencies
-npm install
-
-# Configure API endpoint (optional)
-echo "REACT_APP_API_BASE_URL=http://localhost:8003" > .env.local
-
-# Start development server
-npm start
-```
-**Access the admin console**: http://localhost:3000
-
-#### Option 3: Docker Compose (Recommended)
-Create a `docker-compose.yml` file:
-
-```yaml
-version: '3.8'
-
-services:
-  frontend:
-    image: rbardaji/ndp-ep-frontend:0.2.0  # Use specific version for S3 features
-    ports:
-      - "80:80"
-    environment:
-      - NDP_EP_API=https://api.your-domain.com
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-```
-
-Run with:
-```bash
-docker-compose up -d
-```
-
-#### Option 4: Full Stack with Backend
-```yaml
-version: '3.8'
-
-services:
-  frontend:
-    image: rbardaji/ndp-ep-frontend:0.2.0  # S3 management features
-    ports:
-      - "3000:80"
-    environment:
-      - NDP_EP_API=http://backend:8000
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-  backend:
-    image: rbardaji/ndp-ep-api:0.2.0  # Compatible API version for S3 features
-    ports:
-      - "8001:8000"
-    environment:
-      - ORGANIZATION=Your Organization
-      - CKAN_LOCAL_ENABLED=False
-      - PRE_CKAN_ENABLED=True
-      - PRE_CKAN_URL=https://preckan.nationaldataplatform.org
-      - PRE_CKAN_API_KEY=your-api-key
-    restart: unless-stopped
-```
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `NDP_EP_API` | Backend API URL | `http://localhost:8003` | `https://api.example.com` |
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-For more information about the National Data Platform, visit [nationaldataplatform.org](https://nationaldataplatform.org)
+MIT — see [../LICENSE](../LICENSE).

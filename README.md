@@ -1,745 +1,354 @@
 # National Data Platform - Endpoint API (NDP-EP API)
 
-A REST API that provides **unified access** to dataset management across the [National Data Platform (NDP)](https://nationaldataplatform.org). Users can search the NDP catalog, ingest new datasets, and manage their own data collections through a single, streamlined M2M interface.
+The NDP Endpoint is the service an institution runs to take part in the
+[National Data Platform (NDP)](https://nationaldataplatform.org). It is a
+FastAPI backend (`api/`) with a React web UI (`ui/`), shipped together as one
+Docker image, plus an installer (`install/`) that registers an Endpoint with
+the NDP Federation and brings it up.
 
-## 🌐 About the National Data Platform
+An Endpoint:
 
-The NDP-EP API integrates seamlessly with the National Data Platform ecosystem:
+- authenticates users against the NDP identity service (`AUTH_API_URL`) and
+  enforces viewer / writer / admin roles;
+- searches the NDP global catalog and, optionally, its own local catalog;
+- optionally keeps a **local catalog** (MongoDB or CKAN) where datasets,
+  organizations and resources (URLs, S3 objects, Kafka topics, services) are
+  registered, and publishes datasets to the NDP staging catalog (Pre-CKAN);
+- optionally manages S3 buckets and objects, Kafka streams, Pelican federation
+  data and a JupyterLab link;
+- reports metrics to the NDP Federation when it is listed there.
 
-- **🔐 Unified Authentication**: Uses NDP's authentication system - your NDP account works directly with this API
-- **📊 Multi-Catalog Management**: Control and access datasets across three different CKAN environments
-- **🔍 Centralized Discovery**: Search the main NDP catalog and other connected data sources
-- **📥 Streamlined Ingestion**: Simplified workflow for adding new datasets to the platform
+## Documentation
 
-## 🏗️ NDP Catalog Architecture
+- [docs/README.md](docs/README.md) — index of all documentation
+- [docs/architecture/overview.md](docs/architecture/overview.md) — how the
+  pieces fit together
+- [docs/configuration.md](docs/configuration.md) — every `.env` variable
+- [docs/roles-and-permissions.md](docs/roles-and-permissions.md) — the
+  viewer / writer / admin model
+- [docs/architecture/federation-and-metrics.md](docs/architecture/federation-and-metrics.md)
+  — registration with the Federation and the metrics contract
+- [install/README.md](install/README.md) — the installer
+- [ui/README.md](ui/README.md) — the web UI
 
-The National Data Platform uses CKAN as its data catalog management software. This API provides access to three different catalog environments, each with specific access levels and purposes:
+## Catalogs
 
-### 1. **Local Catalog** 🏠 (CKAN or MongoDB)
-You can use your own catalog backend for local dataset management, with your choice of storage (see [Adding New Catalog Backends](docs/adding-catalog-backends.md) for custom implementations):
+The API works with three catalogs. Global and staging are always CKAN; the
+local one is chosen with `LOCAL_CATALOG_BACKEND`.
 
-**CKAN Backend** (Traditional):
-- Full CKAN compatibility with all extensions
-- Ideal if you already have CKAN infrastructure
-- Complete administrative access to your catalog
+| Catalog | Setting | Access through this API |
+|---|---|---|
+| **Global** — the NDP central catalog | `CKAN_GLOBAL_URL` (default `https://nationaldataplatform.org/catalog`) | search (`server=global`, the default) |
+| **Local** — this Endpoint's own catalog | `LOCAL_CATALOG_BACKEND=ckan \| mongodb \| none` | search (`server=local`), create, update, delete |
+| **Staging** — Pre-CKAN | `PRE_CKAN_ENABLED`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY`, `PRE_CKAN_ORGANIZATION` | `POST /dataset/{dataset_id}/publish` copies a local dataset there |
 
-**MongoDB Backend** (Modern NoSQL):
-- Lightweight, no CKAN installation required
-- Fast document-based storage
-- Easy to deploy and scale
-- Perfect for new deployments or cloud-native environments
+The routes that write to the local catalog (registration, update, delete and
+`/resource`, `/resources/search`) are mounted only when
+`CKAN_LOCAL_ENABLED=True` **and** `LOCAL_CATALOG_BACKEND` is not `none`.
+Despite its name, `CKAN_LOCAL_ENABLED` is the switch for any backend,
+MongoDB included. See [docs/adding-catalog-backends.md](docs/adding-catalog-backends.md)
+for adding another backend.
 
-Both options give you:
-- **Full Control**: Create, read, update, and delete datasets
-- **Use Case**: Personal or organizational data catalogs
-- **Flexibility**: Switch between backends via configuration
+## Quick start
 
-### 2. **NDP Central Catalog** 🌍
-This is the main public catalog of the National Data Platform. Through this API you can:
-- **Read-Only Access**: Search and discover publicly available datasets
-- **Use Case**: Exploring the official NDP data collection
-- **Permissions**: Search and view only - no modifications allowed
+### With the installer
 
-### 3. **PreCKAN (Staging Environment)** 🔄
-This is a staging environment provided by the NDP for dataset submission and review. Here's how it works:
-- **Ingestion Gateway**: Submit new datasets for validation and review
-- **Use Case**: Contributing datasets to the NDP central catalog
-- **Workflow**: Your datasets are analyzed, validated, and if approved, promoted to the central catalog
-
-## 🚀 Key Features
-
-- **🔐 NDP Authentication Integration**: Seamless login with your National Data Platform credentials
-- **🔄 Pluggable Catalog Backends**: Choose between CKAN or MongoDB for your local catalog
-- **🔍 Federated Search**: Discover datasets across local, NDP, and staging catalogs
-- **🚀 Specialized Ingestion**: Purpose-built endpoints for Kafka topics, S3 resources, web services, and URLs
-- **📦 MINIO S3 Storage**: Direct bucket and object management with secure presigned URLs
-- **📋 General Dataset Management**: Flexible API for managing datasets with custom metadata
-- **🔧 Service Registry**: Register and discover other services (such as microservices, APIs, or apps)
-- **🤖 AI Agent Integration**: Model Context Protocol (MCP) support for AI assistants to interact with the API
-- **🌐 Pelican Federation**: Access distributed scientific data from OSDF and serve your own data to federations
-- **📈 System Monitoring**: Built-in metrics and health monitoring
-- **📚 RESTful API**: Comprehensive OpenAPI/Swagger documentation
-- **🔌 Extensible Architecture**: Easy to add new catalog backends (Elasticsearch, PostgreSQL, etc.)
-
-## ⚡ Quick Start
-
-> **Just want to stand up an Endpoint?** The one-line installer registers it
-> with the Federation, sets up its catalog and starts it:
-> ```bash
-> bash <(curl -fsSL https://bit.ly/ndp-ep)
-> ```
-> See the [install guide](docs/installing-with-the-script.md) for a walk-through
-> of each option. The manual Docker setup below is for development and custom
-> deployments.
-
-Get the NDP-EP API running with Docker in under 5 minutes:
-
-### Prerequisites
-
-Before you begin, ensure you have:
-
-- **Docker**: Container platform for running the API
-  - Install from [docker.com](https://www.docker.com/get-started)
-  - Verify installation: `docker --version`
-
-- **Docker Compose**: Container orchestration tool
-  - Usually included with Docker Desktop
-  - Verify installation: `docker-compose --version`
-
-- **CKAN Instance** (Optional):
-  - **Required only if**: You want to use local CKAN or PreCKAN features
-  - **Not needed if**: You only plan to use NDP Central Catalog (read-only access)
-  - Install CKAN following the [official documentation](https://docs.ckan.org/en/latest/maintaining/installing/index.html)
-
-- **S3-Compatible Storage** (Optional):
-  - **Required only if**: You want to use S3 object storage features
-  - **Not needed if**: You don't plan to use bucket/object management endpoints
-  - **Example**: MINIO is a popular S3-compatible service - see [MINIO setup guide](docs/minio-setup.md) for Docker installation instructions
-
-### 1. Configure Environment Variables
-
-Create a `.env` file or prepare environment variables with your configuration:
+The installer registers the Endpoint with the Federation (or uses an existing
+configuration id), writes `.env`, and starts the stack with Docker Compose:
 
 ```bash
-# ==============================================
-# API CONFIGURATION
-# ==============================================
-# API root path prefix (e.g., "/test" or "" for root)
-# If empty or not set, the API will be available at the root path
-# This is useful when deploying the API behind a reverse proxy at a subpath
-ROOT_PATH=
-
-# ==============================================
-# ORGANIZATION SETTINGS
-# ==============================================
-# Your organization name for identification and metrics
-ORGANIZATION="My organization"
-
-# Endpoint name for identification in metrics and monitoring
-EP_NAME="EP Name"
-
-# ==============================================
-# METRICS CONFIGURATION
-# ==============================================
-# Interval in seconds for sending metrics (default: 3300 seconds = 55 minutes)
-METRICS_INTERVAL_SECONDS=3300
-
-# ==============================================
-# AUTHENTICATION CONFIGURATION
-# ==============================================
-# URL for the authentication API to retrieve user information
-# This endpoint is used to validate tokens and fetch user details
-AUTH_API_URL=https://idp.nationaldataplatform.org/temp/information
-
-# ==============================================
-# ACCESS CONTROL (Optional)
-# ==============================================
-# Enable group-based access control (True/False)
-# When enabled, only users belonging to one of the groups in GROUP_NAMES
-# can perform POST, PUT, DELETE operations. Other authenticated users
-# will receive 403 Forbidden on write operations.
-# GET endpoints remain public regardless of this setting.
-ENABLE_GROUP_BASED_ACCESS=False
-
-# Comma-separated list of allowed groups for write operations
-# Only used when ENABLE_GROUP_BASED_ACCESS=True
-GROUP_NAMES=admins,developers
-
-# ==============================================
-# LOCAL CATALOG CONFIGURATION
-# ==============================================
-# Choose your local catalog backend: "ckan" or "mongodb"
-# Global and Pre-CKAN always use CKAN regardless of this setting
-LOCAL_CATALOG_BACKEND=ckan
-
-# ==============================================
-# LOCAL CKAN CONFIGURATION (if LOCAL_CATALOG_BACKEND=ckan)
-# ==============================================
-# Enable or disable the local CKAN instance (True/False)
-# Set to True if you have your own CKAN installation
-CKAN_LOCAL_ENABLED=True
-
-# Base URL of your local CKAN instance (Required if CKAN_LOCAL_ENABLED=True)
-# Example: http://192.168.1.134:5000/ or https://your-ckan-domain.com/
-CKAN_URL=http://XXX.XXX.XXX.XXX:XXXX/
-
-# API Key for CKAN authentication (Required if CKAN_LOCAL_ENABLED=True)
-# Get this from your CKAN user profile -> API Tokens
-CKAN_API_KEY=
-
-# ==============================================
-# MONGODB CONFIGURATION (if LOCAL_CATALOG_BACKEND=mongodb)
-# ==============================================
-# MongoDB connection string
-MONGODB_CONNECTION_STRING=mongodb://localhost:27017
-
-# MongoDB database name for local catalog
-MONGODB_DATABASE=ndp_local_catalog
-
-# ==============================================
-# PRE-CKAN CONFIGURATION
-# ==============================================
-# Enable or disable the Pre-CKAN instance (True/False)
-# Set to True if you want to submit datasets to NDP Central Catalog
-PRE_CKAN_ENABLED=True
-
-# URL of the Pre-CKAN staging instance (Required if PRE_CKAN_ENABLED=True)
-# This is typically provided by the NDP team
-PRE_CKAN_URL=http://XX.XX.XX.XXX:5000/
-
-# API key for Pre-CKAN authentication (Required if PRE_CKAN_ENABLED=True)
-# Obtain this from the NDP team or your Pre-CKAN user profile
-PRE_CKAN_API_KEY=
-
-# Organization for Pre-CKAN publishing (Optional)
-# When set, all datasets published to PRE-CKAN will use this organization,
-# regardless of their original owner_org in the local catalog.
-# Required when your PRE-CKAN API key is tied to a specific organization.
-# Format: ep-XXXXXXXXXXXXXXXXXXXXXXXX (assigned by NDP)
-PRE_CKAN_ORGANIZATION=
-
-# ==============================================
-# STREAMING CONFIGURATION
-# ==============================================
-# Enable or disable Kafka connectivity (True/False)
-# Set to True if you want to ingest data from Kafka streams
-KAFKA_CONNECTION=False
-
-# Kafka broker hostname or IP address (Required if KAFKA_CONNECTION=True)
-KAFKA_HOST=
-
-# Kafka broker port number (Required if KAFKA_CONNECTION=True)
-# Default Kafka port is 9092
-KAFKA_PORT=9092
-
-# ==============================================
-# DEVELOPMENT & TESTING
-# ==============================================
-# Test token for development purposes (Optional)
-# Leave blank in production environments for security
-TEST_TOKEN=testing_token
-
-# ==============================================
-# EXTERNAL SERVICE INTEGRATIONS
-# ==============================================
-# Enable or disable JupyterLab integration (True/False)
-# Set to True if you want to integrate with a JupyterLab instance
-USE_JUPYTERLAB=False
-
-# URL to your JupyterLab instance (Required if USE_JUPYTERLAB=True)
-# Example: https://jupyter.your-domain.com or http://localhost:8888
-JUPYTER_URL=
-
-# ==============================================
-# S3 STORAGE CONFIGURATION
-# ==============================================
-# Enable or disable S3 storage (True/False)
-S3_ENABLED=True
-
-# S3 endpoint (host:port) - use your S3-compatible service endpoint
-S3_ENDPOINT=XXX.XXX.XXX.XXX:9000
-
-# S3 access credentials
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin123
-
-# Use secure connection (True for HTTPS, False for HTTP)
-S3_SECURE=False
-
-# Default region
-S3_REGION=us-east-1
+bash <(curl -fsSL https://bit.ly/ndp-ep)
 ```
 
-### 2. Run with Docker
-
-1. **Create the .env file** with your configuration (see step 1)
-
-2. **Run the container**:
-```bash
-docker run -p 8001:80 --env-file .env rbardaji/ndp-ep-api
-```
-The `rbardaji/ndp-ep-api` image is the all-in-one build (API + web UI behind
-nginx) and listens on container port **80**. The command above maps it to host
-port `8001`, so the API is reachable at `http://localhost:8001`.
-
-### 3. Run with Docker Compose (Optional Services)
-
-The `docker-compose.yml` uses **profiles** to let you choose which services to start. By default, only the API starts. Use profiles to add optional services:
-
-**Available Profiles:**
-| Profile | Services Included |
-|---------|-------------------|
-| `mongodb` | MongoDB + Mongo Express |
-| `kafka` | Kafka + Zookeeper + Kafka UI |
-| `s3` | MinIO (S3-compatible storage) |
-| `jupyter` | JupyterLab |
-| `pelican` | Pelican Federation (Registry, Director, Origin, Cache) — needs extra setup, see warning below |
-| `frontend` | NDP-EP Frontend Web UI |
-| `full` | All services (includes Pelican — see warning below) |
-
-**Usage Examples:**
+or, from a checkout:
 
 ```bash
-# API only (no additional services)
-docker compose up
-
-# API + MongoDB
-docker compose --profile mongodb up
-
-# API + MongoDB + Kafka
-docker compose --profile mongodb --profile kafka up
-
-# Recommended local stack: catalog + storage + streaming + notebooks (no Pelican)
-docker compose --profile mongodb --profile s3 --profile kafka --profile jupyter up
+./install/install.sh --help
 ```
 
-**Recommended for most deployments:** start only the profiles you actually need (e.g. `--profile mongodb --profile s3`). This keeps the stack lean and avoids services that require extra setup.
+See [install/README.md](install/README.md) and
+[docs/installing-with-the-script.md](docs/installing-with-the-script.md).
 
-> ⚠️ **About `--profile full` and `--profile pelican`:** the `full` profile also starts the Pelican federation services (registry, director, origin, cache). Those require additional TLS/federation configuration that is **not** included out of the box, so on a fresh local machine they will enter a **restart loop**. This is expected and does not mean the rest of the stack is broken — Pelican is **not needed** for a typical deployment. Only enable the `pelican` profile once you have completed the Pelican federation setup.
+### With Docker
 
-**Note:** When using external services (e.g., your own CKAN or Kafka), just run `docker compose up` and configure the external URLs in your `.env` file.
+Requirements: Docker, and Docker Compose for the bundled services.
 
-> 🔄 **Updating to a new version:** `docker compose up` reuses an already-built
-> image and will **not** pick up new code on its own. After `git pull` (or any
-> change to the source), rebuild the image explicitly, otherwise you keep running
-> the old one:
-> ```bash
-> docker compose build --no-cache api
-> docker compose up -d            # or: docker compose up -d --build
-> ```
-> To confirm which version is actually running, check the `version` field at
-> `http://localhost:<port>/docs` (or in the metrics line of `docker logs ndp-ep-api`).
-> If the `COMMAND` column of `docker ps` for `ndp-ep-api` shows `uvicorn …` instead
-> of `/app/entrypoint.sh`, you are on a stale pre-nginx image and need to rebuild.
+The published image is `rbardaji/ndp-ep-api`, built from
+[Dockerfile.allinone](Dockerfile.allinone). Inside the container nginx listens
+on port **80** and serves:
 
-### 4. Verify Installation
+- the UI at `${ROOT_PATH}/ui/`
+- the API at `${ROOT_PATH}/`, and also at `${ROOT_PATH}/api/`
 
-Once the container is running, verify everything is working (replace `8001`
-with `8002` if you started the stack with `docker compose`, whose default
-host port is `8002`):
+uvicorn (4 workers) listens only on `127.0.0.1:8000` inside the container.
 
-- **API Documentation**: http://localhost:8001/docs
-- **Web UI**: http://localhost:8001/ui/
-- **Health Check (liveness)**: http://localhost:8001/health
-- **Interactive API Explorer**: Available at the docs URL
+1. Create the configuration:
 
-> The `/status/` endpoint also reports detailed service status, but it requires
-> an authentication token and returns `401` without one, so it is not part of
-> the quick unauthenticated verification above.
+   ```bash
+   cp example.env .env
+   ```
 
-### 5. Common Configuration Scenarios
+   `example.env` documents every variable; [docs/configuration.md](docs/configuration.md)
+   is the full reference. `example.env` is written as a demo with the optional
+   integrations switched on and pointing at the bundled services
+   (`KAFKA_CONNECTION`, `USE_JUPYTERLAB`, `S3_ENABLED`, `PELICAN_ENABLED` are
+   `True`, `LOCAL_CATALOG_BACKEND=mongodb`). Switch off what you do not run.
+   It also sets `IS_PUBLIC=True`, which posts metrics to the Federation —
+   set it to `False` for an Endpoint that is not registered there.
 
-#### Scenario 1: NDP Central Catalog Only (Read-Only)
+2. Run the published image:
+
+   ```bash
+   docker run -p 8002:80 --env-file .env rbardaji/ndp-ep-api
+   ```
+
+   or build from this checkout and start it with Compose, which publishes
+   host port `${EP_API_PORT:-8002}` to container port 80:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. Check it:
+
+   - UI: http://localhost:8002/ui/
+   - API documentation (Swagger): http://localhost:8002/docs
+   - Liveness: http://localhost:8002/health
+   - Readiness: http://localhost:8002/ready (HTTP 503 if an enabled
+     dependency is down)
+
+   `/status/` needs a token and answers 401 without one.
+
+`TEST_TOKEN` (default `testing_token`) is accepted as a Bearer token with the
+`ndp_admin` role, without contacting the identity service. It is meant for
+development only: **set `TEST_TOKEN=` (empty) in production.**
+
+### Compose profiles
+
+`docker-compose.yml` always starts the `api` service. Optional services are
+enabled with `--profile <name>`:
+
+| Profile | Services | Host ports |
+|---|---|---|
+| `mongodb` | MongoDB 7 (user `admin`, password `admin123`) | 27018 |
+| `mongo-express` | Mongo Express, a web console for that MongoDB; use with `mongodb` | 8082 |
+| `s3` | `pgsty/silo:RELEASE.2026-09-16T00-00-00Z`, a MinIO fork (MinIO images are no longer published); user `minioadmin`, password `minioadmin123` | 9002 (S3 API), 9003 (console) |
+| `kafka` | Zookeeper, Kafka, Kafka UI | 9094 → 9092, 9095 → 9093 (Kafka); 8081 (Kafka UI) |
+| `jupyter` | JupyterLab (`jupyter/scipy-notebook`, token `testing_token`) | 8888 |
+| `pelican` | Pelican registry, director, origin, cache | 8444, 8445, 8446-8447, 8448-8449 |
+| `full` | all of the above | |
+
+Inside the Compose network the services are reached by name: `mongodb:27017`,
+`minio:9000`, `kafka:9093`, `jupyterlab:8888`. The credentials above are fixed
+demo values in `docker-compose.yml`.
+
 ```bash
-# Minimal configuration for read-only access to NDP Central Catalog
-ORGANIZATION="Your Organization"
+docker compose --profile mongodb --profile s3 up -d --build
+```
+
+The Pelican services need TLS and federation setup that this repository does
+not provide; on a fresh machine they restart in a loop. `full` includes them.
+Start only the profiles you need.
+
+`docker compose up` reuses an image it has already built. After pulling new
+code, rebuild (`docker compose up -d --build`, or
+`docker compose build --no-cache api`). The running version is shown at
+`/docs`.
+
+### Common configurations
+
+**No local catalog.** Search the global catalog only; nothing is stored
+locally:
+
+```bash
+LOCAL_CATALOG_BACKEND=none
 CKAN_LOCAL_ENABLED=False
 PRE_CKAN_ENABLED=False
 KAFKA_CONNECTION=False
+S3_ENABLED=False
+PELICAN_ENABLED=False
 USE_JUPYTERLAB=False
 ```
 
-#### Scenario 2: Local CKAN Development
+**MongoDB catalog from the `mongodb` profile:**
+
 ```bash
-# Configuration for local CKAN development
-ORGANIZATION="Your Organization"
+LOCAL_CATALOG_BACKEND=mongodb
+CKAN_LOCAL_ENABLED=True
+MONGODB_CONNECTION_STRING=mongodb://admin:admin123@mongodb:27017
+MONGODB_DATABASE=ndp_local_catalog
+```
+
+```bash
+docker compose --profile mongodb up -d --build
+```
+
+The connection string must carry the credentials; the bundled MongoDB is
+started with them. `mongodb` is the service name, reachable from the `api`
+container only.
+
+**An existing CKAN:**
+
+```bash
 LOCAL_CATALOG_BACKEND=ckan
 CKAN_LOCAL_ENABLED=True
-CKAN_URL=http://localhost:5000/
-CKAN_API_KEY=your-local-ckan-api-key
-PRE_CKAN_ENABLED=False
-TEST_TOKEN=dev_token
+CKAN_URL=https://your-ckan.example.org/
+CKAN_API_KEY=<a CKAN API token>
+CKAN_VERIFY_SSL=True        # False for a self-signed certificate
 ```
 
-#### Scenario 3: MongoDB Local Catalog (No CKAN Required)
-```bash
-# Lightweight setup with MongoDB backend
-ORGANIZATION="Your Organization"
-LOCAL_CATALOG_BACKEND=mongodb
-MONGODB_CONNECTION_STRING=mongodb://localhost:27017
-MONGODB_DATABASE=ndp_local_catalog
-PRE_CKAN_ENABLED=False
-TEST_TOKEN=dev_token
-```
+**Publishing to the staging catalog:**
 
-#### Scenario 4: Full NDP Integration with CKAN
 ```bash
-# Complete setup with local CKAN and NDP submission capability
-ORGANIZATION="Your Organization"
-CKAN_LOCAL_ENABLED=True
-CKAN_URL=http://your-ckan-instance:5000/
-CKAN_API_KEY=your-local-ckan-api-key
 PRE_CKAN_ENABLED=True
-PRE_CKAN_URL=https://preckan.nationaldataplatform.org
-PRE_CKAN_API_KEY=your-ndp-preckan-api-key
-PRE_CKAN_ORGANIZATION=ep-your-assigned-org-id
+PRE_CKAN_URL=<provided by NDP>
+PRE_CKAN_API_KEY=<provided by NDP>
+PRE_CKAN_ORGANIZATION=<the organization that key may write to>
 ```
 
-### 6. Local / IP-based deployment (no domain, no TLS)
+### Deploying on an IP address without TLS
 
-If you are evaluating the Endpoint on a plain VM or workstation reached by its
-**IP address** (or `localhost`) and you do **not** have a domain name or a TLS
-certificate, follow these rules — most first-run problems come from assuming a
-domain/HTTPS setup that isn't there:
+- Use `http://<host>:<port>`; a bare IP address has no certificate for
+  `https://`. Use the host's real IP or `localhost`, not a container or pod
+  address.
+- Identity-provider sign-in (`OIDC_ENABLED`) needs https; on plain http the
+  UI shows the button disabled. `localhost` counts as secure.
+- `GET /status/kafka-details` returns `KAFKA_HOST` and `KAFKA_PORT` exactly as
+  configured, and streaming clients connect to that address. A client outside
+  the Docker network cannot resolve the internal name `kafka:9093`.
 
-- **Use `http://`, not `https://`.** A bare IP address cannot present a valid
-  TLS certificate, so `https://<ip>` fails. This applies to the browser URLs
-  **and** to the `base_url`/`API_URL` you pass to the Python client, the
-  streaming client, etc. The `https://my-endpoint…` examples elsewhere in the
-  docs and slides assume a real domain with a certificate.
-- **Use the host's real IP or `localhost`** — not an internal overlay/pod
-  address (e.g. `10.244.x.x`), which is not reachable from your machine.
-- **Pick the right port.** `docker run -p 8001:80` → `http://<host>:8001`;
-  `docker compose` publishes the API on host port **8002** by default →
-  `http://<host>:8002`. The container always serves on port 80 internally.
-- **Start only the profiles you need** (e.g. `--profile mongodb --profile s3`).
-  Avoid `--profile full` / `--profile pelican`: the Pelican services need extra
-  TLS/federation setup and will restart-loop on a fresh machine.
-- **Rebuild after updating code** (`docker compose build --no-cache api`, or
-  `docker pull rbardaji/ndp-ep-api:latest`) — `docker compose up` reuses the
-  old image otherwise.
-- **Kafka / streaming reachability.** The Endpoint hands streaming clients the
-  `KAFKA_HOST`/`KAFKA_PORT` you configured, **verbatim** (via
-  `GET /status/kafka-details`). If your client runs **outside** the Docker
-  network (for example, a notebook on your laptop), those values must be the
-  **externally reachable** address — the host's IP/hostname and the
-  externally-published Kafka port — **not** an internal Docker service name
-  (`kafka`) or an internal-only port. Internal names like `kafka:9093` only
-  resolve between containers on the same Docker network.
+### Logs
 
-Verify with the `http://` URLs from [Verify Installation](#4-verify-installation)
-(`/docs`, `/ui/`, `/health`).
+Inside the container, uvicorn writes to `/var/log/uvicorn.out.log` and
+`/var/log/uvicorn.err.log`, nginx to `/var/log/nginx/`, and the metrics task
+also to `/app/logs/metrics_<start time>.log`. `docker logs` shows the
+supervisor output only.
 
-## 🔒 Group-Based Access Control
+## Access control
 
-The API supports optional group-based access control to restrict write operations (POST, PUT, DELETE) to users belonging to specific groups.
+On every route that needs one, the Bearer token is validated by posting it to
+`AUTH_API_URL`, which returns the user's `roles` and `groups`. `TEST_TOKEN` is
+the exception (see above).
 
-### How It Works
+### Role tiers
 
-1. **Authentication**: When a user makes a request with a Bearer token, the API validates the token against the configured `AUTH_API_URL`
-2. **Group Retrieval**: The authentication service returns user information including their `groups` array
-3. **Authorization**: If `ENABLE_GROUP_BASED_ACCESS=True`, the API checks if any of the user's groups match the allowed groups in `GROUP_NAMES`
-4. **Access Decision**:
-   - ✅ User belongs to at least one allowed group → Write operation permitted
-   - ❌ User doesn't belong to any allowed group → 403 Forbidden
+| Tier | Accepted roles |
+|---|---|
+| admin | `ndp_admin`, `group:<g>:admin`, legacy `<AFFINITIES_EP_UUID>_admin` |
+| writer | the admin roles, `ndp_writer`, `ndp_editor`, `group:<g>:writer`, `group:<g>:editor` |
+| viewer | the writer roles, `ndp_viewer`, `group:<g>:viewer` |
 
-### Configuration
+`<g>` is any entry of `GROUP_NAMES` or `AFFINITIES_EP_UUID`. Comparison is
+case-insensitive. The full model, and how roles are granted, is in
+[docs/roles-and-permissions.md](docs/roles-and-permissions.md).
+
+### Group-based access (`ENABLE_GROUP_BASED_ACCESS`)
+
+With `ENABLE_GROUP_BASED_ACCESS=True`, a user must **also** pass the endpoint
+access gate: belong to a group listed in `GROUP_NAMES` (comma-separated,
+case-insensitive, leading `/` ignored), or belong to the group named
+`AFFINITIES_EP_UUID`, or hold `ndp_admin`. An empty `GROUP_NAMES` leaves only
+the last two. The gate applies to writer- and viewer-tier routes and to
+`GET /user/info`, which the UI calls at login, so a user who fails it cannot
+enter the UI.
+
+The installer sets `ENABLE_GROUP_BASED_ACCESS=True` and `GROUP_NAMES` to the
+group the Federation created for the Endpoint.
+
+### What each route requires
+
+| Routes | Requirement |
+|---|---|
+| `GET`/`POST /search`, `GET /organization`, `GET /resource/{id}`, `GET /resources/search`, `/services/redirect/...`, `/health`, `/ready`, `POST /user/login`, `POST /token`, `/docs` | none |
+| `/status/`, `/status/metrics`, `/status/jupyter`, `/status/kafka-details`, `POST /user/access-requests` | any valid token |
+| `GET /user/info` | valid token, plus the group gate when enabled |
+| `GET /pelican/*` | viewer |
+| every other `POST`, `PUT`, `PATCH`, `DELETE`; all `/s3/*` routes, including `GET`; `GET /status/rexec`; `POST /pelican/import-metadata` | writer |
+| `GET /user/access-requests`, `POST /user/access-requests/{id}/approve` and `/reject` | admin |
+
+The writer requirement applies whether or not `ENABLE_GROUP_BASED_ACCESS` is
+on; a user with a valid token but no writer-tier role gets 403.
+
+### Access requests
+
+With `ENABLE_ACCESS_REQUESTS=True`, a user without access can request it from
+the login screen, and an admin approves or rejects it from the UI. Requests are
+stored in MongoDB through `MONGODB_CONNECTION_STRING` (collection
+`ACCESS_REQUESTS_COLLECTION`), whatever the catalog backend. Approval adds the
+user to the first `GROUP_NAMES` entry, falling back to `AFFINITIES_EP_UUID`,
+and for writer or admin also assigns that role on the group, through the
+identity provider with the approving admin's token. With the setting off,
+these routes answer 503.
+
+## Metrics
+
+When `IS_PUBLIC=True`, the Endpoint posts a metrics report to
+`METRICS_ENDPOINT` at startup and then every `METRICS_INTERVAL_SECONDS`
+(default 3300). Only one uvicorn worker sends it. A failed post is logged and
+not retried. With `IS_PUBLIC=False` the report is only logged. The payload
+and behaviour are specified in
+[docs/architecture/federation-and-metrics.md](docs/architecture/federation-and-metrics.md#2-metrics).
+
+## MCP
+
+The API is also exposed as a Model Context Protocol server (via
+`fastapi-mcp`) at `/mcp` on the published port, e.g.
+`http://localhost:8002/mcp` (`${ROOT_PATH}/mcp` when `ROOT_PATH` is set). Its
+tools are the API's operations, with the same authentication.
+
+## Pelican
+
+With `PELICAN_ENABLED=true` the API mounts `/pelican/*` for reading from
+[Pelican](https://pelicanplatform.org) federations such as OSDF. Every route
+needs a Bearer token with the viewer tier; `POST /pelican/import-metadata`
+needs writer.
+
+| Route | Purpose |
+|---|---|
+| `GET /pelican/federations` | known federations (`osdf`, `path-cc`) |
+| `GET /pelican/browse?path=...&federation=osdf&detail=false` | list a namespace |
+| `GET /pelican/info?path=...` | object metadata |
+| `GET /pelican/download?path=...&stream=true` | download an object |
+| `GET /pelican/read?path=...` | return an object's contents inline, up to `PELICAN_MAX_READ_BYTES` (default 10 MiB; larger answers 413) |
+| `GET /pelican/subscribe?event_source=...` | Server-Sent Events for file events in a namespace, from the Pelican event server (`PELICAN_EVENT_*`) |
+| `GET /pelican/subscriptions` | the event-server subscriptions this Endpoint holds |
+| `POST /pelican/import-metadata` | add a `pelican://` object as a resource of a local dataset |
 
 ```bash
-# Enable group-based access control
-ENABLE_GROUP_BASED_ACCESS=True
-
-# Comma-separated list of groups allowed to perform write operations
-GROUP_NAMES=admins,developers,data-managers
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8002/pelican/browse?path=/ospool/uc-shared/public&detail=true"
 ```
 
-### Behavior
+`PELICAN_FEDERATION_URL`, when set, is used for every request instead of the
+`federation` parameter. `PELICAN_DIRECT_READS=True` reads from origins rather
+than through caches.
 
-| Setting | Read (GET) | Write (POST/PUT/DELETE) |
-|---------|------------|-------------------------|
-| `ENABLE_GROUP_BASED_ACCESS=False` | ✅ Public | ✅ Any authenticated user |
-| `ENABLE_GROUP_BASED_ACCESS=True` | ✅ Public | ✅ Only users in `GROUP_NAMES` |
+The `pelican` Compose profile starts a local registry, director, origin and
+cache. The origin mounts the MinIO data volume read-only and exports it under
+the federation prefix `/ndp-demo`, as configured in
+[pelican-origin-config.yaml](pelican-origin-config.yaml). See the warning
+under [Compose profiles](#compose-profiles).
 
-### Example
-
-If your authentication service returns:
-```json
-{
-  "sub": "user123",
-  "groups": ["researchers", "data-managers"] # from ndp keycloak 
-}
-```
-
-And your configuration is:
-```bash
-ENABLE_GROUP_BASED_ACCESS=True
-GROUP_NAMES=admins,data-managers
-```
-
-The user **will be authorized** because `data-managers` is in both the user's groups and `GROUP_NAMES`.
-
-### Notes
-
-- Group matching is **case-insensitive** (`Admins` matches `admins`)
-- GET endpoints remain public regardless of this setting
-- If `ENABLE_GROUP_BASED_ACCESS=True` but `GROUP_NAMES` is empty, all write operations will be denied
-
-### Role tiers (viewer / writer / admin)
-
-On top of group membership, the Endpoint enforces three role tiers —
-**viewer** (read-only), **writer** (modify catalog content) and **admin**
-(everything). See **[Roles and permissions](docs/roles-and-permissions.md)**
-for the full model: how roles are named, how they reach the JWT, the AAI
-role-management API, and how to grant a tier or introduce a brand-new
-permission level. The same reference is available inside the UI from the
-**Access Requests → Add more roles** button.
-
-## 📖 Usage Examples
-
-For detailed usage examples and tutorials, please check the documentation in the `/docs` folder.
-
-How an Endpoint registers with the NDP Federation, bootstraps from a
-configuration id and reports metrics is documented in
-[docs/architecture/federation-and-metrics.md](docs/architecture/federation-and-metrics.md);
-the Endpoint's building blocks and their reuse in a connector node are in
-[docs/architecture/connector-nodes-ep-inventory.md](docs/architecture/connector-nodes-ep-inventory.md).
-
-## 🤖 AI Agent Integration (MCP)
-
-The NDP-EP API includes built-in support for the **Model Context Protocol (MCP)**, enabling AI assistants and agents to interact programmatically with all API endpoints.
-
-### What is MCP?
-
-The Model Context Protocol is an emerging standard that defines how AI agents communicate with applications. It allows AI assistants like Claude, ChatGPT, and custom agents to discover and invoke API operations automatically.
-
-### MCP Endpoint
-
-Once the API is running, the MCP server is automatically available at:
-
-```
-http://your-api-host:port/mcp
-```
-
-For example, with the default Docker setup:
-```
-http://localhost:8001/mcp
-```
-
-### Key Benefits
-
-- **Zero Configuration**: Automatically exposes all existing API endpoints as MCP tools
-- **AI-Friendly**: AI agents can discover available operations and their parameters
-- **Schema Preservation**: Maintains all request/response models and validation
-- **Secure**: Respects existing authentication mechanisms
-- **Standard Protocol**: Compatible with any MCP-compliant AI client
-
-### Use Cases
-
-**Dataset Management with AI Assistants:**
-- "Search for oceanography datasets in the NDP catalog"
-- "Create a new dataset with these metadata fields"
-- "List all my S3 buckets and their contents"
-
-**Automated Workflows:**
-- AI agents can orchestrate complex data ingestion pipelines
-- Automated catalog synchronization between environments
-- Intelligent data discovery and recommendation
-
-**Development & Testing:**
-- AI-assisted API testing and validation
-- Automatic documentation generation
-- Code generation for API clients
-
-### Connecting AI Clients
-
-The MCP endpoint works with any MCP-compatible client. Example clients include:
-
-- **Claude Code**: Anthropic's AI coding assistant
-- **Custom MCP Clients**: Using the official MCP SDK
-- **AI Automation Tools**: Any tool supporting the MCP protocol
-
-For configuration examples and integration guides, visit the [FastAPI-MCP documentation](https://fastapi-mcp.tadata.com).
-
-## 📊 System Metrics
-
-> The full metrics contract — every field and its type, when reports are sent,
-> and what happens when the Federation cannot be reached — is in
-> [docs/architecture/federation-and-metrics.md](docs/architecture/federation-and-metrics.md#2-metrics).
-> The example below predates it.
-
-> **⚠️ CAUTION**: This API automatically collects and logs system metrics (default: every 55 minutes, configurable via `METRICS_INTERVAL_SECONDS`).
-
-The NDP-EP API automatically collects and logs comprehensive system metrics at configurable intervals (default: 55 minutes). These metrics provide visibility into system health, resource usage, catalog statistics, and service connectivity.
-
-### Collected Metrics
-
-**System Information:**
-- **Public IP Address**: External IP of the API instance
-- **Resource Usage**: Real-time CPU percentage, memory (used/total GB), and disk (used/total GB)
-- **API Version**: Current version of the NDP-EP API
-- **Organization**: Configured organization name
-- **EP Name**: Endpoint identifier name
-
-**Catalog Statistics:**
-- **Number of Datasets**: Total datasets in local catalog
-- **Number of Services**: Total registered services
-- **Services List**: Array of all registered service titles
-
-**Service Registry:**
-- **Global CKAN**: NDP central catalog connection details
-- **Pre-CKAN**: Staging environment configuration (if enabled)
-- **Local CKAN**: Local catalog instance details (if configured)
-- **Kafka**: Streaming service configuration (if enabled)
-- **JupyterLab**: Notebook service integration (if configured)
-
-### Metrics Output Example
-
-```json
-{
-  "public_ip": "203.0.113.45",
-  "cpu": "5.7%",
-  "memory": "4.8GB/30.8GB",
-  "disk": "265.4GB/936.8GB",
-  "version": "0.3.2",
-  "organization": "Your Organization",
-  "ep_name": "Your EP",
-  "num_datasets": 23,
-  "num_services": 5,
-  "services": [
-    "Service Title 1",
-    "Service Title 2",
-    "Service Title 3"
-  ],
-  "timestamp": "2025-10-09T16:48:09.874843Z"
-}
-```
-
-## 🌐 Pelican Federation Integration
-
-The NDP-EP API integrates with the [Pelican Platform](https://pelicanplatform.org) to enable access to distributed scientific data federations and to serve your own data to the global scientific community.
-
-### What is Pelican?
-
-Pelican is an open-source data federation platform that connects distributed data repositories under a unified architecture. It enables:
-- **Federated Data Access**: Browse and download from 20+ PB of scientific data in the Open Science Data Federation (OSDF)
-- **Data Sharing**: Serve your MinIO/S3 data to the global scientific federation
-- **Distributed Caching**: Automatic caching improves delivery efficiency for popular datasets
-- **Unified Namespace**: Access heterogeneous sources (S3, POSIX, HTTP) through a common pelican:// protocol
-
-### Two Integration Approaches
-
-#### 1. Access External Federations (Phase 1)
-Use dedicated Pelican endpoints to browse and download from external federations like OSDF:
-
-**Available Endpoints:**
-- `GET /pelican/federations` - List available federations (OSDF, PATh-CC, etc.)
-- `GET /pelican/browse?path=/ospool/data&federation=osdf` - Browse federation namespaces
-- `GET /pelican/info?path=/ospool/file.nc&federation=osdf` - Get file metadata
-- `GET /pelican/download?path=/ospool/file.nc&stream=true` - Download/stream files
-- `POST /pelican/import-metadata` - Import external file as resource in local catalog
-
-**Example Usage:**
-```bash
-# List available federations
-curl http://localhost:8002/pelican/federations
-
-# Browse OSDF public data
-curl "http://localhost:8002/pelican/browse?path=/ospool/uc-shared/public&detail=true"
-
-# Download file from federation
-curl "http://localhost:8002/pelican/download?path=/ospool/data/file.nc&stream=true" -o file.nc
-
-# Import external Pelican file into local catalog
-curl -X POST http://localhost:8002/pelican/import-metadata \
-  -H "Content-Type: application/json" \
-  -d '{
-    "pelican_url": "pelican://osg-htc.org/ospool/data/temperature.nc",
-    "package_id": "my-dataset-id",
-    "resource_name": "OSDF Temperature Data"
-  }'
-```
-
-#### 2. Pelican as Storage Backend (Phase 2)
-Use `pelican://` URLs in your resource definitions - the API automatically handles downloads:
+## Development
 
 ```bash
-# Register dataset with Pelican URL
-curl -X POST http://localhost:8002/services \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "osdf-climate-data",
-    "title": "Climate Data from OSDF",
-    "url": "pelican://osg-htc.org/ospool/climate/dataset.nc"
-  }'
-
-# The download handler automatically detects and uses Pelican
-# No changes needed to existing endpoints!
+pip install -r requirements.txt black flake8
+pytest                      # tests/ and install/tests/
+black --check . && flake8 api/ tests/ scripts/ --max-line-length=88 --extend-ignore=E203,W503,E501,F401
+cd ui && npm ci && npm test -- --watchAll=false
 ```
 
-### Running Your Own Pelican Federation
+These are the checks the `pr.yml` and `main.yml` workflows run.
+`test_all_endpoints.py` exercises the routes of a running Endpoint
+(`EP_BASE_URL`, `EP_TOKEN`).
 
-The included `docker-compose.yml` sets up a complete local Pelican federation with 4 services:
-
-1. **Pelican Registry** (port 8444): Manages namespace registrations
-2. **Pelican Director** (port 8445): Routes client requests to appropriate origins/caches
-3. **Pelican Origin** (port 8446-8447): Serves MinIO data at federation path `/ndp-demo`
-4. **Pelican Cache** (port 8448-8449): Caches popular objects for faster delivery
-
-**Your MinIO data becomes accessible via:**
-```
-pelican://pelican-origin/ndp-demo/bucket-name/object-key
-```
-
-### Configuration
-
-Enable Pelican in your `.env` file:
-
-```bash
-# Enable Pelican federation access
-PELICAN_ENABLED=True
-
-# Default federation (leave empty for OSDF)
-PELICAN_FEDERATION_URL=
-
-# Use caching infrastructure (recommended)
-PELICAN_DIRECT_READS=False
-```
-
-### Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    NDP-EP API                            │
-│  ┌──────────────────┐         ┌──────────────────┐     │
-│  │ Phase 1 Routes   │         │  Phase 2 Handler │     │
-│  │ /pelican/*       │         │  pelican:// URLs │     │
-│  └────────┬─────────┘         └─────────┬────────┘     │
-│           │                              │               │
-│           └──────────┬───────────────────┘               │
-│                      │                                   │
-│            ┌─────────▼──────────┐                       │
-│            │ PelicanRepository  │                       │
-│            │   (pelicanfs)      │                       │
-│            └─────────┬──────────┘                       │
-└──────────────────────┼──────────────────────────────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        │              │               │
-   ┌────▼─────┐   ┌───▼────┐    ┌────▼─────┐
-   │   OSDF   │   │ PATh-CC│    │  Local   │
-   │ Director │   │Director│    │ Director │
-   └────┬─────┘   └───┬────┘    └────┬─────┘
-        │             │               │
-   ┌────▼─────┐  ┌───▼────┐     ┌────▼──────┐
-   │  Cache   │  │ Cache  │     │   Cache   │
-   └────┬─────┘  └───┬────┘     └────┬──────┘
-        │            │                │
-   ┌────▼─────┐ ┌───▼────┐      ┌────▼──────┐
-   │  Origin  │ │ Origin │      │  Origin   │
-   │(20+ PB)  │ │        │      │  (MinIO)  │
-   └──────────┘ └────────┘      └───────────┘
-```
-
-### Benefits
-
-✅ **Access 20+ PB of Scientific Data**: OSDF provides access to datasets from major research institutions
-✅ **Distributed Caching**: Popular datasets are cached closer to compute resources
-✅ **Backward Compatible**: Existing endpoints work unchanged with `pelican://` URLs
-✅ **Share Your Data**: Expose MinIO datasets to the global scientific federation
-✅ **Unified Protocol**: Single API for HTTP, S3, Kafka, and Pelican resources
-
-### Learn More
-
-- **Pelican Platform**: [https://pelicanplatform.org](https://pelicanplatform.org)
-- **OSDF Documentation**: [https://osg-htc.org/services/osdf.html](https://osg-htc.org/services/osdf.html)
-- **Configuration Guide**: [pelican-origin.yml](pelican-origin.yml)
-
-## 🚢 Releasing
+## Releasing
 
 The GitHub release and the Docker Hub image are both produced by the **Publish
-Docker image** workflow, which runs when a `v*` tag is pushed. The release is
-created as the workflow's *last* step, once the image is on Docker Hub, so a
-failed build never leaves a release pointing at an image that does not exist.
+Docker image** workflow (`.github/workflows/docker-publish.yml`), which runs
+when a `v*` tag is pushed. The release is created as the workflow's last step,
+once the image is on Docker Hub, so a failed build never leaves a release
+pointing at an image that does not exist.
 
 1. Bump `swagger_version` in `api/config/swagger_settings.py` and move the
    `## [Unreleased]` notes into a new `## [X.Y.Z]` section of
@@ -752,7 +361,7 @@ failed build never leaves a release pointing at an image that does not exist.
    ```
 
 The workflow then validates the tag, builds
-[Dockerfile.allinone](Dockerfile.allinone), pushes
+[Dockerfile.allinone](Dockerfile.allinone) for `linux/amd64`, pushes
 `rbardaji/ndp-ep-api:X.Y.Z` (plus `latest`), and finally creates the GitHub
 release with the notes taken from that version's CHANGELOG section.
 
@@ -768,8 +377,8 @@ without needing a new tag.
 
 **Checks that run before anything is published:**
 
-- The tag must match `swagger_version`, which the API reports at `/status/`, in
-  `/docs` and in its metrics, so a mismatch would misreport every deployment.
+- The tag must match `swagger_version`, which the API reports in `/docs` and
+  in its metrics.
 - The version must have a non-empty `CHANGELOG.md` section to use as notes.
 
 Both can be run locally:
@@ -782,10 +391,6 @@ python scripts/extract_changelog.py v0.34.18
 **Required repository secrets:** `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
 (a Docker Hub access token with Read & Write permissions).
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-For more information about the National Data Platform, visit [nationaldataplatform.org](https://nationaldataplatform.org)
+MIT — see [LICENSE](LICENSE).
