@@ -508,3 +508,89 @@ def test_resource_create_no_package(mongodb_repo):
     """Test resource create without package_id."""
     with pytest.raises(Exception, match="package_id is required"):
         mongodb_repo.resource_create(name="orphan", url="https://example.com")
+
+
+def test_package_create_keeps_tags_groups_privacy_licence_and_version(mongodb_repo):
+    """These were dropped on create, unlike in CKAN (issue #311)."""
+    created = mongodb_repo.package_create(
+        name="full-package",
+        title="Full Package",
+        owner_org="test-org",
+        tags=[{"name": "oceanography"}, {"name": "climate"}],
+        groups=[{"name": "research"}],
+        private=True,
+        license_id="cc-by",
+        version="2.0",
+    )
+
+    stored = mongodb_repo.package_show(created["id"])
+
+    assert stored["tags"] == [{"name": "oceanography"}, {"name": "climate"}]
+    assert stored["groups"] == [{"name": "research"}]
+    assert stored["private"] is True
+    assert stored["license_id"] == "cc-by"
+    assert stored["version"] == "2.0"
+
+
+def test_package_create_defaults_match_ckan(mongodb_repo):
+    created = mongodb_repo.package_create(
+        name="bare-package", title="Bare", owner_org="test-org"
+    )
+
+    stored = mongodb_repo.package_show(created["id"])
+
+    assert stored["tags"] == []
+    assert stored["groups"] == []
+    assert stored["private"] is False
+    assert "license_id" not in stored
+    assert "version" not in stored
+
+
+class _FakeCollection:
+    """Just enough of a collection to watch the text index being managed."""
+
+    def __init__(self, indexes):
+        self.indexes = dict(indexes)
+        self.dropped = []
+
+    def index_information(self):
+        return self.indexes
+
+    def drop_index(self, name):
+        self.dropped.append(name)
+        self.indexes.pop(name)
+
+    def create_index(self, keys, weights=None, name=None):
+        if name in self.indexes and self.indexes[name]["weights"] != weights:
+            raise Exception("IndexKeySpecsConflict")  # what MongoDB does
+        self.indexes[name] = {"weights": weights}
+
+
+def _ensure_on(collection):
+    repo = MongoDBRepository.__new__(MongoDBRepository)
+    repo.packages = collection
+    repo._ensure_fulltext_index()
+
+
+def test_an_index_built_on_tags_is_replaced_by_one_on_tag_names():
+    """An existing catalog has the old index; it must still start (issue #311)."""
+    old = {"weights": {"title": 10, "tags": 5, "notes": 1}}
+    collection = _FakeCollection({"fulltext_search_index": old})
+
+    _ensure_on(collection)
+
+    assert collection.dropped == ["fulltext_search_index"]
+    assert collection.indexes["fulltext_search_index"]["weights"] == {
+        "title": 10,
+        "tags.name": 5,
+        "notes": 1,
+    }
+
+
+def test_a_current_index_is_left_alone():
+    current = {"weights": {"title": 10, "tags.name": 5, "notes": 1}}
+    collection = _FakeCollection({"fulltext_search_index": current})
+
+    _ensure_on(collection)
+
+    assert collection.dropped == []

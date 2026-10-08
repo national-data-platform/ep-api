@@ -60,19 +60,33 @@ class MongoDBRepository(DataCatalogRepository):
         # Create indexes for better performance
         self._create_indexes()
 
+    # Full-text search over title (weight 10), tag names (5) and notes (1).
+    # Tags are stored the way CKAN returns them, [{"name": ...}], and a text
+    # index only reads strings, so it has to name "tags.name": the earlier
+    # index on "tags" never matched a tag (issue #311).
+    FULLTEXT_INDEX = "fulltext_search_index"
+    FULLTEXT_WEIGHTS = {"title": 10, "tags.name": 5, "notes": 1}
+
+    def _ensure_fulltext_index(self):
+        """Create the text index, replacing one built with older fields."""
+        existing = self.packages.index_information().get(self.FULLTEXT_INDEX)
+        if existing and existing.get("weights") != self.FULLTEXT_WEIGHTS:
+            # Same name, different keys: create_index would refuse, so an
+            # existing catalog could not start. Rebuild it instead.
+            self.packages.drop_index(self.FULLTEXT_INDEX)
+        self.packages.create_index(
+            [(field, "text") for field in self.FULLTEXT_WEIGHTS],
+            weights=self.FULLTEXT_WEIGHTS,
+            name=self.FULLTEXT_INDEX,
+        )
+
     def _create_indexes(self):
         """Create necessary indexes for collections."""
         # Package indexes
         self.packages.create_index("name", unique=True)
         self.packages.create_index("owner_org")
 
-        # Full-text search index with weighted fields
-        # Title has highest weight (10), tags medium (5), notes lowest (1)
-        self.packages.create_index(
-            [("title", "text"), ("tags", "text"), ("notes", "text")],
-            weights={"title": 10, "tags": 5, "notes": 1},
-            name="fulltext_search_index",
-        )
+        self._ensure_fulltext_index()
 
         # Resource indexes
         self.resources.create_index("package_id")
@@ -114,6 +128,11 @@ class MongoDBRepository(DataCatalogRepository):
             Package description
         extras : list, optional
             List of extra metadata dicts with 'key' and 'value'
+        tags, groups : list, optional
+            Lists of ``{"name": ...}`` dicts, as CKAN takes them
+        private : bool, optional
+            Defaults to False
+        license_id, version : str, optional
 
         Returns
         -------
@@ -154,7 +173,15 @@ class MongoDBRepository(DataCatalogRepository):
             "metadata_modified": now.isoformat(),
             "state": "active",
             "type": "dataset",
+            # Kept like CKAN keeps them; these were dropped on create, so the
+            # two backends disagreed for the same request (issue #311).
+            "tags": kwargs.get("tags") or [],
+            "groups": kwargs.get("groups") or [],
+            "private": bool(kwargs.get("private", False)),
         }
+        for optional in ("license_id", "version"):
+            if kwargs.get(optional) is not None:
+                package_doc[optional] = kwargs[optional]
 
         try:
             self.packages.insert_one(package_doc.copy())

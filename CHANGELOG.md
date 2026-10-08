@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.39] - 2026-10-08
+
+### Fixed
+- **With the MongoDB catalog, datasets lost their tags, groups, privacy flag, licence and version when created, and tags could not be searched.** `POST /dataset` passes all of them to the repository, but `MongoDBRepository.package_create` built the stored document from a fixed list and dropped the rest — so a dataset created as private was stored without the flag, and the CKAN backend kept what MongoDB lost. They are now stored, with CKAN's defaults when absent: `tags` and `groups` as empty lists and `private` as false. Separately, the full-text index was declared on `tags`, but tags are stored the way CKAN returns them, `[{"name": ...}]`, and a text index only reads strings, so no search ever matched a tag; it is now declared on `tags.name`. An existing catalog already has the old index under the same name, which MongoDB would refuse to redefine, so the repository replaces an index whose fields differ instead of failing to start. Verified with a real MongoDB holding the old index: the Endpoint started, the index was rebuilt on `tags.name`, a dataset created with tags, `private`, a licence and a version was stored with all of them, and a search for one of its tags found it (#311).
+
 ## [0.34.38] - 2026-10-08
 
 ### Fixed
