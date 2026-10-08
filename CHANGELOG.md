@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.45] - 2026-10-08
+
+### Fixed
+- **With `ROOT_PATH` set, trailing-slash redirects dropped the prefix.** The nginx configuration `entrypoint.sh` generates stripped `ROOT_PATH` before proxying to uvicorn, so FastAPI built its redirect for a route requested without its slash from the bare path: `/ep-test/status` redirected to `/status/`, which nginx does not route to the API, and the client got 404. nginx now passes the full path and FastAPI's `root_path` — already set from `ROOT_PATH` — removes the prefix to route it, which is how it builds URLs that keep it. The `/api/` alias forwards `${ROOT_PATH}/api/x` as `${ROOT_PATH}/x`. Nothing changes without `ROOT_PATH`. Verified with a built image with and without `ROOT_PATH`: the API, `/docs` and its `openapi.json`, the UI and the `/api/` alias answer, redirects keep the prefix and the port and lead to 200, and the container healthcheck on uvicorn stays healthy (#320).
+
 ## [0.34.44] - 2026-10-08
 
 ### Fixed

@@ -47,18 +47,23 @@ server {
     # FastAPI builds its trailing-slash redirects (/status -> /status/) from
     # it, and with \$host they pointed at port 80 (issue #319).
 
-    # Alternative API path (also works via ${ROOT_PATH}/api/)
+    # The API receives the full path, ROOT_PATH included, and FastAPI's
+    # root_path removes the prefix to route it. When nginx stripped the
+    # prefix itself, FastAPI built its trailing-slash redirects without it
+    # (/ep/status -> /status/), which then missed the API (issue #320).
+
+    # Alternative API path: ${ROOT_PATH}/api/x reaches the API as ${ROOT_PATH}/x
     location ${ROOT_PATH}/api/ {
-        proxy_pass http://127.0.0.1:8000/;
+        proxy_pass http://127.0.0.1:8000${ROOT_PATH}/;
         proxy_set_header Host \$http_host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
-    # Root = API
+    # Root = API, path passed unchanged
     location ${ROOT_PATH}/ {
-        proxy_pass http://127.0.0.1:8000/;
+        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host \$http_host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
