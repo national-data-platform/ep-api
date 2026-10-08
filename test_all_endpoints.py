@@ -5,10 +5,14 @@ Tests all endpoints with proper authentication and parameters.
 
 Usage:
     python test_all_endpoints.py
+
+Set EP_BASE_URL to test an Endpoint other than http://localhost:8002, and
+EP_TOKEN for a token other than the development TEST_TOKEN.
 """
 
 import io
 import json
+import os
 import sys
 import time
 from typing import Any, Dict, List, Optional
@@ -16,8 +20,8 @@ from typing import Any, Dict, List, Optional
 import requests
 
 # Configuration
-BASE_URL = "http://localhost:8002"
-TEST_TOKEN = "testing_token"  # From .env
+BASE_URL = os.getenv("EP_BASE_URL", "http://localhost:8002").rstrip("/")
+TEST_TOKEN = os.getenv("EP_TOKEN", "testing_token")  # TEST_TOKEN in .env
 HEADERS = {"Authorization": f"Bearer {TEST_TOKEN}"}
 
 # Generate unique suffix for resource names using timestamp
@@ -74,6 +78,25 @@ results = TestResult()
 
 # Store created resources for cleanup and subsequent tests
 created_resources: Dict[str, Any] = {}
+
+
+def enabled_features() -> Dict[str, Any]:
+    """
+    What this Endpoint has switched on, from GET /status/.
+
+    Routes for a feature that is off are not mounted, so testing them reports
+    404 or 405 failures that say nothing about the API. Those tests are skipped
+    with the reason instead.
+    """
+    try:
+        response = requests.get(f"{BASE_URL}/status/", headers=HEADERS, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException:
+        return {}
+
+
+features: Dict[str, Any] = {}
 
 
 def test_request(
@@ -188,6 +211,9 @@ def test_status_routes():
     )
 
     # Test 5: Jupyter details
+    if not features.get("jupyterlab_enabled"):
+        results.add_skip("GET /status/jupyter", "(JupyterLab is not enabled)")
+        return
     test_request(
         "GET",
         "/status/jupyter",
@@ -370,6 +396,8 @@ def test_url_resource_routes():
             resp_json = response.json()
             # API returns {"id": "..."} for dataset id
             created_resources["url_dataset_id"] = resp_json.get("id")
+            # The update routes take the same id (PATCH /url/{id}).
+            created_resources["url_resource_id"] = resp_json.get("id")
             created_resources["url_dataset_name"] = url_data["resource_name"]
         except:
             pass
@@ -419,6 +447,7 @@ def test_s3_resource_routes():
         try:
             resp_json = response.json()
             created_resources["s3_dataset_id"] = resp_json.get("id")
+            created_resources["s3_resource_id"] = resp_json.get("id")
             created_resources["s3_dataset_name"] = s3_data["resource_name"]
         except:
             pass
@@ -466,6 +495,7 @@ def test_service_routes():
         try:
             resp_json = response.json()
             created_resources["service_dataset_id"] = resp_json.get("id")
+            created_resources["service_id"] = resp_json.get("id")
             created_resources["service_dataset_name"] = service_data["service_name"]
         except:
             pass
@@ -717,6 +747,10 @@ def test_minio_bucket_routes():
     """Test MinIO bucket operations."""
     print_section("MINIO BUCKET ROUTES")
 
+    if not features.get("s3_enabled"):
+        results.add_skip("S3 bucket tests", "(S3 is not enabled)")
+        return
+
     # Test 22: List buckets
     test_request(
         "GET",
@@ -759,6 +793,10 @@ def test_minio_object_routes():
     """Test MinIO object operations."""
     print_section("MINIO OBJECT ROUTES")
 
+    if not features.get("s3_enabled"):
+        results.add_skip("S3 object tests", "(S3 is not enabled)")
+        return
+
     if "bucket_name" not in created_resources:
         results.add_skip("MinIO object tests", "(No bucket created)")
         return
@@ -781,7 +819,7 @@ def test_minio_object_routes():
 
     if response:
         try:
-            created_resources["object_key"] = response.json()["object_key"]
+            created_resources["object_key"] = response.json()["key"]
         except:
             created_resources["object_key"] = "test-file.txt"
 
@@ -937,6 +975,7 @@ def test_cleanup():
             "DELETE",
             f"/organization/{created_resources['organization_name']}",
             "DELETE /organization/{name} - Delete organization",
+            headers=HEADERS,
             expected_status=200,
             params={"server": "local"},
         )
@@ -959,6 +998,7 @@ def main():
 
     # Run all test suites
     test_default_routes()
+    features.update(enabled_features())
     test_status_routes()
     test_user_routes()
     test_organization_routes()

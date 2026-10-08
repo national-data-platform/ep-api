@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.44] - 2026-10-08
+
+### Fixed
+- **`test_all_endpoints.py` skipped tests silently and failed its cleanup.** The script that exercises every route of a running Endpoint stored the id returned by `POST /url`, `/s3` and `/services` under one key and looked for it under another, so the URL, S3 and service update tests never ran; it read `object_key` from an upload response whose field is `key`; and it deleted the organization without the token that route requires since 0.34.33. It also counted routes of features the Endpoint had switched off — JupyterLab, S3 — as failures, since those routes are not mounted. Each is fixed, and the script now reads `GET /status/` and skips the tests of a disabled feature with the reason. `EP_BASE_URL` and `EP_TOKEN` select the Endpoint and the token. Verified against a local Endpoint with a CKAN catalog: 39 passed, 0 failed, 3 skipped (was 35 passed, 4 failed); with S3 enabled next to the bundled MinIO, 50 passed and 0 failed (#322).
+
 ## [0.34.43] - 2026-10-08
 
 ### Fixed
