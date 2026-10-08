@@ -24,7 +24,7 @@ NDP Affinities is a service that tracks relationships between datasets, services
    First, manually register your NDP-EP instance in the Affinities system:
 
    ```bash
-   curl -X POST "https://your-affinities-api/endpoints/" \
+   curl -X POST "https://your-affinities-api/ep" \
      -H "Content-Type: application/json" \
      -d '{
        "kind": "ndp-ep",
@@ -36,7 +36,9 @@ NDP Affinities is a service that tracks relationships between datasets, services
      }'
    ```
 
-   This returns a response with a `uid` field - save this UUID.
+   This returns `201` with the stored endpoint, including a `uid` field —
+   save this UUID. `kind` is required; `url` and `metadata` are optional.
+   Paths on the Affinities API have no trailing slash.
 
 2. **Configure NDP-EP**
 
@@ -48,9 +50,18 @@ NDP Affinities is a service that tracks relationships between datasets, services
    AFFINITIES_EP_UUID=550e8400-e29b-41d4-a716-446655440000
    ```
 
+   The integration is active only when all three are set. The installer
+   always writes `AFFINITIES_ENABLED=False` and does not set the other two.
+
 3. **Restart NDP-EP**
 
-   After updating the configuration, restart your NDP-EP instance.
+   Settings are read at startup, so restart the container after changing
+   them (`docker compose up -d` recreates it when `.env` changed).
+
+`AFFINITIES_EP_UUID` is also used outside this integration — in role names,
+in the group gate, as the access-request group when `GROUP_NAMES` is empty and
+as the Pelican event client id fallback — even with `AFFINITIES_ENABLED=False`.
+See [configuration.md](configuration.md#affinities_ep_uuid).
 
 ## How It Works
 
@@ -58,12 +69,14 @@ When Affinities integration is enabled:
 
 ### Dataset Registration
 
-When you create a dataset via `POST /dataset`:
+When you create a dataset via `POST /dataset` — with `server=local` (the
+default) or `server=pre_ckan`, the same steps run for both:
 
-1. The dataset is created in the local catalog (CKAN or MongoDB)
-2. NDP-EP registers the dataset in Affinities (`POST /datasets/`)
-3. A relationship is created between the dataset and this endpoint (`POST /dataset-endpoints/`)
-4. An affinity triple is created for the pair (`POST /affinities/`), **only if
+1. The dataset is created in the chosen catalog (local CKAN or MongoDB, or
+   Pre-CKAN)
+2. NDP-EP registers the dataset in Affinities (`POST /datasets`)
+3. A relationship is created between the dataset and this endpoint (`POST /dataset-endpoints`)
+4. An affinity triple is created for the pair (`POST /affinities`), **only if
    step 3 succeeded** — a triple built on a relationship that does not exist
    names an endpoint Affinities cannot resolve
 5. The UUID Affinities assigned is stored on the dataset as the
@@ -72,13 +85,22 @@ When you create a dataset via `POST /dataset`:
 
 ### Service Registration
 
-When you register a service via `POST /services`:
+When you register a service via `POST /services` (again for `server=local`
+and `server=pre_ckan`):
 
-1. The service is created in the local catalog
-2. NDP-EP registers the service in Affinities (`POST /services/`)
-3. A relationship is created between the service and this endpoint (`POST /service-endpoints/`)
+1. The service is created in the chosen catalog
+2. NDP-EP registers the service in Affinities (`POST /services`)
+3. A relationship is created between the service and this endpoint (`POST /service-endpoints`)
 4. An affinity triple is created, under the same condition as for datasets
 5. The assigned UUID is stored on the service as `ndp_affinity_uuid`
+
+No other route registers anything in Affinities: `POST /url`, `/s3`, `/kafka`,
+updates, deletes and `POST /dataset/{id}/publish` do not call it, and nothing
+is removed from Affinities when a dataset or service is deleted. Requests to
+Affinities carry no authentication and use `AFFINITIES_TIMEOUT`.
+
+The client is
+[`api/services/affinities_services/affinities_client.py`](../api/services/affinities_services/affinities_client.py).
 
 ## Error Handling
 
@@ -106,7 +128,7 @@ write.
   "metadata": {
     "name": "dataset_name",
     "owner_org": "organization",
-    "local_id": "local-catalog-id",
+    "local_id": "id-in-the-catalog-it-was-created-in",
     "notes": "Description",
     "tags": ["tag1", "tag2"]
   }
@@ -119,12 +141,13 @@ write.
 {
   "type": "service_type",
   "openapi_url": "documentation_url",
+  "version": null,
   "source_ep": "your-ep-uuid",
   "metadata": {
     "service_name": "my_service",
     "service_title": "My Service",
     "service_url": "https://service-url",
-    "local_id": "local-catalog-id",
+    "local_id": "id-in-the-catalog-it-was-created-in",
     "notes": "Description"
   }
 }
@@ -160,8 +183,10 @@ Start with `GET /ready`, which reports the integration under `affinities`:
 Affinities is reported but deliberately does not affect the readiness verdict,
 so `/ready` stays `healthy` with the integration broken or down. No request
 reads from Affinities, and taking the Endpoint out of rotation over it would
-stop the catalog for a system that serves no traffic. The result is cached for
-30 seconds, so a fresh probe can lag a configuration change by that much.
+stop the catalog for a system that serves no traffic. The probe is
+`GET <AFFINITIES_URL>/ep/<AFFINITIES_EP_UUID>` with a timeout of at most 5
+seconds; its result is cached for 30 seconds, so a fresh probe can lag a
+configuration change by that much.
 
 If that entry looks correct and registration still is not working:
 
