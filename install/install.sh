@@ -357,9 +357,13 @@ choose() {
   printf -v "$__var" '%s' "$__reply"
 }
 
+# The probe opens descriptor 3 inside the subshell, which closes it on exit.
+# There is nothing to close afterwards: a follow-up "exec 3>&- 2>/dev/null"
+# used to sit here and in the two other probes, and its only lasting effect
+# was to send stderr to /dev/null for the rest of the run, so every later
+# warn and fail went unseen (issue #313).
 port_free() {
   if (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; then
-    exec 3>&- 2>/dev/null || true
     return 1
   fi
   return 0
@@ -1268,7 +1272,6 @@ else
     for entry in "https:$ckan_ssl_port" "http:$ckan_http_port" "app:$ckan_app_port"; do
       label="${entry%%:*}"; port="${entry##*:}"
       if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
-        exec 3>&- 2>/dev/null || true
         holder="$(docker ps --format '{{.Names}}\t{{.Ports}}' | awk -v p=":$port->" '$0 ~ p {print $1; exit}')"
         fail "Port $port (CKAN $label) is already in use${holder:+ by container '$holder'}.
        Choose another with --ckan-${label/https/ssl}-port, or stop what is using it."
@@ -1507,7 +1510,6 @@ if [[ "$start" != "true" ]]; then
 fi
 
 if (exec 3<>"/dev/tcp/127.0.0.1/$ep_api_port") 2>/dev/null; then
-  exec 3>&- 2>/dev/null || true
   holder="$(docker ps --format '{{.Names}}\t{{.Ports}}' | awk -v p=":$ep_api_port->" '$0 ~ p {print $1; exit}')"
   fail "Port $ep_api_port is already in use${holder:+ by container '$holder'}.
        Choose another with --ep-api-port, or stop what is using it."

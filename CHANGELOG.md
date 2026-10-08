@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.40] - 2026-10-08
+
+### Fixed
+- **The installer silenced its own errors after probing a port that was in use.** Each of the three port probes — the busy-port check before starting, the CKAN port check, and `port_free`, which suggests free ports in an interactive run — was followed by `exec 3>&- 2>/dev/null`. The probe opens its descriptor inside a subshell, so there was nothing to close, and the line's one lasting effect was to send stderr to `/dev/null` for the rest of the run. Re-running the installer while an Endpoint was up therefore stopped with status 1 and no message, and an interactive install on a machine where the default port was taken lost every later warning and error. The lines are removed. New tests in `install/tests/test_port_in_use.py` probe a listening port and check that stderr still works, and run the whole installer against a busy port; both fail against the previous code. Verified by re-running the installer next to a running Endpoint: it now stops with "Port 8002 is already in use by container 'ndp-ep-api'" (#313).
+
 ## [0.34.39] - 2026-10-08
 
 ### Fixed
