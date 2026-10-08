@@ -14,10 +14,10 @@ included by any static site generator the documentation site uses.
 |---|---|---|---|
 | 00 | [`00-what-is-an-endpoint.md`](00-what-is-an-endpoint.md) | Everyone | What an NDP-EP is and where it fits in the federation. |
 | 01 | [`01-using-an-endpoint.md`](01-using-an-endpoint.md) | Researchers, educators | Finding and using an Endpoint as a logged-in NDP user. |
-| 02 | [`02-requesting-access-and-roles.md`](02-requesting-access-and-roles.md) | Users who want to publish | The access-request workflow and the viewer / writer / admin tiers. |
-| 03 | [`03-publishing-data.md`](03-publishing-data.md) | Writers | The `+ New` flows — organizations, datasets, URL / S3 / Kafka resources, services. |
+| 02 | [`02-requesting-access-and-roles.md`](02-requesting-access-and-roles.md) | Users who want to get in or publish | Who may enter an Endpoint, the access-request workflow and the viewer / writer / admin tiers. |
+| 03 | [`03-publishing-data.md`](03-publishing-data.md) | Writers | The `+ New` flows — organizations, datasets, services, URL / S3 / Kafka entries, S3 storage — and Publish to the staging catalog. |
 | 04 | [`04-automating-with-python.md`](04-automating-with-python.md) | Power users, data engineers | Using the `ndp-ep` Python library for automation and bulk loading. |
-| 05 | [`05-for-institutional-admins.md`](05-for-institutional-admins.md) | Institutional IT, data-ops | How an institution obtains an Endpoint, what NDP provides vs. what the institution provides. |
+| 05 | [`05-for-institutional-admins.md`](05-for-institutional-admins.md) | Institutional IT, data-ops | Installing an Endpoint with the installer, registering it with the Federation, what NDP provides vs. what the institution provides, upgrades and backups. |
 
 ## Status
 
