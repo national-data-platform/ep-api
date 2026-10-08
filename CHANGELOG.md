@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.38] - 2026-10-08
+
+### Fixed
+- **Every Endpoint sent four metric reports per interval and raced to create the `services` organization at startup.** The image runs four uvicorn workers and each ran the FastAPI lifespan, so the metrics loop ran four times — four identical reports, timestamped within the same second, every interval — and four workers checked for and created the local catalog's `services` organization at once, which on a fresh catalog left a CKAN 500 and "Group name already exists" errors in the log of every new Endpoint. Anything the Federation counts from reports was four times too high. The once-per-Endpoint work now runs in one worker only: the worker holding an exclusive lock on a file in the container's temporary directory (`api/tasks/leader.py`) creates the organization and reports metrics, and the others wait to take over. The lock belongs to the process, so when that worker stops for any reason another becomes the leader. Verified in a running container against a local Federation: one report per interval instead of four, one organization check at startup, and after the leading worker was killed its replacement took over and reports continued once per interval. New tests in `tests/test_leader.py` cover the lock, the takeover, four processes electing exactly one leader, and the lifespan starting the loop once (#309).
+
 ## [0.34.37] - 2026-10-08
 
 ### Fixed

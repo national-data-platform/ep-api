@@ -18,6 +18,7 @@ from api.exceptions import register_exception_handlers
 from api.config import ckan_settings, swagger_settings
 from api.config.catalog_settings import catalog_settings
 from api.config.minio_settings import s3_settings
+from api.tasks.leader import LeaderLock, lead_when_possible
 from api.tasks.metrics_task import record_system_metrics
 from api.telemetry import setup_telemetry
 
@@ -59,10 +60,8 @@ local_catalog_enabled = (
 )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Run tasks on startup and handle shutdown."""
-    # Ensure 'services' organization exists
+def ensure_services_organization():
+    """Create the local catalog's 'services' organization if it is missing."""
     if local_catalog_enabled:
         try:
             from api.services.organization_services.list_organization import (
@@ -89,6 +88,26 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"❌ Error ensuring 'services' organization exists: {str(e)}")
 
+
+async def run_as_leader():
+    """The work that must happen once per Endpoint, not once per worker."""
+    ensure_services_organization()
+    await record_system_metrics()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run tasks on startup and handle shutdown."""
+    # Only one worker creates the 'services' organization and reports
+    # metrics; the others wait to take over if it stops (issue #309).
+    leader_lock = LeaderLock()
+    if leader_lock.try_acquire():
+        logger.info(f"This worker is the leader (pid {os.getpid()})")
+        ensure_services_organization()
+        task = asyncio.create_task(record_system_metrics())
+    else:
+        task = asyncio.create_task(lead_when_possible(leader_lock, run_as_leader))
+
     # Check MINIO connection on startup if enabled
     logger.info(
         f"S3 configuration - enabled: {s3_settings.enabled}, is_configured: {s3_settings.is_configured}"
@@ -110,9 +129,9 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("S3 is disabled in configuration")
 
-    task = asyncio.create_task(record_system_metrics())
     yield
     task.cancel()
+    leader_lock.release()
 
 
 app = FastAPI(
