@@ -148,7 +148,8 @@ def _check_kafka() -> Dict[str, Any]:
             producer = KafkaProducer(
                 bootstrap_servers=f"{kafka_settings.kafka_host}:{kafka_settings.kafka_port}",
                 request_timeout_ms=5000,
-                api_version_auto_timeout_ms=5000,
+                # kafka-python 3 renamed api_version_auto_timeout_ms.
+                bootstrap_timeout_ms=5000,
             )
             producer.close()
             return True

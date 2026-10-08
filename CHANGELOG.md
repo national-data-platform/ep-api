@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.42] - 2026-10-08
+
+### Fixed
+- **`GET /ready` reported Kafka down, and the Endpoint unhealthy, whenever Kafka was enabled.** The check imports `kafka-python`, which was not in `requirements.txt`, so with `KAFKA_CONNECTION=True` every readiness probe answered 503 with `"No module named 'kafka'"` even with the broker up — an orchestrator relying on the probe would never send such an Endpoint traffic. `kafka-python>=3.0` is now a dependency. Adding it surfaced a second failure: kafka-python 3 renamed the `api_version_auto_timeout_ms` option the check passed, and refuses unknown options, so the check is updated to `bootstrap_timeout_ms`. New tests in `tests/test_kafka_readiness.py` check that the client is installed, that a reachable broker reads as up and an unreachable one as down, and that every option passed to the producer exists in the installed library. Verified against the bundled Kafka: `/ready` answers 200 with Kafka up, and 503 with Kafka down once the broker is stopped (#317).
+
 ## [0.34.41] - 2026-10-08
 
 ### Removed

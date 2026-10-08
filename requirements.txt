@@ -34,3 +34,6 @@ opentelemetry-instrumentation-httpx>=0.41b0
 opentelemetry-instrumentation-requests>=0.41b0
 opentelemetry-exporter-otlp>=1.20.0
 websockets>=11.0
+# Used by the Kafka check in GET /ready. Without it the import failed and
+# every Endpoint with KAFKA_CONNECTION=True reported Kafka down (issue #317).
+kafka-python>=3.0
