@@ -91,7 +91,7 @@ A platform to **publish, discover and share data** across institutions.
 <!-- note: narrate the diagram: the user signs in through AAI, whose token
 carries their ROLE (roles live in AAI/Keycloak, NOT in Affinities). With that
 token they publish and search in the NDP-EP, backed by a local catalog (CKAN or
-MongoDB, or none) and optional S3 storage; the diagram shows CKAN and MinIO.
+MongoDB, or none) and optional S3 storage.
 When the Affinities integration is on, the EP registers the datasets and
 services it creates in Affinities. The EP is registered with Federation at
 install time and then reports metrics to it. All of it can run over a private
