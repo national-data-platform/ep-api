@@ -9,8 +9,10 @@ users and administrators**.
 - `NDP-demo-presentation.md` — the presentation in **Marp** format. It doubles as
   a self-guided tutorial: each step states what to do and what you will see.
 - `assets/` — brand header/footer images (NDP logo + partner logos) reused from
-  the official `ndp ep - presentation.pptx`. Applied to every slide via CSS.
-- `screenshots/` — drop the screenshots here (see the checklist below).
+  the official `docs/ndp ep - presentation.pptx` and applied to every slide via
+  CSS; the component icons (`assets/icons/`) and the component-interactions
+  diagram (`assets/diagrams/`).
+- `screenshots/` — the screenshots shown in the presentation (listed below).
 
 ## Turning it into slides
 
@@ -29,42 +31,36 @@ npx @marp-team/marp-cli NDP-demo-presentation.md -o NDP-demo-presentation.html
 
 > Run these from inside `docs/demo/` so the `assets/...` paths resolve.
 
-## Screenshots to capture
+## Screenshots
 
-Each `[📸 screenshots/NN-name.png …]` placeholder in the presentation maps to one
-screenshot. Checklist:
+`screenshots/` holds the images the presentation shows, each on its own
+full-slide ("imgslide") slide after the slide it illustrates:
 
 **Installation**
-- [ ] `10-keycloak-login.png` — NDP login (Keycloak)
-- [ ] `11-keycloak-admin.png` — Keycloak admin console (realm NDP)
-- [ ] `12-affinities-frontend.png` — Affinities web app (relationships graph)
-- [ ] `13-federation-ui.png` — federation web app (still empty)
-- [ ] `14-ep-home.png` — Endpoint home page (search)
-- [ ] `15-docker-ps.png` — `docker ps` with everything "Up"
+- `12-affinities-frontend.png` — Affinities web app
+- `13-federation-ui.png` — Federation admin dashboard
+- `15-docker-ps.png` — `docker ps` with every container "Up"
+- `14-ep-home.png` — the Endpoint's Search landing page
 
 **Identity and permissions**
-- [ ] `19-keycloak-assign-ndp-admin.png` — assigning the `ndp_admin` realm role in Keycloak (first admin, full stack)
-- [ ] `22-request-access.png` — user's "Request access" form (no role yet)
-- [ ] `23-access-requests-approve.png` — admin Access Requests page approving with a tier
+- `22-request-access.png` — "Request access to this Endpoint" form shown to a refused user
+- `23-access-requests-approve.png` — admin Access Requests page approving with a tier
 
 **Endpoint (web)**
-- [ ] `30-search-ui.png` — Search page with options (category, catalog, filters)
-- [ ] `33-create-resource.png` — example of a "+ New" creation form
-- [ ] `34-search-results.png` — results with the dataset
-- [ ] `36-s3-management.png` — S3 Management tool
-
-**Python**
-- [ ] `40-notebook.png` — notebook running the library
+- `30-search-ui.png` — Search page with its options (category, catalog, My assets)
+- `33-create-resource.png` — the filled "New dataset" form
+- `34-search-results.png` — Local search for "nexrad" showing the new dataset
+- `36-s3-management.png` — S3 Management page
 
 **Federation**
-- [ ] `50-federation-ep-registered.png` — the EP in the federation
-- [ ] `51-federation-health.png` — health/metrics
+- `50-federation-ep-registered.png` — Federation admin "Endpoints" list with the Endpoint
+- `51-federation-health.png` — Federation admin "Metrics" list
 
 **Appendix**
-- [ ] `A1-affinities-add-endpoint.png` — Affinities "Add Endpoint" form (obtaining the EP_UUID)
-- [ ] `A2-keycloak-create-user.png` — Keycloak: create user + set password (bootstrap)
+- `A1-affinities-add-endpoint.png` — Affinities "Add Endpoint" form (obtaining an Affinities UID)
 
 ## Notes
 
 - Presentation text (and speaker notes `<!-- note: -->`) are in **English**.
-- This material is written and refined incrementally (see issue #179).
+- This material is written and refined incrementally (see issue #179); it was
+  last checked against ep-api v0.34.47 (issue #338).
