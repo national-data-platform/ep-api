@@ -1,26 +1,29 @@
 # Installing an Endpoint registered with the Federation
 
 The same lightest install as the [standalone one](installing-standalone-no-catalog.md)
-— no local catalog, every other answer left at its default — but **registered
-with the NDP Federation**, which is what lists it on the platform.
+— no local catalog, no S3, no access requests — but **registered with the NDP
+Federation**, which is what lists it on the platform.
 
 ```bash
 ./install/install.sh
 ```
 
-Answer the prompts by pressing Enter, answer **yes** to *Register this Endpoint
-with the Federation now?*, and paste your NDP access token when asked. You are
-also asked for an organization, a name, a contact email, and whether to be
-listed; the optional features (JupyterHub, streaming, remote execution) stay
-off.
+Press Enter at the configuration-id prompt, accept the defaults for the
+catalog and S3, answer **yes** (the default) to *Register this Endpoint with
+the Federation now?*, and paste your NDP access token when asked. You are
+then asked for an organization, a name, a contact email and whether to be
+listed on the platform; the optional features (JupyterHub, streaming, remote
+execution) stay off. The examples below use `my-org` and `my-ep` as the
+answers.
 
 Registering happens **before** anything is installed: the configuration it
-returns is what drives the rest of the install.
+returns is what drives the rest of the install. There is no unattended way to
+register; `--yes` skips every prompt, including this one.
 
 ## The sequence
 
 The Federation does most of the work, and it does it against three other
-services. That is the part worth reading — the grey box below.
+services. That is the part worth reading — the shaded box below.
 
 ```mermaid
 sequenceDiagram
@@ -40,7 +43,8 @@ sequenceDiagram
     Note over Operator,Installer: Asking — nothing is written yet
     Installer->>Operator: Configuration id? (blank to skip)
     Installer->>Operator: Which local catalog? [1] None
-    Installer->>Operator: Register with the Federation now? [Y/n]
+    Installer->>Operator: Enable S3 object storage? [y/N]
+    Installer->>Operator: Register this Endpoint with the Federation now? [Y/n]
     Operator-->>Installer: yes
     Installer->>Operator: NDP access token (not shown)
     Installer->>Operator: Organization, Endpoint name, contact email
@@ -68,55 +72,72 @@ sequenceDiagram
     Fed->>Fed: Update the record with client, group,<br/>staging token and affinities uid
     end
 
-    Fed-->>Installer: configuration id
+    Fed-->>Installer: 201, configuration id
     Installer->>Operator: Keep this id — --config-id reproduces this Endpoint
 
-    Installer->>Operator: Endpoint port? Authentication service URL?
+    Installer->>Operator: Port? [8002] AAI URL? Enable access requests? [y/N]
 
     Installer->>Fed: GET /ep/<config-id>
     Fed-->>Installer: the configuration just created
-    Note over Installer: Applied: organization, name, group-based access<br/>with that group, listed-on-the-platform, staging<br/>catalog. Streaming and JupyterHub stay off.
+    Note over Installer: Applied: organization, name, group-based access<br/>with that group, listed-on-the-platform, staging<br/>catalog and PRE_CKAN_ORGANIZATION=ep-<config-id>.<br/>Streaming and JupyterHub stay off.
 
-    Installer->>Installer: Render .env from example.env (21 values set)
     Installer->>Operator: Existing .env backed up — overwrite?
-    Installer->>EP: docker compose up -d --build
+    Installer->>Installer: Render .env from example.env (23 values set),<br/>METRICS_ENDPOINT = <federation-url>/metrics/
+    Installer->>Pre: Which organizations may this token write to?
+    Pre-->>Installer: ep-<config-id> — or a warning, and the install continues
+    Installer->>EP: EP_API_PORT=8002 docker compose up -d --build
     EP-->>Installer: 200 from /health
-    Installer->>Operator: Installed. UI: http://localhost:8003/ui/
+    Installer->>Operator: Installed. UI: http://localhost:8002/ui/
 
     rect rgb(245, 245, 245)
     Note over EP,Fed: From here on, on its own
-    EP->>Fed: POST /metrics/ every 3300s
-    Fed-->>EP: 201 Created
-    Note over EP,Fed: Because the registration asked to be listed,<br/>IS_PUBLIC is True and the reports go out
+    EP->>Fed: POST /metrics/ at startup, then every 3300s
+    Fed-->>EP: any 2xx
+    Note over EP,Fed: One report per interval, from the leader worker.<br/>Because the registration asked to be listed,<br/>IS_PUBLIC is True and the reports go out
     end
 ```
 
+The *About to register* confirmation is asked once; if the Federation answers
+400 (usually a name already taken), the installer asks for another name and
+sends the registration again without asking the rest. A 401, 422, 502/503/504
+or an unreachable Federation stops the install; see
+[federation-and-metrics.md](../architecture/federation-and-metrics.md#12-registering--post-epsimple)
+for each case.
+
+There is no remembered-settings offer in this run: it is made only when a
+configuration id is known at the first prompt.
+
 ## What the registration created
 
-Four things, in three different services, none of which exist for a standalone
+Five things, in four different services, none of which exist for a standalone
 install:
 
 | What | Where | The Endpoint uses it |
 |---|---|---|
 | A configuration record, keyed by the configuration id | Federation | Yes — re-runs read it with `--config-id` |
-| A Keycloak client `ep-<config-id>`, **confidential** | Identity provider | **No.** Sign-in through it does not work yet; see [configuration.md](../configuration.md) |
-| A group `ndp_ep/ep-<config-id>`, with you as administrator | Identity provider | Yes — it lands in `GROUP_NAMES` and gates every write |
-| An API token for the staging catalog | Staging CKAN | Yes — `PRE_CKAN_API_KEY` |
-| An entry describing this Endpoint | Affinities | Not directly; it is what makes the Endpoint discoverable |
+| A Keycloak client `ep-<config-id>`, **confidential** | Identity provider | **No.** Sign-in through it does not work; see [configuration.md](../configuration.md) |
+| A group `ndp_ep/ep-<config-id>`, with you as administrator | Identity provider | Yes — it lands in `GROUP_NAMES`, decides who may enter, and is the group an approved access request grants (since 0.34.46) |
+| An API token for the staging catalog, for organization `ep-<config-id>` | Staging CKAN | Yes — `PRE_CKAN_API_KEY`, with `PRE_CKAN_ORGANIZATION=ep-<config-id>` |
+| An entry describing this Endpoint | Affinities | No — the uid is not read and `AFFINITIES_EP_UUID` stays empty |
 
 ## The `.env` it produces
 
 Only the values that differ from the [standalone install](installing-standalone-no-catalog.md)
-are listed; everything else is identical.
+are listed; everything else is identical. The 23 values set are the 18
+variables the standalone install sets plus `ENABLE_GROUP_BASED_ACCESS`,
+`GROUP_NAMES`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` and
+`PRE_CKAN_ORGANIZATION`.
 
 | Variable | Value | Where it comes from |
 |---|---|---|
-| `ORGANIZATION`, `EP_NAME` | `my-org-reg`, `my-ep-reg` | The answers, stored in the registration |
+| `ORGANIZATION`, `EP_NAME` | `my-org`, `my-ep` | The answers, stored in the registration |
 | `ENABLE_GROUP_BASED_ACCESS` | `True` | Set because the registration produced a group |
 | `GROUP_NAMES` | `ndp_ep/ep-<config-id>` | The group created for this Endpoint |
 | `IS_PUBLIC` | `True` | "List this Endpoint on the platform" — this is what lets the metrics be posted |
 | `PRE_CKAN_ENABLED` | `True` | Set because the registration returned a staging URL and token |
-| `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` | the platform's catalog2, and the minted token | The registration |
+| `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` | the platform's staging catalog, and the minted token | The registration |
+| `PRE_CKAN_ORGANIZATION` | `ep-<config-id>` | Derived from the configuration id: the organization the token was minted for |
+| `METRICS_ENDPOINT` | `<federation-url>/metrics/` | The Federation this run registered with (the same line as in a standalone install) |
 
 `OIDC_ENABLED` stays `False` even though a client was created for this
 Endpoint: its tokens carry no `sub` claim, which is what the authentication
@@ -128,12 +149,15 @@ login. The installer does not offer it.
 Everything the standalone one does — authenticate users, search the platform's
 global catalog, serve its UI, answer `/health` and `/ready` — plus:
 
-- **It is listed on the platform.** Metrics go out every 3300 seconds and the
-  Federation records them, so the Endpoint shows as active.
-- **Writes are gated by the group.** With `ENABLE_GROUP_BASED_ACCESS=True`, a
-  user needs to be in `ndp_ep/ep-<config-id>` to write. You are its
-  administrator, but a token minted **before** the group existed does not carry
-  it — copy a fresh one from your user panel after registering.
+- **It is listed on the platform.** The first report goes out when the
+  Endpoint starts and then one every 3300 seconds; the Federation records
+  them, so the Endpoint shows as active.
+- **Entry is gated by the group.** With `ENABLE_GROUP_BASED_ACCESS=True`, a
+  user must be in `ndp_ep/ep-<config-id>` (or hold the platform-wide
+  `ndp_admin` role) to enter the Endpoint at all; the UI refuses anyone else
+  at sign-in. **Writes** also need a writer or admin role. You are the group's
+  administrator, but a token minted **before** the group existed does not
+  carry it — copy a fresh one from your user panel after registering.
 
 It still stores nothing: with no local catalog, the registration, update,
 delete and resource routes are not mounted, so there is nothing to write to

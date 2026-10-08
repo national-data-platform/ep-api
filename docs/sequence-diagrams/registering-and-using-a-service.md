@@ -53,6 +53,8 @@ sequenceDiagram
             EP-->>User: that response, passed through
         else it cannot be reached
             EP-->>User: 502 — Unable to connect to the target service
+        else no answer within 30 seconds
+            EP-->>User: 504 — Service request timed out
         end
     end
     Note over User,Svc: /services/redirect/{name}/{path} forwards the<br/>subpath too, for GET, POST, PUT, PATCH and DELETE
@@ -61,7 +63,9 @@ sequenceDiagram
     rect rgb(245, 245, 245)
     Note over User,Pre: Publishing it for review
     User->>EP: POST /dataset/{name}/publish + Bearer token
-    Note over EP: PRE_CKAN_ENABLED must be True — otherwise 400
+    EP->>AAI: validate the token
+    AAI-->>EP: identity, groups and roles
+    Note over EP: The same write gate first — otherwise 403.<br/>Then PRE_CKAN_ENABLED must be True — otherwise 400
     EP->>Local: package_show
     Local-->>EP: the service, resources and extras
     Note over EP: owner_org is replaced by PRE_CKAN_ORGANIZATION.<br/>Without it the local organization travels along and<br/>the staging catalog refuses the write
@@ -104,9 +108,10 @@ Access denied: User <user> not authorized to add dataset to this organization
 ```
 
 The installer sets that value from the registration — `ep-<config-id>`, the
-organization the Federation minted the staging token for — and checks with the
-staging catalog that it is accepted before writing anything. An Endpoint
-installed before that, or configured by hand, needs it set.
+organization the Federation minted the staging token for — and, after
+rendering `.env` and before starting the Endpoint, asks the staging catalog
+whether the token may write there, warning if not. An Endpoint installed
+before the installer did this, or configured by hand, needs it set.
 
 ## Protecting a service
 
@@ -170,7 +175,9 @@ flowchart TD
 
     FWD --> S{"Is the service<br/>reachable from the<br/>Endpoint's container?"}
     S -->|"no"| E502["502<br/>Unable to connect to the target service"]
-    S -->|"yes"| OK["The service's own response,<br/>passed back unchanged"]
+    S -->|"yes"| T{"Does it answer<br/>within 30 seconds?"}
+    T -->|"no"| E504["504<br/>Service request timed out"]
+    T -->|"yes"| OK["The service's own response,<br/>passed back unchanged"]
 
     OPEN -.-> C
     PROT -.-> C
