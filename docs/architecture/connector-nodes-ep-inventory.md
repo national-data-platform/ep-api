@@ -103,7 +103,7 @@ leader lock is the existing way to keep a background loop to one worker.
   (`api/services/auth_services/authorization_service.py`).
 - `ENABLE_GROUP_BASED_ACCESS` + `GROUP_NAMES` add a membership gate; the
   installer sets them from the registration's group
-  (`install/install.sh:1095-1098`). The gate decides who may enter the
+  (`install/install.sh:1099-1102`). The gate decides who may enter the
   Endpoint (`GET /user/info`, which the UI calls at sign-in) and applies to
   every write; writes also need the writer tier.
 - `TEST_TOKEN` bypasses the AAI and grants `ndp_admin`
@@ -119,7 +119,7 @@ should not travel to a minimal node.
 variables injected by `entrypoint.sh` (`ui/src/services/oidc.js:49-70`); the
 token is still validated through `AUTH_API_URL`. The installer forces it off
 because the client a registration creates cannot be used for it
-(`install/install.sh:1042`, `1138-1144`).
+(`install/install.sh:1046`, `1142-1148`).
 
 **Assessment** — *not applicable*: a UI feature.
 
@@ -154,7 +154,7 @@ feature; a connector node exposes data rather than browsing the platform.
 
 **Facts** — `POST /dataset/{id}/publish` copies a local dataset to the
 staging catalog using credentials from the Federation registration
-(`PRE_CKAN_*`, `install/install.sh:1121-1134`). The registration, update and
+(`PRE_CKAN_*`, `install/install.sh:1125-1138`). The registration, update and
 delete routes also accept `?server=pre_ckan`, which writes straight to the
 staging catalog without a local copy (for example
 `api/routes/register_routes/post_general_dataset.py:196-202`). All of them
@@ -266,7 +266,7 @@ status/heartbeat contract in PASS-101).
 (`api/services/affinities_services/affinities_client.py`), no auth headers,
 enabled only when `AFFINITIES_ENABLED`, `AFFINITIES_URL` and
 `AFFINITIES_EP_UUID` are all set; the installer always disables it
-(`install/install.sh:1039`).
+(`install/install.sh:1043`).
 
 **Assessment** — *as-is* technically; whether a connector node registers in
 Affinities is a product question.
@@ -309,7 +309,7 @@ node needs; the script itself is tied to this compose stack.
 supervisord) and compose profiles `mongodb`, `s3`, `kafka`, `mongo-express`,
 `jupyter`, `pelican` and `full` (`docker-compose.yml`). The `api` service has
 no published image: compose builds it from the checkout, and the installer
-runs `up -d --build` (`install/install.sh:1531`).
+runs `up -d --build` (`install/install.sh:1535`).
 
 **Assessment** — *adapt*: a connector node would want a smaller image without
 the UI and nginx, and a published image rather than a local build.
