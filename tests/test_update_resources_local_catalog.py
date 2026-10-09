@@ -12,12 +12,17 @@ import copy
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.config import catalog_settings, ckan_settings
-from api.main import app
+from api.routes.update_routes import router as update_router
 from api.services.auth_services import get_user_for_write_operation
 
+# The update routes are mounted only when a local catalog is configured, so the
+# test mounts them itself instead of depending on the environment.
+app = FastAPI()
+app.include_router(update_router)
 client = TestClient(app)
 
 
