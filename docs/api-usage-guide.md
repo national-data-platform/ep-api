@@ -422,9 +422,9 @@ curl -s -X POST "$EP/kafka" \
 `PUT` and `PATCH` on `/url/{id}`, `/s3/{id}` and `/kafka/{id}` take the same
 fields, all optional, and answer `{"message": "…updated successfully"}`
 (`PATCH /url/{id}` returns the service's result instead). With `server=local`
-they change the configured local catalog, CKAN or MongoDB (since 0.34.48).
-On `/s3/{id}`, a new `resource_s3` is accepted but the stored S3 URL is not
-changed ([#349](https://github.com/national-data-platform/ep-api/issues/349)).
+they change the configured local catalog, CKAN or MongoDB (since 0.34.48). A
+new `resource_url` or `resource_s3` replaces the URL of the dataset's URL or S3
+resource (for `resource_s3`, since 0.34.49).
 
 ---
 

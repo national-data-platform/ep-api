@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.49] - 2026-10-09
+
+### Fixed
+- **A new S3 URL was ignored when updating an S3 resource.** `PUT` and `PATCH /s3/{id}` with a new `resource_s3` answered 200 "S3 resource updated successfully" but the stored URL stayed the same, with either catalog backend: the services found the dataset's S3 resource and then did nothing. They now set its URL through the repository's `resource_patch`. The existing tests in `tests/test_s3_update_service.py` now check that the URL is written. Verified with a MongoDB-backed and a CKAN-backed Endpoint: `PUT` and then `PATCH` each changed the stored URL; on an Endpoint without this change both answered 200 and the URL stayed the original one (#349).
+
 ## [0.34.48] - 2026-10-09
 
 ### Fixed
