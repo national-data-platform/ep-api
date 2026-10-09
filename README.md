@@ -21,6 +21,8 @@ An Endpoint:
 ## Documentation
 
 - [docs/README.md](docs/README.md) — index of all documentation
+- [NDP demo presentation (slides)](https://national-data-platform.github.io/ep-api/) — the whole system end to end, for
+  users and administrators
 - [docs/architecture/overview.md](docs/architecture/overview.md) — how the
   pieces fit together
 - [docs/configuration.md](docs/configuration.md) — every `.env` variable

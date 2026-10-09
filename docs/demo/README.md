@@ -4,9 +4,14 @@ End-to-end material that walks through the whole NDP system (installation, web
 usage, the Python library, federation and the secure network), aimed at **end
 users and administrators**.
 
+**View it:** [slides](https://national-data-platform.github.io/ep-api/) · [PDF](https://national-data-platform.github.io/ep-api/NDP-demo-presentation.pdf)
+
+Both are rebuilt and published by `.github/workflows/demo-deck.yml` on every
+push to `main` that changes `docs/demo/`.
+
 ## Files
 
-- `NDP-demo-presentation.md` — the presentation in **Marp** format. It doubles as
+- [`NDP-demo-presentation.md`](NDP-demo-presentation.md) — the presentation in **Marp** format. It doubles as
   a self-guided tutorial: each step states what to do and what you will see.
 - `assets/` — brand header/footer images (NDP logo + partner logos) reused from
   the official `docs/ndp ep - presentation.pptx` and applied to every slide via
