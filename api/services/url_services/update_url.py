@@ -4,7 +4,8 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
-from api.config.ckan_settings import ckan_settings
+from api.config import catalog_settings
+from api.repositories import CKANRepository
 from api.services.metadata_services import preserve_ndp_metadata
 
 logger = logging.getLogger(__name__)
@@ -39,15 +40,19 @@ async def update_url(
 ):
     """
     Update an existing URL resource in CKAN, allowing a custom ckan_instance.
-    If ckan_instance is None, defaults to ckan_settings.ckan.
+    If ckan_instance is None, uses the configured local catalog.
     """
 
+    # The configured local catalog (CKAN or MongoDB), unless a CKAN instance
+    # such as Pre-CKAN is given (issue #343).
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     # Fetch the existing resource data
     try:
-        resource = ckan_instance.action.package_show(id=resource_id)
+        resource = repository.package_show(id=resource_id)
     except Exception as e:
         raise Exception(f"Error fetching resource with ID {resource_id}: {str(e)}")
 
@@ -97,15 +102,13 @@ async def update_url(
 
     # Perform the update
     try:
-        ckan_instance.action.package_update(id=resource_id, **updated_data)
+        repository.package_update(id=resource_id, **updated_data)
 
         # Update the resource URL if it has changed
         if resource_url:
             for res in resource["resources"]:
                 if res["format"].lower() == "url":
-                    ckan_instance.action.resource_update(
-                        id=res["id"], url=resource_url, package_id=resource_id
-                    )
+                    repository.resource_patch(id=res["id"], url=resource_url)
                     break
     except Exception as e:
         raise Exception(f"Error updating resource with ID {resource_id}: {str(e)}")
@@ -130,15 +133,19 @@ async def patch_url(
     Partially update an existing URL resource in CKAN.
 
     Only updates the fields that are provided, leaving others unchanged.
-    If ckan_instance is None, defaults to ckan_settings.ckan.
+    If ckan_instance is None, uses the configured local catalog.
     """
 
+    # The configured local catalog (CKAN or MongoDB), unless a CKAN instance
+    # such as Pre-CKAN is given (issue #343).
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     # Fetch the existing resource data
     try:
-        resource = ckan_instance.action.package_show(id=resource_id)
+        resource = repository.package_show(id=resource_id)
     except Exception as e:
         raise Exception(f"Error fetching resource with ID {resource_id}: {str(e)}")
 
@@ -188,15 +195,13 @@ async def patch_url(
 
     # Perform the update
     try:
-        ckan_instance.action.package_update(id=resource_id, **updated_data)
+        repository.package_update(id=resource_id, **updated_data)
 
         # Update the resource URL if it has changed
         if resource_url:
             for res in resource["resources"]:
                 if res["format"].lower() == "url":
-                    ckan_instance.action.resource_update(
-                        id=res["id"], url=resource_url, package_id=resource_id
-                    )
+                    repository.resource_patch(id=res["id"], url=resource_url)
                     break
     except Exception as e:
         raise Exception(f"Error updating resource with ID {resource_id}: {str(e)}")

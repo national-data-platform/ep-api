@@ -3,7 +3,8 @@
 import json
 from typing import Optional
 
-from api.config.ckan_settings import ckan_settings
+from api.config import catalog_settings
+from api.repositories import CKANRepository
 from api.services.metadata_services import preserve_ndp_metadata
 
 RESERVED_KEYS = {
@@ -38,14 +39,18 @@ def update_kafka(
 ):
     """
     Update a Kafka dataset on CKAN (full replacement).
-    If ckan_instance is None, defaults to ckan_settings.ckan.
+    If ckan_instance is None, uses the configured local catalog.
     """
+    # The configured local catalog (CKAN or MongoDB), unless a CKAN instance
+    # such as Pre-CKAN is given (issue #343).
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     try:
         # Fetch the existing dataset
-        dataset = ckan_instance.action.package_show(id=dataset_id)
+        dataset = repository.package_show(id=dataset_id)
     except Exception as e:
         raise Exception(f"Error fetching Kafka dataset: {str(e)}")
 
@@ -81,7 +86,7 @@ def update_kafka(
     dataset["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
 
     try:
-        updated_dataset = ckan_instance.action.package_update(**dataset)
+        updated_dataset = repository.package_update(**dataset)
     except Exception as e:
         raise Exception(f"Error updating Kafka dataset: {str(e)}")
 
@@ -106,14 +111,18 @@ def patch_kafka(
     Partially update a Kafka dataset on CKAN.
 
     Only updates the fields that are provided, leaving others unchanged.
-    If ckan_instance is None, defaults to ckan_settings.ckan.
+    If ckan_instance is None, uses the configured local catalog.
     """
+    # The configured local catalog (CKAN or MongoDB), unless a CKAN instance
+    # such as Pre-CKAN is given (issue #343).
     if ckan_instance is None:
-        ckan_instance = ckan_settings.ckan
+        repository = catalog_settings.local_catalog
+    else:
+        repository = CKANRepository(ckan_instance)
 
     try:
         # Fetch the existing dataset
-        dataset = ckan_instance.action.package_show(id=dataset_id)
+        dataset = repository.package_show(id=dataset_id)
     except Exception as e:
         raise Exception(f"Error fetching Kafka dataset: {str(e)}")
 
@@ -157,7 +166,7 @@ def patch_kafka(
     dataset["extras"] = [{"key": k, "value": v} for k, v in current_extras.items()]
 
     try:
-        updated_dataset = ckan_instance.action.package_update(**dataset)
+        updated_dataset = repository.package_update(**dataset)
     except Exception as e:
         raise Exception(f"Error updating Kafka dataset: {str(e)}")
 

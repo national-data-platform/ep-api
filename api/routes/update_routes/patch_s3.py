@@ -147,7 +147,8 @@ async def patch_s3_resource(
                 )
             ckan_instance = ckan_settings.pre_ckan
         else:
-            ckan_instance = ckan_settings.ckan
+            # The configured local catalog, CKAN or MongoDB (issue #343)
+            ckan_instance = None
 
         updated_id = await patch_s3(
             resource_id=resource_id,

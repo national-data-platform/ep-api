@@ -132,7 +132,8 @@ async def update_kafka_datasource(
                 )
             ckan_instance = ckan_settings.pre_ckan
         else:
-            ckan_instance = ckan_settings.ckan
+            # The configured local catalog, CKAN or MongoDB (issue #343)
+            ckan_instance = None
 
         updated = kafka_services.update_kafka(
             dataset_id=dataset_id,

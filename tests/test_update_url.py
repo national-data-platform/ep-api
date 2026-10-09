@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from api.repositories import CKANRepository
+
 from api.services.url_services.update_url import (
     RESERVED_KEYS,
     update_url,
@@ -102,7 +104,7 @@ class TestValidateManualProcessingInfo:
             validate_manual_processing_info("CSV", processing)
 
 
-@patch("api.services.url_services.update_url.ckan_settings")
+@patch("api.services.url_services.update_url.catalog_settings")
 class TestUpdateUrl:
     """Test cases for update_url function."""
 
@@ -143,7 +145,7 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await update_url(
@@ -185,7 +187,7 @@ class TestUpdateUrl:
         # Setup mock to raise exception
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.side_effect = Exception("Resource not found")
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             with pytest.raises(
@@ -202,8 +204,8 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan.action.resource_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan.action.resource_patch.return_value = None
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await update_url(
@@ -230,11 +232,10 @@ class TestUpdateUrl:
             assert updated_data["owner_org"] == "new_org"
             assert updated_data["notes"] == "New description"
 
-            # Verify resource_update was called for URL change
-            mock_ckan.action.resource_update.assert_called_once_with(
+            # Verify resource_patch was called for URL change
+            mock_ckan.action.resource_patch.assert_called_once_with(
                 id="url-resource-456",
                 url="http://newexample.com/data",
-                package_id="resource-123",
             )
 
             assert result["message"] == "Resource updated successfully"
@@ -250,7 +251,7 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await update_url(
@@ -273,7 +274,7 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             # This should validate current processing against new file type
@@ -296,7 +297,7 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await update_url(
@@ -317,7 +318,7 @@ class TestUpdateUrl:
 
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             with pytest.raises(KeyError, match="Extras contain reserved keys"):
@@ -352,7 +353,7 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = resource_no_url
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await update_url(
@@ -361,9 +362,9 @@ class TestUpdateUrl:
                 resource_name="updated_name",
             )
 
-            # Should update package but not call resource_update
+            # Should update package but not call resource_patch
             mock_ckan.action.package_update.assert_called_once()
-            mock_ckan.action.resource_update.assert_not_called()
+            mock_ckan.action.resource_patch.assert_not_called()
             assert result["message"] == "Resource updated successfully"
 
         asyncio.run(run_test())
@@ -375,7 +376,7 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.side_effect = Exception("Update failed")
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             with pytest.raises(
@@ -394,7 +395,7 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             # Only update title and notes
@@ -428,7 +429,7 @@ class TestUpdateUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await update_url(
@@ -457,7 +458,7 @@ class TestUpdateUrl:
         asyncio.run(run_test())
 
 
-@patch("api.services.url_services.update_url.ckan_settings")
+@patch("api.services.url_services.update_url.catalog_settings")
 class TestPatchUrl:
     """Test cases for patch_url function."""
 
@@ -497,7 +498,7 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await patch_url(
@@ -541,7 +542,7 @@ class TestPatchUrl:
         # Setup mock to raise exception
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.side_effect = Exception("Resource not found")
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             with pytest.raises(
@@ -559,7 +560,7 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             # Only update title
@@ -593,8 +594,8 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan.action.resource_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan.action.resource_patch.return_value = None
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await patch_url(
@@ -604,10 +605,9 @@ class TestPatchUrl:
 
             # Should update both package and resource
             mock_ckan.action.package_update.assert_called_once()
-            mock_ckan.action.resource_update.assert_called_once_with(
+            mock_ckan.action.resource_patch.assert_called_once_with(
                 id="url-resource-456",
                 url="http://newurl.com/patched",
-                package_id="resource-123",
             )
             assert result["message"] == "Resource updated successfully"
 
@@ -623,7 +623,7 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             new_processing = {
@@ -663,7 +663,7 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             # Update processing for existing CSV file type
@@ -704,7 +704,7 @@ class TestPatchUrl:
 
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             with pytest.raises(KeyError, match="Extras contain reserved keys"):
@@ -725,7 +725,7 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await patch_url(
@@ -760,7 +760,7 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.side_effect = Exception("Patch update failed")
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             with pytest.raises(
@@ -780,7 +780,7 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = sample_resource
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             new_mapping = {"field2": "col2", "field3": "col3"}
@@ -828,7 +828,7 @@ class TestPatchUrl:
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.return_value = resource_no_url
         mock_ckan.action.package_update.return_value = None
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         async def run_test():
             result = await patch_url(
@@ -837,9 +837,9 @@ class TestPatchUrl:
                 resource_name="patched_name",
             )
 
-            # Should update package but not call resource_update
+            # Should update package but not call resource_patch
             mock_ckan.action.package_update.assert_called_once()
-            mock_ckan.action.resource_update.assert_not_called()
+            mock_ckan.action.resource_patch.assert_not_called()
             assert result["message"] == "Resource updated successfully"
 
         asyncio.run(run_test())

@@ -152,12 +152,6 @@ the default differ per route:
   `Pre-CKAN is disabled and cannot be used.` when `PRE_CKAN_ENABLED` is false.
 - Any other value fails validation with 422.
 
-**`PUT`/`PATCH` on `/url/{id}`, `/s3/{id}` and `/kafka/{id}` with
-`server=local` always use the CKAN at `CKAN_URL`**, whatever
-`LOCAL_CATALOG_BACKEND` says (the route passes `ckan_settings.ckan` to the
-service). On an Endpoint with a MongoDB catalog, use `PUT`/`PATCH /dataset/{id}`
-to change those datasets instead.
-
 ---
 
 ## Health and status
@@ -427,8 +421,10 @@ curl -s -X POST "$EP/kafka" \
 
 `PUT` and `PATCH` on `/url/{id}`, `/s3/{id}` and `/kafka/{id}` take the same
 fields, all optional, and answer `{"message": "…updated successfully"}`
-(`PATCH /url/{id}` returns the service's result instead). See the note under
-[The `server` parameter](#the-server-parameter) about which catalog they use.
+(`PATCH /url/{id}` returns the service's result instead). With `server=local`
+they change the configured local catalog, CKAN or MongoDB (since 0.34.48).
+On `/s3/{id}`, a new `resource_s3` is accepted but the stored S3 URL is not
+changed ([#349](https://github.com/national-data-platform/ep-api/issues/349)).
 
 ---
 

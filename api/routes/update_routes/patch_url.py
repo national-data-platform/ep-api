@@ -152,7 +152,8 @@ async def patch_url_resource(
                 )
             ckan_instance = ckan_settings.pre_ckan
         else:
-            ckan_instance = ckan_settings.ckan
+            # The configured local catalog, CKAN or MongoDB (issue #343)
+            ckan_instance = None
 
         result = await patch_url(
             resource_id=resource_id,

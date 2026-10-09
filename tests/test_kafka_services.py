@@ -2,6 +2,8 @@
 """Tests for Kafka services (add_kafka, update_kafka, patch_kafka)."""
 
 import pytest
+
+from api.repositories import CKANRepository
 from unittest.mock import MagicMock, patch
 
 from api.services.kafka_services.add_kafka import add_kafka, RESERVED_KEYS
@@ -233,7 +235,7 @@ class TestAddKafka:
 class TestUpdateKafka:
     """Tests for update_kafka service."""
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_update_kafka_success(self, mock_ckan_settings):
         """Test successful Kafka dataset update."""
         mock_ckan = MagicMock()
@@ -246,7 +248,7 @@ class TestUpdateKafka:
             "extras": [],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = update_kafka(
             dataset_id="dataset-123",
@@ -257,7 +259,7 @@ class TestUpdateKafka:
         assert result == "dataset-123"
         mock_ckan.action.package_update.assert_called_once()
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_update_kafka_with_kafka_fields(self, mock_ckan_settings):
         """Test updating Kafka-specific fields."""
         mock_ckan = MagicMock()
@@ -268,7 +270,7 @@ class TestUpdateKafka:
             "extras": [{"key": "host", "value": "old-host"}],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = update_kafka(
             dataset_id="dataset-123",
@@ -279,7 +281,7 @@ class TestUpdateKafka:
 
         assert result == "dataset-123"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_update_kafka_with_mapping(self, mock_ckan_settings):
         """Test updating with mapping."""
         mock_ckan = MagicMock()
@@ -288,7 +290,7 @@ class TestUpdateKafka:
             "extras": [],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = update_kafka(
             dataset_id="dataset-123",
@@ -297,7 +299,7 @@ class TestUpdateKafka:
 
         assert result == "dataset-123"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_update_kafka_with_processing(self, mock_ckan_settings):
         """Test updating with processing."""
         mock_ckan = MagicMock()
@@ -306,7 +308,7 @@ class TestUpdateKafka:
             "extras": [],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = update_kafka(
             dataset_id="dataset-123",
@@ -315,7 +317,7 @@ class TestUpdateKafka:
 
         assert result == "dataset-123"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_update_kafka_reserved_keys_error(self, mock_ckan_settings):
         """Test error when extras contains reserved keys."""
         mock_ckan = MagicMock()
@@ -323,7 +325,7 @@ class TestUpdateKafka:
             "id": "dataset-123",
             "extras": [],
         }
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         with pytest.raises(KeyError) as exc_info:
             update_kafka(
@@ -333,19 +335,19 @@ class TestUpdateKafka:
 
         assert "reserved keys" in str(exc_info.value)
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_update_kafka_fetch_error(self, mock_ckan_settings):
         """Test error when fetching dataset fails."""
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.side_effect = Exception("Not found")
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         with pytest.raises(Exception) as exc_info:
             update_kafka(dataset_id="nonexistent")
 
         assert "Error fetching Kafka dataset" in str(exc_info.value)
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_update_kafka_update_error(self, mock_ckan_settings):
         """Test error when updating dataset fails."""
         mock_ckan = MagicMock()
@@ -354,7 +356,7 @@ class TestUpdateKafka:
             "extras": [],
         }
         mock_ckan.action.package_update.side_effect = Exception("Update failed")
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         with pytest.raises(Exception) as exc_info:
             update_kafka(dataset_id="dataset-123")
@@ -381,7 +383,7 @@ class TestUpdateKafka:
 class TestPatchKafka:
     """Tests for patch_kafka service."""
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_patch_kafka_success(self, mock_ckan_settings):
         """Test successful Kafka dataset patch."""
         mock_ckan = MagicMock()
@@ -392,7 +394,7 @@ class TestPatchKafka:
             "extras": [],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = patch_kafka(
             dataset_id="dataset-123",
@@ -401,7 +403,7 @@ class TestPatchKafka:
 
         assert result == "dataset-123"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_patch_kafka_partial_update(self, mock_ckan_settings):
         """Test patching only specific fields."""
         mock_ckan = MagicMock()
@@ -414,7 +416,7 @@ class TestPatchKafka:
             "extras": [{"key": "host", "value": "original-host"}],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = patch_kafka(
             dataset_id="dataset-123",
@@ -423,7 +425,7 @@ class TestPatchKafka:
 
         assert result == "dataset-123"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_patch_kafka_with_mapping(self, mock_ckan_settings):
         """Test patching with mapping."""
         mock_ckan = MagicMock()
@@ -432,7 +434,7 @@ class TestPatchKafka:
             "extras": [],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = patch_kafka(
             dataset_id="dataset-123",
@@ -441,7 +443,7 @@ class TestPatchKafka:
 
         assert result == "dataset-123"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_patch_kafka_with_processing(self, mock_ckan_settings):
         """Test patching with processing."""
         mock_ckan = MagicMock()
@@ -450,7 +452,7 @@ class TestPatchKafka:
             "extras": [],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = patch_kafka(
             dataset_id="dataset-123",
@@ -459,7 +461,7 @@ class TestPatchKafka:
 
         assert result == "dataset-123"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_patch_kafka_reserved_keys_error(self, mock_ckan_settings):
         """Test error when extras contains reserved keys."""
         mock_ckan = MagicMock()
@@ -467,7 +469,7 @@ class TestPatchKafka:
             "id": "dataset-123",
             "extras": [],
         }
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         with pytest.raises(KeyError) as exc_info:
             patch_kafka(
@@ -477,19 +479,19 @@ class TestPatchKafka:
 
         assert "reserved keys" in str(exc_info.value)
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_patch_kafka_fetch_error(self, mock_ckan_settings):
         """Test error when fetching dataset fails."""
         mock_ckan = MagicMock()
         mock_ckan.action.package_show.side_effect = Exception("Not found")
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         with pytest.raises(Exception) as exc_info:
             patch_kafka(dataset_id="nonexistent")
 
         assert "Error fetching Kafka dataset" in str(exc_info.value)
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_patch_kafka_update_error(self, mock_ckan_settings):
         """Test error when updating dataset fails."""
         mock_ckan = MagicMock()
@@ -498,7 +500,7 @@ class TestPatchKafka:
             "extras": [],
         }
         mock_ckan.action.package_update.side_effect = Exception("Update failed")
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         with pytest.raises(Exception) as exc_info:
             patch_kafka(dataset_id="dataset-123")
@@ -521,7 +523,7 @@ class TestPatchKafka:
 
         assert result == "dataset-123"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
     def test_patch_kafka_with_extras(self, mock_ckan_settings):
         """Test patching with custom extras."""
         mock_ckan = MagicMock()
@@ -530,7 +532,7 @@ class TestPatchKafka:
             "extras": [{"key": "existing", "value": "value"}],
         }
         mock_ckan.action.package_update.return_value = {"id": "dataset-123"}
-        mock_ckan_settings.ckan = mock_ckan
+        mock_ckan_settings.local_catalog = CKANRepository(mock_ckan)
 
         result = patch_kafka(
             dataset_id="dataset-123",
