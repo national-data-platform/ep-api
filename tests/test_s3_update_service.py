@@ -226,7 +226,7 @@ class TestUpdateS3:
 
         assert result == "s3-resource-123"
         mock_repo.package_update.assert_called_once()
-        # resource_update should not be called
+        mock_repo.resource_patch.assert_not_called()
 
     @patch("api.services.s3_services.update_s3.catalog_settings")
     @pytest.mark.asyncio
@@ -259,6 +259,10 @@ class TestUpdateS3:
         )
 
         assert result == "s3-resource-123"
+        # The new S3 URL reaches the stored resource (issue #349)
+        mock_repo.resource_patch.assert_called_once_with(
+            id="resource-456", url="s3://new-bucket/new-file.csv"
+        )
 
 
 class TestPatchS3:
@@ -417,10 +421,10 @@ class TestPatchS3:
         )
 
         assert result == "s3-resource-123"
-
-        # Note: The implementation has a simplified approach for resource updates
-        # It doesn't actually call resource_show in the current implementation
-        # This is acknowledged in the code comments as a limitation
+        # The new S3 URL reaches the stored resource (issue #349)
+        mock_repo.resource_patch.assert_called_once_with(
+            id="resource-456", url="s3://patched-bucket/patched-file.csv"
+        )
 
     @patch("api.services.s3_services.update_s3.catalog_settings")
     @pytest.mark.asyncio

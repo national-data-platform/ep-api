@@ -63,17 +63,7 @@ async def update_s3(
         if resource_s3:
             for res in resource["resources"]:
                 if res["format"].lower() == "s3":
-                    # For MongoDB, we need to handle resource update differently
-                    # as it doesn't have resource_update, we need to use resource_show
-                    # and then re-create or manually update
-                    try:
-                        repository.resource_show(id=res["id"])
-                        # Update URL in the resource
-                        # Note: This is a simplified approach
-                        # In production, you might want to add resource_update to the interface
-                        pass
-                    except Exception:
-                        pass
+                    repository.resource_patch(id=res["id"], url=resource_s3)
                     break
     except Exception as e:
         raise Exception(f"Error updating S3 resource: {str(e)}")
@@ -140,9 +130,7 @@ async def patch_s3(
         if resource_s3:
             for res in updated_resource.get("resources", []):
                 if res["format"].lower() == "s3":
-                    # Note: Simplified resource URL update
-                    # Consider adding resource_update to interface for full support
-                    pass
+                    repository.resource_patch(id=res["id"], url=resource_s3)
                     break
     except Exception as e:
         raise Exception(f"Error patching S3 resource: {str(e)}")
