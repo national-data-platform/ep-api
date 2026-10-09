@@ -361,16 +361,13 @@ Points that make or break it:
 
 ## 6. Code that does not go through the repository
 
-A new backend is used by most of the API, but not all of it. As of v0.34.45
+A new backend is used by most of the API, but not all of it. As of v0.34.48
 these paths reach CKAN directly, whatever `LOCAL_CATALOG_BACKEND` says:
 
-- `PUT`/`PATCH /url/{id}`, `/s3/{id}` and `/kafka/{id}` with `server=local`:
-  the routes pass `ckan_settings.ckan` (the CKAN at `CKAN_URL`) to the update
-  services.
 - `api/services/organization_services/delete_organization_and_datasets.py`
   and `api/services/status_services/check_ckan_status.py` use
   `ckan_settings.ckan` directly.
 
-Everything else — creation routes, dataset `PUT`/`PATCH`, services, search,
+Everything else — creation routes, every `PUT`/`PATCH`, services, search,
 resources, deletes, publish, the metrics counts and `/ready` — goes through
 `catalog_settings`.

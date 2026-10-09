@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.48] - 2026-10-09
+
+### Fixed
+- **URL, S3 and Kafka resources could not be updated on an Endpoint with the MongoDB catalog.** They are created in the configured local catalog, but `PUT`/`PATCH` on `/url/{id}`, `/s3/{id}` and `/kafka/{id}` with `server=local` passed `ckan_settings.ckan` to the update services, so the update was sent to the CKAN at `CKAN_URL` whatever `LOCAL_CATALOG_BACKEND` said. With MongoDB and no CKAN every such update answered 400 "Pre-CKAN server is not configured or unreachable.". The routes now pass no CKAN instance for `server=local`, and the URL and Kafka update services, like the S3 and service ones, then use `catalog_settings.local_catalog`; `server=pre_ckan` still goes to Pre-CKAN. Changing a URL resource's address now goes through the repository's `resource_patch`, which keeps the resource's other fields. New tests in `tests/test_update_resources_local_catalog.py`. Verified against an Endpoint with a MongoDB catalog and no CKAN: before, `PUT /url/{id}` and `PATCH /url/{id}` answered 400; with this version `PUT` and `PATCH` on a URL, an S3 and a Kafka resource each answered 200 and MongoDB held the new title, notes, URL and Kafka topic (#343).
+
 ## [0.34.47] - 2026-10-08
 
 ### Fixed
