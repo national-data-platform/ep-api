@@ -24,8 +24,10 @@ People who use an Endpoint through its UI or API, without running it.
   - [s3_api_tutorial.ipynb](s3_api_tutorial.ipynb) — buckets and objects through the S3 routes.
   - [s3_to_dataset_workflow_tutorial.ipynb](s3_to_dataset_workflow_tutorial.ipynb) — from an object in S3 storage to a registered dataset.
   - [pelican_api_tutorial.ipynb](pelican_api_tutorial.ipynb) — browsing and reading from a Pelican federation.
-- [demo/README.md](demo/README.md) — the NDP demo presentation, which doubles
-  as a self-guided tutorial of the whole system, for users and administrators.
+- **[NDP demo presentation (slides)](https://national-data-platform.github.io/ep-api/)** — the whole system end to end,
+  for users and administrators; it doubles as a self-guided tutorial. Also as
+  [PDF](https://national-data-platform.github.io/ep-api/NDP-demo-presentation.pdf). Its source and how it is built:
+  [demo/README.md](demo/README.md).
 
 ## Endpoint operators and administrators
 
