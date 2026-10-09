@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.50] - 2026-10-09
+
+### Fixed
+- **The installer stopped when remembered settings held an S3 endpoint and the bundled MinIO was chosen.** Remembered settings from the Federation can include the endpoint of an S3 service an earlier run used. Choosing "MinIO, installed alongside the Endpoint" left that endpoint set, so the installer took the existing-S3 path with no keys and stopped with "--s3-endpoint requires --s3-access-key and --s3-secret-key". Choosing MinIO now clears it, as choosing a catalog already clears the other catalog's URL. New test `install/tests/test_remembered_s3_choice.py`, which drives the installer on a pseudo-terminal against a stand-in Federation. Verified with the full installer in clean copies of the repository, answering the prompts on a terminal, against a stand-in Federation holding `want_s3=yes` and an S3 endpoint: the previous version stopped with that error; this one wrote `S3_ENDPOINT=minio:9000` and the MinIO settings and chose the `s3` profile. The line references in `docs/architecture/` follow the four new lines (#345).
+
 ## [0.34.49] - 2026-10-09
 
 ### Fixed

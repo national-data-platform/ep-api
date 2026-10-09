@@ -46,7 +46,7 @@ id a registration returns, `<token>` an NDP user access token.
 |---|---|---|---|---|
 | Install, interactive, optional, only with a config id passed or pasted at the first prompt | `install.sh` | `GET` / `PUT <federation-url>/ep/<config-id>/settings` | `Authorization: Bearer <token>` | `install/install.sh:742-852`, called at `:891-893` and `:1020` |
 | Install, only when registering | `install.sh` | `POST <federation-url>/ep/simple` | `Authorization: Bearer <token>` (the operator's NDP token) | `register_with_federation`, `install/install.sh:475-740` |
-| Install, whenever there is a config id | `install.sh` | `GET <federation-url>/ep/<config-id>` | none | `install/install.sh:1044-1148` |
+| Install, whenever there is a config id | `install.sh` | `GET <federation-url>/ep/<config-id>` | none | `install/install.sh:1048-1152` |
 | Runtime, at startup and then every interval, from one worker | the API | `POST <METRICS_ENDPOINT>` | none | `record_system_metrics`, `api/tasks/metrics_task.py:64-147`; started in `api/main.py:98-134` |
 
 The rows are in the order they happen in an interactive run (§1.5).
@@ -76,7 +76,7 @@ The resolved URL is printed before anything is sent (`install/install.sh:279`).
 
 The installer uses it for every call in §1, and since 0.34.37 also writes it
 to `.env` as `METRICS_ENDPOINT=<federation-url>/metrics/`
-(`install/install.sh:1150-1156`). That line runs on every install, with or
+(`install/install.sh:1154-1160`). That line runs on every install, with or
 without a registration; without one `IS_PUBLIC` is `False` and nothing is
 posted (§2.1).
 
@@ -85,8 +85,8 @@ posted (§2.1).
 **When.** Only in an interactive run (a terminal and no `--yes`,
 `interactive()` at `install/install.sh:306`), only when no config id was given
 with `--config-id` or pasted at the first prompt (`install/install.sh:876-886`,
-`959`), and only if the operator answers yes to *Register this Endpoint with
-the Federation now?* (default yes, `install/install.sh:960-968`). There is no
+`963`), and only if the operator answers yes to *Register this Endpoint with
+the Federation now?* (default yes, `install/install.sh:964-972`). There is no
 unattended way to register.
 
 **Who.** The operator pastes their own NDP access token
@@ -150,18 +150,18 @@ after every prompt has been answered.
 GET <federation-url>/ep/<config-id>
 ```
 
-No `Authorization` header is sent (`install/install.sh:1047-1048`, `curl -m
+No `Authorization` header is sent (`install/install.sh:1051-1052`, `curl -m
 30`). The protection of this route is the Federation's concern and is covered
 in its own documentation.
 
 Before reading the response the installer turns every optional integration
 off, so only what the registration asks for gets switched back on
-(`install/install.sh:1034-1042`): `IS_PUBLIC`, `KAFKA_CONNECTION`,
+(`install/install.sh:1038-1046`): `IS_PUBLIC`, `KAFKA_CONNECTION`,
 `USE_JUPYTERLAB`, `S3_ENABLED`, `PELICAN_ENABLED`, `AFFINITIES_ENABLED`,
 `REXEC_CONNECTION`, `PRE_CKAN_ENABLED`, `OIDC_ENABLED` are all set to `False`.
 This happens on every install, with or without a config id.
 
-Response fields and what they become (`install/install.sh:1062-1144`):
+Response fields and what they become (`install/install.sh:1066-1148`):
 
 | Response field | `.env` result | Code |
 |---|---|---|
@@ -177,7 +177,7 @@ Response fields and what they become (`install/install.sh:1062-1144`):
 
 The remote-execution URL is not part of the configuration: it is applied
 (`REXEC_CONNECTION=True`, `REXEC_DEPLOYMENT_API_URL`) only in the run that
-registered and asked for it (`install/install.sh:1113-1119`).
+registered and asked for it (`install/install.sh:1117-1123`).
 
 | Status | Installer behaviour | Code |
 |---|---|---|
@@ -188,7 +188,7 @@ registered and asked for it (`install/install.sh:1113-1119`).
 
 After rendering `.env`, the installer checks the staging token can write to
 `ep-<config-id>` (`GET <PRE_CKAN_URL>/api/3/action/organization_list_for_user`,
-`install/install.sh:1464-1491`) and only warns if it cannot.
+`install/install.sh:1468-1495`) and only warns if it cannot.
 
 Verified locally: running `install.sh --config-id <config-id>
 --federation-url <local-federation> --dry-run --yes` against a local
@@ -230,13 +230,13 @@ Content-Type: application/json
   200 uses the body, 404 is treated as "nothing stored", 401/403 and anything
   else warn and drop the token (`install/install.sh:785-803`).
 - `PUT` happens at the end of the prompts, after *Enable access requests?*
-  (`install/install.sh:1017-1020`, `826-852`); 404 means the Federation does
+  (`install/install.sh:1021-1024`, `826-852`); 404 means the Federation does
   not offer the route yet.
 - Both happen **before** `GET /ep/<config-id>` (§1.3).
 - Neither failure stops the installation.
 - Of the values loaded, only the port is offered as a prompt default
-  (`install/install.sh:986-987`); the other prompts offer their fixed
-  defaults (`install/install.sh:906-1015`). See
+  (`install/install.sh:990-991`); the other prompts offer their fixed
+  defaults (`install/install.sh:906-1019`). See
   [gap 4.8](#48-settings-the-endpoint-loses-or-does-not-reuse).
 
 Verified against a stand-in Federation: with a config id pasted and the offer
@@ -318,7 +318,7 @@ settings exchange and no registration, only `GET /ep/<config-id>` when
   (`api/tasks/metrics_task.py:129`). The code default of `IS_PUBLIC` is
   `True` (`api/config/swagger_settings.py:17`), but the installer always
   writes it explicitly: `False` without a registration, the registration's
-  `public` flag with one (`install/install.sh:1034`, `1136`).
+  `public` flag with one (`install/install.sh:1038`, `1140`).
 - Collection runs every interval **whether or not** the report is posted; it
   is always written to the log (`api/tasks/metrics_task.py:123`).
 - Interval: `METRICS_INTERVAL_SECONDS`, default `3300` (55 minutes)
@@ -507,10 +507,10 @@ outage of a few minutes can make an Endpoint look absent for an hour.
 - The config id is not stored on the machine: it appears only embedded in
   `GROUP_NAMES` (`ndp_ep/ep-<config-id>`) and `PRE_CKAN_ORGANIZATION`
   (`ep-<config-id>`); `.env.install-state` keeps only CKAN values
-  (`install/install.sh:1318-1321`).
+  (`install/install.sh:1322-1325`).
 - The Affinities uid the registration creates is never read — it is not among
   the fields the installer takes from `GET /ep/<config-id>`
-  (`install/install.sh:1076-1086`) — so `AFFINITIES_EP_UUID` stays empty.
+  (`install/install.sh:1080-1090`) — so `AFFINITIES_EP_UUID` stays empty.
   Access-request approval no longer depends on it: since 0.34.46 it grants on
   the first `GROUP_NAMES` entry and falls back to `AFFINITIES_EP_UUID` only
   when there is none (`_endpoint_group`,
@@ -538,31 +538,28 @@ If the Federation cannot reach Keycloak or the staging catalog during
 *Live:* with those services unreachable, the registration returned 201 and the
 installer then rendered `PRE_CKAN_ENABLED=True` with a placeholder
 `PRE_CKAN_API_KEY`; the only signal is the post-render staging check, which
-warns and continues (`install/install.sh:1464-1491`).
+warns and continues (`install/install.sh:1468-1495`).
 
 ### 4.8 Settings the Endpoint loses or does not reuse
 
 - `rexec`: the Federation stores the flag but not the URL; the URL is applied
   only during the run that registered (`install/install.sh:120-122`,
-  `1113-1119`), so re-running with `--config-id` loses remote execution.
+  `1117-1123`), so re-running with `--config-id` loses remote execution.
 - `realm_name` and `client_id` are printed, not stored
-  (`install/install.sh:1138-1144`).
+  (`install/install.sh:1142-1148`).
 - Remembered settings (§1.4) are loaded into the installer's variables, but
   only the port is offered back as a prompt default
-  (`install/install.sh:986-987`). The catalog, S3, AAI URL and
+  (`install/install.sh:990-991`). The catalog, S3, AAI URL and
   access-request prompts offer their fixed defaults
-  (`install/install.sh:906-1015`), so pressing Enter replaces the remembered
+  (`install/install.sh:906-1019`), so pressing Enter replaces the remembered
   answer with the default, and that is what the `PUT` at the end stores.
   *Live* (stand-in Federation holding `backend=mongodb`, `ep_api_port=8123`):
   the port prompt offered 8123, the catalog prompt offered *None*, and the
   `PUT` stored `backend=none`.
 - `s3_endpoint` and `s3_secure` are asked only when an existing S3 service is
-  chosen (`install/install.sh:944-956`). When a remembered `s3_endpoint` is
-  loaded and the bundled MinIO is chosen instead, the remembered endpoint is
-  kept, the installer takes the existing-S3 path and stops with
-  `--s3-endpoint requires --s3-access-key and --s3-secret-key`
-  (`install/install.sh:1359-1361`). *Live:* reproduced against a stand-in
-  Federation holding `want_s3=yes`, `s3_endpoint=old-s3:9000`.
+  chosen (`install/install.sh:941-959`). Choosing the bundled MinIO instead
+  clears a remembered `s3_endpoint`, so the run installs MinIO (since 0.34.50;
+  before, it took the existing-S3 path with no keys and stopped).
 
 ## 5. Related documents
 

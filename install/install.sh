@@ -941,6 +941,10 @@ if interactive; then
     choose s3_choice "Which S3 should this Endpoint use?" 1 \
       "MinIO, installed alongside the Endpoint" \
       "An S3-compatible service I already have"
+    # The bundled MinIO drops an endpoint remembered from a run that used an
+    # existing S3; left set, it sent the run down the existing-S3 path with no
+    # keys, which stops the install (issue #345).
+    [[ "$s3_choice" == "1" ]] && s3_endpoint=""
     if [[ "$s3_choice" == "2" ]]; then
       section "Existing S3" \
         "Connect to an S3-compatible service you already run. Give the" \
