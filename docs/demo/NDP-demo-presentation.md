@@ -558,7 +558,7 @@ has what it needs:
 | Entry | What it is | Shown when |
 |---|---|---|
 | **Organization** · **Dataset** · **Service** | Catalog entries | a local catalog |
-| **Kafka topic** | Streaming data flow | Kafka enabled |
+| **Kafka topic** | Streaming data flow | Kafka + a local catalog |
 | **URL resource** | Link to a file or service | a local catalog |
 | **S3 storage** | Buckets and objects page | S3 enabled |
 | **S3 resource** | Object in S3-compatible storage | S3 + a local catalog |

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.52] - 2026-10-10
+
+### Fixed
+- **The UI offered "+ New → Kafka topic" where it could not work.** The entry was shown whenever Kafka was enabled, but `POST /kafka`, which its form calls, is only mounted when the Endpoint has a local catalog. On an Endpoint with Kafka and no local catalog the "+ New" menu held only that entry, and saving it answered 404. The entry now also needs a local catalog, and Kafka alone no longer shows the "+ New" menu. New tests in `ui/src/components/Navigation.test.js`. Verified with Endpoints with `LOCAL_CATALOG_BACKEND=none` and Kafka enabled, signed in as admin: with 0.34.51 the navigation showed "New" with only "Kafka topic" (and `POST /kafka` answered 404); with this version it shows no "New" menu (#346).
+
 ## [0.34.51] - 2026-10-10
 
 ### Fixed

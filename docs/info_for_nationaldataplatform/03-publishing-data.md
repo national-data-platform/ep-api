@@ -12,15 +12,16 @@ configured, so the menu never offers something that cannot work:
 | **Organization** | A top-level group that owns datasets. | a local catalog |
 | **Dataset** | A logical container of related resources, owned by an organization. | a local catalog |
 | **Service** | A network-accessible service (REST API, web app, trigger), always under the `services` organization. | a local catalog |
-| **Kafka topic** | A streaming data flow registered as a dataset. | Kafka enabled |
+| **Kafka topic** | A streaming data flow registered as a dataset. | Kafka enabled and a local catalog |
 | **URL resource** | A link to a file or service (CSV, JSON, NetCDF, stream, …), registered as a dataset. | a local catalog |
 | **S3 storage** | The S3 management page: buckets and objects. | S3 enabled |
 | **S3 resource** | An object in S3-compatible storage, registered as a dataset. | S3 enabled and a local catalog |
 
 An Endpoint installed with the defaults has no local catalog, S3 or Kafka, so
 it shows no `+ New` menu at all. Registering a Kafka topic also writes to the
-local catalog: on an Endpoint with Kafka enabled but no local catalog the
-entry is shown, but the API route it calls (`POST /kafka`) is not available.
+local catalog, so the Kafka entry needs one too (since 0.34.52; before, it was
+shown on an Endpoint with Kafka but no local catalog, where the route it calls,
+`POST /kafka`, does not exist).
 
 ## A typical publishing flow
 
