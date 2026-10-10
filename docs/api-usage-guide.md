@@ -278,9 +278,9 @@ Body ([`GeneralDatasetRequest`](../api/models/general_dataset_request_model.py))
 }
 ```
 
-**Duplicate names.** When a CKAN catalog (local CKAN or Pre-CKAN) reports the
-name or URL as already in use, the dataset is created again with a timestamp
-suffix and the response explains it:
+**Duplicate names.** When the catalog (local CKAN or MongoDB, or Pre-CKAN)
+reports the name or URL as already in use, the dataset is created again with a
+timestamp suffix and the response explains it:
 
 ```json
 {
@@ -291,10 +291,8 @@ suffix and the response explains it:
 }
 ```
 
-The MongoDB backend reports duplicates with a different message, so on a
-MongoDB catalog a duplicate name is a 400
-(`Error creating dataset: … Package with name '…' already exists`) and nothing
-is renamed.
+On a MongoDB catalog this happens since 0.34.51; before, a duplicate name was
+a 400 and nothing was renamed.
 
 **Extras.** These keys are reserved and answer 400 (`Reserved key error: …`)
 when sent in `extras`: `name`, `title`, `owner_org`, `notes`, `id`,

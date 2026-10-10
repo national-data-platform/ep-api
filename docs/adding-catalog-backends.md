@@ -154,9 +154,9 @@ text in the exception message:
 | `Organization not found` | 404 on `DELETE /organization/…` |
 | `No scheme supplied` | 400 "Server is not configured or unreachable." |
 
-The MongoDB backend raises `Package with name '…' already exists` for a
-duplicate name, so on MongoDB a duplicate is a 400 and nothing is renamed. A
-new backend that should behave like CKAN must raise CKAN's text.
+The MongoDB backend raises CKAN's `That URL is already in use` text for a
+duplicate dataset name (since 0.34.51), so duplicates behave the same on both
+backends. A new backend must raise that text too.
 
 **Organizations.** `package_create` should refuse an `owner_org` that does not
 exist (CKAN does; MongoDB raises CKAN's validation-error text for it).

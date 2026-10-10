@@ -331,11 +331,30 @@ def test_duplicate_package_name(mongodb_repo):
         name="duplicate-name", title="First Package", owner_org="test-org"
     )
 
-    # Try to create another with the same name
-    with pytest.raises(Exception, match="already exists"):
+    # Try to create another with the same name. The text is CKAN's, which the
+    # services recognise to rename, or to answer 409 (issue #344).
+    with pytest.raises(Exception, match="That URL is already in use"):
         mongodb_repo.package_create(
             name="duplicate-name", title="Second Package", owner_org="test-org"
         )
+
+
+def test_a_duplicate_dataset_name_is_renamed_as_with_ckan(mongodb_repo):
+    """POST /dataset on a MongoDB catalog renames a duplicate (issue #344)."""
+    from api.services.dataset_services.general_dataset import (
+        create_general_dataset,
+    )
+
+    create_general_dataset(
+        name="radar", title="Radar", owner_org="test-org", repository=mongodb_repo
+    )
+    second = create_general_dataset(
+        name="radar", title="Radar", owner_org="test-org", repository=mongodb_repo
+    )
+
+    assert second["name"].startswith("radar-")
+    assert "already exists" in second["warning"]
+    assert mongodb_repo.package_show(second["name"])["title"].startswith("Radar (")
 
 
 def test_duplicate_organization_name(mongodb_repo):
