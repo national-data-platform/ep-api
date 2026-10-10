@@ -1,5 +1,11 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import Navigation from './Navigation';
 import { statusAPI, userAPI } from '../services/api';
 
@@ -85,5 +91,54 @@ describe('Access Requests navigation entry', () => {
     await settle();
 
     expect(screen.queryByText('Access Requests')).not.toBeInTheDocument();
+  });
+});
+
+describe('"+ New → Kafka topic" entry', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  // POST /kafka, the route the Kafka form calls, is only mounted with a local
+  // catalog. The entry was shown whenever Kafka was enabled, so on an Endpoint
+  // without a local catalog it led to a form whose request could only fail
+  // (issue #346).
+  const renderWriter = (status) => {
+    userAPI.getUserInfo.mockResolvedValue({
+      data: { effective_role: 'writer' },
+    });
+    statusAPI.getStatus.mockResolvedValue({ data: status });
+    render(<Navigation />);
+  };
+
+  const openNewMenu = async () => {
+    const button = await screen.findByText('New');
+    fireEvent.mouseEnter(button.closest('div'));
+  };
+
+  it('is shown when Kafka is enabled and there is a local catalog', async () => {
+    renderWriter({ kafka_enabled: true, local_catalog_backend: 'mongodb' });
+    await settle();
+    await openNewMenu();
+
+    expect(screen.getByText('Kafka topic')).toBeInTheDocument();
+  });
+
+  it('is hidden when there is no local catalog', async () => {
+    renderWriter({
+      kafka_enabled: true,
+      s3_enabled: true,
+      local_catalog_backend: 'none',
+    });
+    await settle();
+    await openNewMenu();
+
+    expect(screen.getByText('S3 storage')).toBeInTheDocument();
+    expect(screen.queryByText('Kafka topic')).not.toBeInTheDocument();
+  });
+
+  it('does not open an empty "+ New" menu on Kafka alone', async () => {
+    renderWriter({ kafka_enabled: true, local_catalog_backend: 'none' });
+    await settle();
+
+    expect(screen.queryByText('New')).not.toBeInTheDocument();
   });
 });
