@@ -186,7 +186,13 @@ class MongoDBRepository(DataCatalogRepository):
         try:
             self.packages.insert_one(package_doc.copy())
         except DuplicateKeyError:
-            raise Exception(f"Package with name '{kwargs.get('name')}' already exists")
+            # CKAN's text, which the services recognise: a dataset is renamed
+            # with a timestamp suffix, a service or Kafka topic answers 409.
+            # A text of our own made every duplicate a 400 (issue #344).
+            raise Exception(
+                "{'name': ['That URL is already in use.'], "
+                "'__type': 'Validation Error'}"
+            )
         except Exception as e:
             raise Exception(f"Error creating package: {str(e)}")
 

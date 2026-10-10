@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.51] - 2026-10-10
+
+### Fixed
+- **On a MongoDB catalog, a duplicate name was a 400 instead of being handled like CKAN.** The services recognise CKAN's "That URL is already in use" / "That name is already in use" text: `POST /dataset` (and publish) retry with a timestamp suffix and return a warning, and `POST /services` and `POST /kafka` answer 409. The MongoDB repository raised "Package with name '…' already exists" instead, so on a MongoDB catalog all three answered 400 and nothing was renamed. It now raises CKAN's text. Tests in `tests/repositories/test_mongodb_repository.py`, including the rename through `create_general_dataset`. Verified against MongoDB-backed Endpoints: with 0.34.50 a second `POST /dataset`, `POST /services` and `POST /kafka` with the same name each answered 400; with this version the dataset was saved as `radar-<timestamp>` with the warning, and the service and Kafka topic answered 409 (#344).
+
 ## [0.34.50] - 2026-10-09
 
 ### Fixed
