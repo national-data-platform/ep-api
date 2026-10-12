@@ -41,7 +41,8 @@ People who install, configure and run an Endpoint.
 - [configuration.md](configuration.md) — every `.env` setting, what it does
   and its default.
 - [operations.md](operations.md) — running an Endpoint: what runs, ports,
-  where state lives, upgrading, backup, logs, health, common problems and a
+  where state lives, upgrading, several Endpoints on one host, backup, logs,
+  health, common problems and a
   production security checklist.
 - [roles-and-permissions.md](roles-and-permissions.md) — the role tiers, how
   roles reach the token and how to grant them.

@@ -1,3 +1,7 @@
+# Several Endpoints can share a host (issue #355): EP_INSTANCE prefixes every
+# container name and the *_HOST_PORT variables move the bundled services'
+# published ports. Unset, both keep the names and ports of a single Endpoint.
+# install.sh --instance writes them, with COMPOSE_PROJECT_NAME, to .env.
 services:
   # ==============================================
   # All-in-one Service: API + UI (always starts)
@@ -6,7 +10,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.allinone
-    container_name: ndp-ep-api
+    container_name: ${EP_INSTANCE:-ndp}-ep-api
     ports:
       # Overridable so an installer never has to rewrite this file. A previous
       # installer patched this line with a literal sed that stopped matching
@@ -34,10 +38,10 @@ services:
   # ==============================================
   mongodb:
     image: mongo:7
-    container_name: ndp-mongodb
+    container_name: ${EP_INSTANCE:-ndp}-mongodb
     profiles: ["mongodb", "full"]
     ports:
-      - "27018:27017"
+      - "${MONGODB_HOST_PORT:-27018}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: admin123
@@ -69,11 +73,11 @@ services:
     # Pinned rather than :latest. The whole point of this change is that an
     # image we do not control vanished underneath installations.
     image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
-    container_name: ndp-minio
+    container_name: ${EP_INSTANCE:-ndp}-minio
     profiles: ["s3", "full"]
     ports:
-      - "9002:9000"      # API port
-      - "9003:9001"      # Console UI
+      - "${MINIO_HOST_PORT:-9002}:9000"      # API port
+      - "${MINIO_CONSOLE_HOST_PORT:-9003}:9001"      # Console UI
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
@@ -94,7 +98,7 @@ services:
   # ==============================================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
-    container_name: ndp-zookeeper
+    container_name: ${EP_INSTANCE:-ndp}-zookeeper
     profiles: ["kafka", "full"]
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -117,11 +121,11 @@ services:
   # ==============================================
   kafka:
     image: confluentinc/cp-kafka:7.6.0
-    container_name: ndp-kafka
+    container_name: ${EP_INSTANCE:-ndp}-kafka
     profiles: ["kafka", "full"]
     ports:
-      - "9094:9092"      # External access
-      - "9095:9093"      # Internal access
+      - "${KAFKA_HOST_PORT:-9094}:9092"      # External access
+      - "${KAFKA_INTERNAL_HOST_PORT:-9095}:9093"      # Internal access
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -153,10 +157,10 @@ services:
   # ==============================================
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: ndp-kafka-ui
+    container_name: ${EP_INSTANCE:-ndp}-kafka-ui
     profiles: ["kafka", "full"]
     ports:
-      - "8081:8080"
+      - "${KAFKA_UI_HOST_PORT:-8081}:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: ndp-demo
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
@@ -179,10 +183,10 @@ services:
   # deliberately with --profile mongo-express.
   mongo-express:
     image: mongo-express:latest
-    container_name: ndp-mongo-express
+    container_name: ${EP_INSTANCE:-ndp}-mongo-express
     profiles: ["mongo-express", "full"]
     ports:
-      - "8082:8081"
+      - "${MONGO_EXPRESS_HOST_PORT:-8082}:8081"
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
       ME_CONFIG_MONGODB_ADMINPASSWORD: admin123
@@ -202,10 +206,10 @@ services:
   # ==============================================
   jupyterlab:
     image: jupyter/scipy-notebook:latest
-    container_name: ndp-jupyterlab
+    container_name: ${EP_INSTANCE:-ndp}-jupyterlab
     profiles: ["jupyter", "full"]
     ports:
-      - "8888:8888"
+      - "${JUPYTER_HOST_PORT:-8888}:8888"
     environment:
       JUPYTER_ENABLE_LAB: 'yes'
       JUPYTER_TOKEN: testing_token
@@ -221,7 +225,7 @@ services:
   # ==============================================
   pelican-registry:
     image: hub.opensciencegrid.org/pelican_platform/registry:latest
-    container_name: ndp-pelican-registry
+    container_name: ${EP_INSTANCE:-ndp}-pelican-registry
     profiles: ["pelican", "full"]
     ports:
       - "8444:8444"      # Web interface
@@ -241,7 +245,7 @@ services:
   # ==============================================
   pelican-director:
     image: hub.opensciencegrid.org/pelican_platform/director:latest
-    container_name: ndp-pelican-director
+    container_name: ${EP_INSTANCE:-ndp}-pelican-director
     profiles: ["pelican", "full"]
     ports:
       - "8445:8444"      # Web interface
@@ -263,7 +267,7 @@ services:
   # ==============================================
   pelican-origin:
     image: hub.opensciencegrid.org/pelican_platform/origin:latest
-    container_name: ndp-pelican-origin
+    container_name: ${EP_INSTANCE:-ndp}-pelican-origin
     profiles: ["pelican", "full"]
     ports:
       - "8446:8443"      # Data transfer port
@@ -290,7 +294,7 @@ services:
   # ==============================================
   pelican-cache:
     image: hub.opensciencegrid.org/pelican_platform/cache:latest
-    container_name: ndp-pelican-cache
+    container_name: ${EP_INSTANCE:-ndp}-pelican-cache
     profiles: ["pelican", "full"]
     ports:
       - "8448:8443"      # Data transfer port

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.53] - 2026-10-12
+
+### Added
+- **Several Endpoints on one host: `install.sh --instance <name>`.** A second installation could not start next to a running Endpoint, even on another port: `docker-compose.yml` fixed every container name and the bundled services' host ports, and the installer's port check only knew a container named `ndp-ep-api`. Container names are now `${EP_INSTANCE:-ndp}-…` and the bundled services publish on `${MONGODB_HOST_PORT:-27018}`, `${MINIO_HOST_PORT:-9002}`, `${MINIO_CONSOLE_HOST_PORT:-9003}`, `${KAFKA_HOST_PORT:-9094}`, `${KAFKA_INTERNAL_HOST_PORT:-9095}` and `${KAFKA_UI_HOST_PORT:-8081}`. With `--instance <name>` the installer writes `EP_INSTANCE`, `COMPOSE_PROJECT_NAME=ndp-ep-<name>` and free host ports for the bundled services it starts to `.env`, keeps the instance and the ports in `.env.install-state` so a re-run upgrades the same Endpoint without moving them, refuses to rename an installed checkout (that would start a new project with empty volumes), and from the web installs into `~/ndp-ep-<name>`. Without `--instance` nothing changes: the default Compose configuration is identical, and for six combinations of options the installer renders the same settings as 0.34.52. New tests in `install/tests/test_instances.py`. Verified on one host next to a running Endpoint on 8002: `glsr` (MongoDB and MinIO) on 8062 and `t2` (MongoDB) on 8063 ran at the same time with their own containers, ports (MongoDB on 27018 and 27019) and data, re-running `glsr`'s installer upgraded it in place keeping its ports and data, and the Endpoint on 8002 was not touched. Documented in `docs/operations.md` (#355).
+
 ## [0.34.52] - 2026-10-10
 
 ### Fixed
