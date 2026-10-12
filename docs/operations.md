@@ -107,6 +107,42 @@ left as they are.
 The image is also published on Docker Hub as `rbardaji/ndp-ep-api:<version>`
 and `:latest` for deployments that do not build from the repository.
 
+## Several Endpoints on one host
+
+One machine can run more than one Endpoint, for example two with their own
+domains (since 0.34.53). Install each from its own checkout and give each
+after the first an instance name:
+
+```bash
+EP_INSTALL_DIR=~/ndp-ep-glsr bash <(curl -fsSL https://raw.githubusercontent.com/national-data-platform/ep-api/main/install/install.sh) \
+  --instance glsr --ep-api-port 8062 --config-id <id>
+```
+
+From the web, `--instance glsr` alone already installs into `~/ndp-ep-glsr`.
+With `--instance <name>` the installer writes to that checkout's `.env`:
+
+- `EP_INSTANCE=<name>`: every container is named `<name>-…` (`glsr-ep-api`,
+  `glsr-mongodb`, …) instead of `ndp-…`.
+- `COMPOSE_PROJECT_NAME=ndp-ep-<name>`: its own Compose project, so its
+  network and volumes (`ndp-ep-glsr_mongodb_data`, …) are its own.
+- A free host port for each bundled service it starts (`MONGODB_HOST_PORT`,
+  `MINIO_HOST_PORT`, `MINIO_CONSOLE_HOST_PORT`, `KAFKA_HOST_PORT`,
+  `KAFKA_INTERNAL_HOST_PORT`, `KAFKA_UI_HOST_PORT`), starting from the usual
+  ones.
+
+The instance and its ports are kept in `.env.install-state`, so re-running the
+installer in that checkout upgrades the same Endpoint without `--instance` and
+without moving its ports. The API port is not kept: pass the same
+`--ep-api-port` again. A checkout cannot change its instance once installed;
+the installer refuses, because a new name means a new Compose project with
+empty volumes.
+
+Without `--instance` nothing changes: a single Endpoint keeps the `ndp-…`
+container names and the default ports. Each Endpoint is reached on its own
+port; serving them under their own domains is done by the host's reverse
+proxy. The Pelican services (`pelican` profile) keep fixed host ports and can
+run in one Endpoint per host only.
+
 ## Backup and restore
 
 Back up `.env` and `.env.install-state` (both hold credentials and exist

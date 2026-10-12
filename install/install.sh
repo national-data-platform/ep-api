@@ -44,7 +44,19 @@ if [[ -z "$_here" || ! -f "$_here/example.env" ]]; then
   command -v git >/dev/null 2>&1 || { echo "git is required to install. Please install git and retry." >&2; exit 1; }
   repo_url="${EP_REPO_URL:-$REPO_URL_DEFAULT}"
   repo_ref="${EP_REPO_REF:-main}"
-  target="${EP_INSTALL_DIR:-$HOME/ndp-ep}"
+  # A named instance (--instance, issue #355) gets a checkout of its own, so
+  # a second Endpoint on the host does not reuse -- and reconfigure -- the
+  # first one's.
+  _instance=""
+  _args=("$@")
+  for ((_i = 0; _i < ${#_args[@]}; _i++)); do
+    [[ "${_args[$_i]}" == "--instance" ]] && _instance="${_args[$((_i + 1))]:-}"
+  done
+  if [[ -n "$_instance" && "$_instance" != "ndp" ]]; then
+    target="${EP_INSTALL_DIR:-$HOME/ndp-ep-$_instance}"
+  else
+    target="${EP_INSTALL_DIR:-$HOME/ndp-ep}"
+  fi
 
   if [[ -d "$target/.git" ]]; then
     echo "    Reusing existing checkout at $target"
@@ -104,6 +116,10 @@ ckan_ssl_port="8443"
 ckan_http_port="81"
 ckan_app_port="5000"
 ep_api_port="8002"
+# The name of this Endpoint on the host. "ndp", the default, keeps the
+# container names and published ports a single Endpoint has always had; any
+# other name lets a further Endpoint run next to it (issue #355).
+instance=""
 want_access_requests="no"
 # S3 object storage. want_s3 turns it on; with no s3_endpoint the bundled MinIO
 # is installed (compose profile 's3'), otherwise the Endpoint points at the
@@ -177,6 +193,11 @@ Options:
   --backend <name>        Local catalog backend: none | mongodb | ckan.
                           Default: none
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
+  --instance <name>       Run this Endpoint next to others on the same host:
+                          its containers are named <name>-…, the bundled
+                          services get free host ports, and from the web it
+                          installs into ~/ndp-ep-<name>. Lowercase letters,
+                          digits and '-'. Default: ndp (a single Endpoint).
   --access-requests       Let users request access and admins approve it.
                           Stored in MongoDB: one is installed unless the
                           catalog already provides one.
@@ -246,6 +267,7 @@ while [[ $# -gt 0 ]]; do
     --ckan-http-port)  ckan_http_port="${2:-}"; shift 2 ;;
     --ckan-app-port)   ckan_app_port="${2:-}"; shift 2 ;;
     --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
+    --instance)        instance="${2:-}"; shift 2 ;;
     --access-requests) want_access_requests="yes"; shift ;;
     --s3)              want_s3="yes"; shift ;;
     --s3-endpoint)     want_s3="yes"; s3_endpoint="${2:-}"; shift 2 ;;
@@ -409,6 +431,22 @@ with open(path, "w") as handle:
     handle.write("\n".join(lines) + "\n")
 PY
 }
+
+# The instance this checkout runs as (issue #355). Remembered in the install
+# state, so re-running the installer -- the way an Endpoint is upgraded --
+# keeps it without --instance.
+saved_instance="$(state_get EP_INSTANCE)"
+[[ -n "$instance" ]] || instance="${saved_instance:-ndp}"
+[[ "$instance" =~ ^[a-z][a-z0-9-]{0,30}$ ]] \
+  || fail "--instance must start with a letter and hold only lowercase letters, digits and '-' (got: $instance)"
+# A checkout keeps the instance it was installed as. Renaming it would start a
+# new Compose project: new containers and new, empty volumes, with the data
+# left behind in the old ones.
+if [[ -f "$REPO_ROOT/.env" && "$instance" != "${saved_instance:-ndp}" ]]; then
+  fail "This checkout already runs the Endpoint '${saved_instance:-ndp}'; it cannot become '$instance'.
+       Install another Endpoint from its own checkout (from the web: EP_INSTALL_DIR,
+       default ~/ndp-ep-$instance)."
+fi
 
 set_env_kv() {
   # set_env_kv FILE KEY VALUE — set a key in a KEY=VALUE file, appending it if
@@ -1385,6 +1423,42 @@ if [[ "${fed_streaming:-false}" == "true" ]]; then
   info "Streaming enabled by the registration — adding the 'kafka' profile"
 fi
 
+# A named instance runs as its own Compose project with its own container
+# names, and the bundled services it starts get free host ports, so it can sit
+# next to another Endpoint (issue #355). The ports are kept in the install
+# state: a re-run finds them taken by this instance and must not move them.
+if [[ "$instance" != "ndp" ]]; then
+  put EP_INSTANCE "$instance"
+  put COMPOSE_PROJECT_NAME "ndp-ep-$instance"
+  taken_ports=" $ep_api_port "
+  host_port() {
+    # host_port VARIABLE DEFAULT
+    local value
+    value="$(state_get "$1")"
+    if [[ -z "$value" ]]; then
+      value="$2"
+      while ! port_free "$value" || [[ "$taken_ports" == *" $value "* ]]; do
+        value=$((value + 1))
+      done
+    fi
+    taken_ports+="$value "
+    put "$1" "$value"
+    [[ "$dry_run" == "true" ]] || state_set "$1" "$value"
+  }
+  for profile in $(printf '%s\n' "${profiles[@]:-}" | sort -u); do
+    case "$profile" in
+      mongodb) host_port MONGODB_HOST_PORT 27018 ;;
+      s3)      host_port MINIO_HOST_PORT 9002
+               host_port MINIO_CONSOLE_HOST_PORT 9003 ;;
+      kafka)   host_port KAFKA_HOST_PORT 9094
+               host_port KAFKA_INTERNAL_HOST_PORT 9095
+               host_port KAFKA_UI_HOST_PORT 8081 ;;
+    esac
+  done
+  [[ "$dry_run" == "true" ]] || state_set EP_INSTANCE "$instance"
+  ok "Instance '$instance': containers ${instance}-…, Compose project ndp-ep-$instance"
+fi
+
 # --------------------------------------------------------------
 step "Rendering .env from example.env"
 # --------------------------------------------------------------
@@ -1519,7 +1593,7 @@ if (exec 3<>"/dev/tcp/127.0.0.1/$ep_api_port") 2>/dev/null; then
   # then held by this checkout's own Endpoint container -- the one the
   # "up -d --build" below replaces. That is not a conflict (issue #332).
   holder_dir=""
-  if [[ "$holder" == "ndp-ep-api" ]]; then
+  if [[ "$holder" == "${instance}-ep-api" ]]; then
     holder_dir="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$holder" 2>/dev/null || true)"
   fi
   if [[ -n "$holder_dir" && "$(cd "$holder_dir" 2>/dev/null && pwd -P)" == "$(cd "$REPO_ROOT" && pwd -P)" ]]; then

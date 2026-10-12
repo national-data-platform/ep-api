@@ -174,6 +174,7 @@ the installer says so and carries on.
 | `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--mongodb-url <url>` | use this existing MongoDB instead of starting one |
 | `--ep-api-port <port>` | host port for the Endpoint, default `8002` |
+| `--instance <name>` | run this Endpoint next to others on the same host (see [docs/operations.md](../docs/operations.md#several-endpoints-on-one-host)); default `ndp`, a single Endpoint |
 | `--access-requests` | enable the access-request workflow |
 | `--s3` | enable S3 storage with the bundled MinIO (compose profile `s3`) |
 | `--s3-endpoint <host>` | use this existing S3-compatible service instead (implies `--s3`) |
