@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.54] - 2026-10-12
+
+### Fixed
+- **A second instance installed over the first instance's CKAN.** With `--instance <name>` (0.34.53) and a CKAN installed by the installer, the second Endpoint used the same folder, `<parent>/ndp-ckan`: it rewrote that CKAN's `.env` (sysadmin, site URL, ports) and restarted it, so both Endpoints shared the first one's CKAN, reconfigured. A named instance now installs its CKAN into `<parent>/ndp-ckan-<name>` (its own Compose project, containers and volumes) and, unless the CKAN ports are given, on free ports, also without the interactive questions; the ports are kept in `.env.install-state` with the others. Without `--instance` nothing changes: for six option combinations, CKAN ones included, the installer renders the same settings as 0.34.53. New tests in `install/tests/test_instances.py`. Verified next to a running Endpoint with its own installer-made CKAN (8002, CKAN on 8443): `--instance ck --backend ckan` installed a second complete Endpoint (8064) with its own CKAN (8444); each kept its data apart; the first CKAN's `.env` and its containers' start times did not change; re-running the second installer reused its own CKAN (#357).
+
 ## [0.34.53] - 2026-10-12
 
 ### Added

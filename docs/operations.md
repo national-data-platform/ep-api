@@ -130,7 +130,15 @@ With `--instance <name>` the installer writes to that checkout's `.env`:
   `KAFKA_INTERNAL_HOST_PORT`, `KAFKA_UI_HOST_PORT`), starting from the usual
   ones.
 
-The instance and its ports are kept in `.env.install-state`, so re-running the
+With `--backend ckan` and no `--ckan-url`, the instance also gets a CKAN of
+its own (since 0.34.54): installed into `<parent>/ndp-ckan-<name>` (its own
+Compose project, `ndp-ckan-<name>-…` containers and volumes) instead of the
+first Endpoint's `<parent>/ndp-ckan`, on free CKAN ports unless
+`--ckan-ssl-port`, `--ckan-http-port` or `--ckan-app-port` are given. Up to
+0.34.53 a second instance reused, reconfigured and restarted the first
+Endpoint's CKAN.
+
+The instance and its ports (CKAN's too) are kept in `.env.install-state`, so re-running the
 installer in that checkout upgrades the same Endpoint without `--instance` and
 without moving its ports. The API port is not kept: pass the same
 `--ep-api-port` again. A checkout cannot change its instance once installed;

@@ -115,6 +115,9 @@ ckan_site_url=""
 ckan_ssl_port="8443"
 ckan_http_port="81"
 ckan_app_port="5000"
+# Set when the operator chose the CKAN ports (flags or prompts), which a named
+# instance then keeps instead of picking its own (issue #357).
+ckan_ports_given="false"
 ep_api_port="8002"
 # The name of this Endpoint on the host. "ndp", the default, keeps the
 # container names and published ports a single Endpoint has always had; any
@@ -263,9 +266,9 @@ while [[ $# -gt 0 ]]; do
     --ckan-sysadmin)   ckan_sysadmin="${2:-}"; shift 2 ;;
     --ckan-password)   ckan_password="${2:-}"; shift 2 ;;
     --ckan-site-url)   ckan_site_url="${2:-}"; shift 2 ;;
-    --ckan-ssl-port)   ckan_ssl_port="${2:-}"; shift 2 ;;
-    --ckan-http-port)  ckan_http_port="${2:-}"; shift 2 ;;
-    --ckan-app-port)   ckan_app_port="${2:-}"; shift 2 ;;
+    --ckan-ssl-port)   ckan_ssl_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
+    --ckan-http-port)  ckan_http_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
+    --ckan-app-port)   ckan_app_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
     --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
     --instance)        instance="${2:-}"; shift 2 ;;
     --access-requests) want_access_requests="yes"; shift ;;
@@ -447,6 +450,25 @@ if [[ -f "$REPO_ROOT/.env" && "$instance" != "${saved_instance:-ndp}" ]]; then
        Install another Endpoint from its own checkout (from the web: EP_INSTALL_DIR,
        default ~/ndp-ep-$instance)."
 fi
+
+# A port for a named instance: the one remembered for it, else the first free
+# one from DEFAULT that this run has not handed out already. Sets $picked (not
+# echoed: a subshell would lose the ports handed out). Kept in the install
+# state, because a re-run finds its own ports taken and must not move them.
+taken_ports=" "
+pick_port() {
+  # pick_port VARIABLE DEFAULT
+  picked="$(state_get "$1")"
+  if [[ -z "$picked" ]]; then
+    picked="$2"
+    while ! port_free "$picked" || [[ "$taken_ports" == *" $picked "* ]] \
+      || [[ "$picked" == "$ep_api_port" ]]; do
+      picked=$((picked + 1))
+    done
+  fi
+  taken_ports+="$picked "
+  [[ "$dry_run" == "true" ]] || state_set "$1" "$picked"
+}
 
 set_env_kv() {
   # set_env_kv FILE KEY VALUE — set a key in a KEY=VALUE file, appending it if
@@ -1038,6 +1060,7 @@ if interactive; then
     ask ckan_ssl_port  "CKAN https port"       "$ckan_ssl_port"
     ask ckan_http_port "CKAN http port"        "$ckan_http_port"
     ask ckan_app_port  "CKAN application port" "$ckan_app_port"
+    ckan_ports_given="true"
     ask ckan_sysadmin  "CKAN sysadmin to create" "ckan_admin"
   fi
 
@@ -1252,6 +1275,17 @@ else
   # it is cloned alongside this repository rather than into it.
   command -v git >/dev/null 2>&1 || fail "git is required to install CKAN."
 
+  # A named instance installs a CKAN of its own, next to its checkout and on
+  # ports of its own. Sharing the default folder reconfigured and restarted
+  # the first Endpoint's CKAN instead (issue #357).
+  if [[ "$instance" != "ndp" ]]; then
+    [[ -n "$ckan_dir" ]] || ckan_dir="$(dirname "$REPO_ROOT")/ndp-ckan-$instance"
+    if [[ "$ckan_ports_given" != "true" ]]; then
+      pick_port CKAN_SSL_PORT "$ckan_ssl_port";   ckan_ssl_port="$picked"
+      pick_port CKAN_HTTP_PORT "$ckan_http_port"; ckan_http_port="$picked"
+      pick_port CKAN_APP_PORT "$ckan_app_port";   ckan_app_port="$picked"
+    fi
+  fi
   [[ -n "$ckan_dir" ]]       || ckan_dir="$(dirname "$REPO_ROOT")/ndp-ckan"
   [[ -n "$ckan_sysadmin" ]]  || ckan_sysadmin="$(state_get CKAN_SYSADMIN)"
   [[ -n "$ckan_sysadmin" ]]  || ckan_sysadmin="ckan_admin"
@@ -1430,20 +1464,10 @@ fi
 if [[ "$instance" != "ndp" ]]; then
   put EP_INSTANCE "$instance"
   put COMPOSE_PROJECT_NAME "ndp-ep-$instance"
-  taken_ports=" $ep_api_port "
   host_port() {
     # host_port VARIABLE DEFAULT
-    local value
-    value="$(state_get "$1")"
-    if [[ -z "$value" ]]; then
-      value="$2"
-      while ! port_free "$value" || [[ "$taken_ports" == *" $value "* ]]; do
-        value=$((value + 1))
-      done
-    fi
-    taken_ports+="$value "
-    put "$1" "$value"
-    [[ "$dry_run" == "true" ]] || state_set "$1" "$value"
+    pick_port "$1" "$2"
+    put "$1" "$picked"
   }
   for profile in $(printf '%s\n' "${profiles[@]:-}" | sort -u); do
     case "$profile" in

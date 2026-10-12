@@ -181,3 +181,56 @@ def test_an_instance_name_is_checked(tmp_path, name):
 
     assert result.returncode == 1
     assert "--instance must start with a letter" in result.stderr
+
+
+@pytest.fixture
+def busy_ckan_port():
+    """CKAN's default https port is taken, as by the first Endpoint's CKAN."""
+    with socket.socket() as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            server.bind(("127.0.0.1", 8443))
+        except OSError:
+            pass
+        else:
+            server.listen()
+        yield
+
+
+def _ckan_plan(tmp_path, *args):
+    """What a dry run says about the CKAN it would install (issue #357)."""
+    result = _run(tmp_path, "--backend", "ckan", "--dry-run", *args)
+    assert result.returncode == 0, result.stdout + result.stderr
+    where = re.search(
+        r"CKAN would be installed at (\S+)", result.stderr + result.stdout
+    )
+    url = re.search(r"^CKAN_URL=(\S+)", result.stdout, re.M)
+    return where.group(1), url.group(1) if url else ""
+
+
+def test_a_named_instance_installs_its_own_ckan(tmp_path, busy_ckan_port):
+    where, url = _ckan_plan(tmp_path, "--instance", "glsr", "--ep-api-port", "8062")
+
+    assert where == str(tmp_path / "ndp-ckan-glsr")
+    assert not url.endswith(":8443"), url
+
+
+def test_a_single_endpoint_still_installs_ckan_where_it_did(tmp_path):
+    where, url = _ckan_plan(tmp_path)
+
+    assert where == str(tmp_path / "ndp-ckan")
+    assert url.endswith(":8443"), url
+
+
+def test_ckan_ports_given_by_the_operator_are_kept(tmp_path, busy_ckan_port):
+    _, url = _ckan_plan(
+        tmp_path,
+        "--instance",
+        "glsr",
+        "--ckan-ssl-port",
+        "9443",
+        "--ep-api-port",
+        "8062",
+    )
+
+    assert url.endswith(":9443"), url
