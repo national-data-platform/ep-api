@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.56] - 2026-10-12
+
+### Added
+- **`--netbird` fetches the setup key from the Federation.** With 0.34.55 the person installing had to supply the NetBird setup key, which they should not need to know. Federation 1.12.10 hands it to the owner of a configuration (`GET /ep/{config_id}/netbird`, sci-ndp/ndp-federation#124); with `--netbird` and a configuration id the installer now asks for the owner's NDP access token (hidden, or `--ndp-token-file <path>` for unattended runs, reusing the token already given for the remembered settings) and fetches the key there. It says why when the Federation refuses (401, 403, 404 for an older Federation, 503 when it has no key) and falls back to `--netbird-setup-key-file` or a hidden prompt. The token and the key only touch private temporary files, removed after use. Without `--netbird` nothing changes: for five option combinations the installer renders the same settings as 0.34.55. New tests in `install/tests/test_netbird_affinities.py` (stand-in Federation with an owner-only route). Not exercised against the real Federation: that needs a real NDP token owning a configuration, on the first real install with `--netbird` (#361).
+
 ## [0.34.55] - 2026-10-12
 
 ### Added
