@@ -124,6 +124,13 @@ ep_api_port="8002"
 # other name lets a further Endpoint run next to it (issue #355).
 instance=""
 want_access_requests="no"
+# NetBird and Affinities, both opt-in (issue #359). Empty means "as the last
+# run of this checkout left it", which the install state remembers, so a
+# re-run -- an upgrade -- keeps them without the flags or the setup key.
+want_netbird=""
+netbird_management_url=""
+netbird_setup_key_file=""
+want_affinities=""
 # S3 object storage. want_s3 turns it on; with no s3_endpoint the bundled MinIO
 # is installed (compose profile 's3'), otherwise the Endpoint points at the
 # S3-compatible service given here. s3_secure controls https to that service.
@@ -213,6 +220,20 @@ Options:
   --s3-secret-key <key>   Secret key for that S3 (required with --s3-endpoint).
   --s3-region <region>    Region for that S3. Default: us-east-1
   --s3-secure             Use https to reach that S3 (default is http).
+  --netbird               Join this machine to NDP's NetBird network. Installs
+                          the NetBird client on the host if missing (needs
+                          sudo); the management URL comes from the Federation
+                          configuration. Kept on re-runs.
+  --netbird-setup-key-file <path>
+                          File holding the NetBird setup key (implies
+                          --netbird). Without it the key is asked for, hidden.
+                          The key is never written anywhere. Not needed once
+                          the machine is connected.
+  --netbird-management-url <url>
+                          Override the management URL the Federation gives.
+  --affinities            Turn on the Affinities integration, with the
+                          Affinities URL and this Endpoint's Affinities id from
+                          the Federation configuration. Kept on re-runs.
 
 With --backend none nothing is stored locally and no catalog is installed. The
 Endpoint authenticates users, searches the platform's global catalog and
@@ -278,6 +299,10 @@ while [[ $# -gt 0 ]]; do
     --s3-secret-key)   s3_secret_key="${2:-}"; shift 2 ;;
     --s3-region)       s3_region="${2:-}"; shift 2 ;;
     --s3-secure)       s3_secure="True"; shift ;;
+    --netbird)         want_netbird="yes"; shift ;;
+    --netbird-setup-key-file) netbird_setup_key_file="${2:-}"; want_netbird="yes"; shift 2 ;;
+    --netbird-management-url) netbird_management_url="${2:-}"; shift 2 ;;
+    --affinities)      want_affinities="yes"; shift ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
@@ -1149,6 +1174,11 @@ emit("fed_pre_ckan_key", cfg.get("pre_ckan_key") or "")
 emit("fed_realm", cfg.get("realm_name") or "NDP")
 emit("fed_client_id", cfg.get("client_id") or "")
 emit("fed_public", "true" if truthy(cfg.get("public")) else "false")
+# Platform URLs the Federation serves with each configuration (1.12.9) and the
+# id Affinities gave this Endpoint when it registered (issue #359).
+emit("fed_netbird_url", cfg.get("netbird_management_url") or "")
+emit("fed_affinities_url", cfg.get("affinities_url") or "")
+emit("fed_affinities_uid", cfg.get("affinities_uid") or "")
 PY
 )"
 
@@ -1219,6 +1249,107 @@ fi
 # (issue #307). Written unconditionally: without a registration IS_PUBLIC is
 # False and nothing is posted, but the setting still names the right place.
 put METRICS_ENDPOINT "${federation_url%/}/metrics/"
+
+# --------------------------------------------------------------
+# Affinities and NetBird (issue #359)
+# --------------------------------------------------------------
+# Both opt-in, and remembered: a re-run keeps what the last run of this
+# checkout turned on, so an upgrade does not quietly switch them off.
+[[ -n "$want_affinities" ]] || want_affinities="$(state_get AFFINITIES)"
+[[ -n "$want_netbird" ]]    || want_netbird="$(state_get NETBIRD)"
+
+if [[ "$want_affinities" == "yes" ]]; then
+  # The Federation registers each Endpoint in Affinities and keeps the id it
+  # got back; it also says where Affinities is. Both come with the
+  # configuration, so there is nothing to type and nothing fixed here.
+  [[ -n "${fed_affinities_url:-}" && -n "${fed_affinities_uid:-}" ]] \
+    || fail "--affinities needs a Federation registration that names the Affinities service and this Endpoint's Affinities id.
+       Federation configuration: ${fed_affinities_url:-no Affinities URL} / ${fed_affinities_uid:-no Affinities id}.
+       The URL comes with Federation 1.12.9 or later; the id is set when the
+       Endpoint registers while the Federation has AFFINITIES_API_URL."
+  put AFFINITIES_ENABLED "True"
+  put AFFINITIES_URL "$fed_affinities_url"
+  put AFFINITIES_EP_UUID "$fed_affinities_uid"
+  ok "Affinities integration on ($fed_affinities_url, id $fed_affinities_uid)"
+  [[ "$dry_run" == "true" ]] || state_set AFFINITIES yes
+fi
+
+netbird_status() {
+  # The client's own view: management connection and address, as JSON.
+  "${netbird_sudo[@]}" netbird status --json 2>/dev/null || true
+}
+
+netbird_field() {
+  # netbird_field connected|ip|url — from `netbird status --json` on stdin
+  python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except ValueError:
+    data = {}
+management = data.get("management") or {}
+print({
+    "connected": "yes" if management.get("connected") else "no",
+    "ip": (data.get("netbirdIp") or "").split("/")[0],
+    "url": management.get("url") or "",
+}[sys.argv[1]])' "$1"
+}
+
+if [[ "$want_netbird" == "yes" ]]; then
+  step "Joining NDP's NetBird network"
+  netbird_url="${netbird_management_url:-${fed_netbird_url:-}}"
+  [[ -n "$netbird_url" ]] \
+    || fail "--netbird needs the NetBird management URL: from the Federation configuration
+       (Federation 1.12.9 or later, with --config-id) or --netbird-management-url."
+  netbird_sudo=()
+  [[ "$(id -u)" == "0" ]] || netbird_sudo=(sudo)
+
+  if [[ "$dry_run" == "true" ]]; then
+    warn "--dry-run: would join $netbird_url (installing the NetBird client if missing)."
+  else
+    # Native on the host, as on the machines already in the network: the
+    # Endpoint and CKAN are reached over the host's network.
+    if ! command -v netbird >/dev/null 2>&1; then
+      info "Installing the NetBird client with NetBird's official script (needs sudo)."
+      curl -fsSL https://pkgs.netbird.io/install.sh | "${netbird_sudo[@]}" sh \
+        || fail "Could not install the NetBird client."
+    fi
+
+    if [[ "$(netbird_status | netbird_field connected)" == "yes" ]]; then
+      current_url="$(netbird_status | netbird_field url)"
+      ok "Already connected to NetBird (${current_url:-management URL not reported})."
+      [[ -z "$current_url" || "${current_url%/}" == "${netbird_url%/}"* ]] \
+        || warn "This machine is connected to $current_url, not $netbird_url; left as it is."
+    else
+      key_file="$netbird_setup_key_file"
+      temp_key=""
+      if [[ -z "$key_file" ]]; then
+        interactive || fail "--netbird needs the setup key: pass --netbird-setup-key-file <path>."
+        ask_secret netbird_key "NetBird setup key (not shown)"
+        [[ -n "$netbird_key" ]] || fail "No NetBird setup key given."
+        # Through a private file, so the key is not on a command line.
+        temp_key="$(mktemp)"
+        chmod 600 "$temp_key"
+        printf '%s' "$netbird_key" > "$temp_key"
+        unset netbird_key
+        key_file="$temp_key"
+      fi
+      [[ -r "$key_file" ]] || fail "Cannot read the NetBird setup key file: $key_file"
+      joined="yes"
+      "${netbird_sudo[@]}" netbird up --management-url "$netbird_url" \
+        --setup-key-file "$key_file" || joined="no"
+      [[ -n "$temp_key" ]] && rm -f "$temp_key"
+      [[ "$joined" == "yes" ]] || fail "netbird up failed; see the message above."
+      ok "Joined NetBird at $netbird_url"
+    fi
+
+    netbird_ip="$(netbird_status | netbird_field ip)"
+    put NETBIRD_ENABLED "True"
+    [[ -n "$netbird_ip" ]] && put NETBIRD_IP "$netbird_ip"
+    ok "NetBird address ${netbird_ip:-not reported yet}, reported in the metrics"
+    state_set NETBIRD yes
+  fi
+fi
 
 # --------------------------------------------------------------
 step "Selecting the local catalog backend"
