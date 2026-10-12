@@ -461,8 +461,10 @@ worker of the four does this (the leader, see
 Deployment metadata added to the metrics report so the platform can see the
 Endpoint's NetBird connectivity: `netbird_enabled` (true for `1`, `true`,
 `yes`, `on`), `netbird_ip` and `netbird_group`. Nothing is added when all three
-are empty. The Endpoint does not use NetBird itself. **Where:** whoever runs
-the host's NetBird client; the installer does not set them.
+are empty. The Endpoint does not use NetBird itself. **Where:** the installer
+sets `NETBIRD_ENABLED=True` and `NETBIRD_IP` when it joins the machine with
+`--netbird` (since 0.34.55; see install/README.md); otherwise whoever runs the
+host's NetBird client.
 
 ---
 

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.55] - 2026-10-12
+
+### Added
+- **The installer joins NDP's NetBird network and turns Affinities on (`--netbird`, `--affinities`).** Every Endpoint is meant to be on the NetBird network and have the Affinities integration on, but the installer did neither: it never installed or joined NetBird and always wrote `AFFINITIES_ENABLED=False`. Both are opt-in and remembered for re-runs, and both take their URLs from the Federation configuration (Federation 1.12.9, sci-ndp/ndp-federation#122), so nothing is fixed in the installer. `--netbird` uses the native client on the host (installed with NetBird's official script when missing), joins with `netbird up --management-url <url> --setup-key-file <file>` only if the machine is not connected yet, reads the setup key from `--netbird-setup-key-file` or a hidden prompt and never writes it anywhere, and records `NETBIRD_ENABLED` and the NetBird address for the metrics report; `--netbird-management-url` overrides the URL. `--affinities` sets `AFFINITIES_ENABLED`, `AFFINITIES_URL` and `AFFINITIES_EP_UUID` from the configuration's `affinities_url` and `affinities_uid`. Without the flags nothing changes: for six option combinations the installer renders the same settings as 0.34.54. New tests in `install/tests/test_netbird_affinities.py` (NetBird through a stub client). Verified for Affinities against a Federation 1.12.9 pointing at a running Affinities: an Endpoint installed with `--affinities` reported Affinities up and registered in `/ready`, a dataset created in it appeared in Affinities with this Endpoint as its source and a `hosted` link, and a re-run without the flag kept the integration on. Joining a real NetBird network was not exercised here (it needs `sudo` on the target host) (#359).
+
 ## [0.34.54] - 2026-10-12
 
 ### Fixed

@@ -162,6 +162,32 @@ not remembered; `install/remembered_settings.py` lists what is.
 If the Federation cannot be reached, or does not offer remembered settings,
 the installer says so and carries on.
 
+## NetBird and Affinities
+
+Both are opt-in and need a Federation registration (`--config-id`) on
+Federation 1.12.9 or later, which serves the URLs with the configuration
+(since 0.34.55). Once turned on, a re-run of the installer in the same
+checkout keeps them without the flags.
+
+- **`--netbird`** joins the machine to NDP's NetBird network, whose
+  management URL the Federation gives (`netbird_management_url`;
+  `--netbird-management-url` overrides it). The NetBird client is the native
+  one on the host, as on the machines already in the network: if `netbird` is
+  missing, NetBird's official script installs it (`sudo`). If the machine is
+  not connected yet, it runs `netbird up --management-url <url>
+  --setup-key-file <file>` (`sudo`) with the key from
+  `--netbird-setup-key-file <path>` or, interactively, a hidden prompt. The key
+  is never written to `.env`, the install state or the output; once connected
+  it is not needed again. Groups are assigned by the NetBird server's policy.
+  The installer then writes `NETBIRD_ENABLED=True` and the machine's NetBird
+  address (`NETBIRD_IP`) to `.env`, for the metrics report. The Endpoint's own
+  domain and port do not change.
+- **`--affinities`** turns the Affinities integration on with the Affinities
+  URL the Federation gives (`affinities_url`) and the id Affinities gave this
+  Endpoint when it registered (`affinities_uid`): `AFFINITIES_ENABLED=True`,
+  `AFFINITIES_URL`, `AFFINITIES_EP_UUID`. The installer stops if the
+  configuration lacks either.
+
 ## Options
 
 `./install/install.sh --help` prints the same list.
@@ -183,6 +209,10 @@ the installer says so and carries on.
 | `--s3-secure` | reach that S3 over https |
 | `--ckan-*` | see [CKAN](#ckan) |
 | `--dry-run` | render the configuration and run the checks, start nothing |
+| `--netbird` | join NDP's NetBird network (see [NetBird and Affinities](#netbird-and-affinities)) |
+| `--netbird-setup-key-file <path>` | file with the NetBird setup key; implies `--netbird` |
+| `--netbird-management-url <url>` | override the management URL the Federation gives |
+| `--affinities` | turn the Affinities integration on from the Federation configuration |
 | `--no-start` | write everything, bring nothing up; prints the command to start it |
 | `--yes` | no prompts at all (see [Without prompts](#without-prompts)), and overwrite an existing `.env` without asking |
 | `-h`, `--help` | usage |

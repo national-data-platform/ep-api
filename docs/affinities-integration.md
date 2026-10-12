@@ -19,6 +19,13 @@ NDP Affinities is a service that tracks relationships between datasets, services
 
 ### Setup Steps
 
+With the installer, `--affinities` does all of this from the Federation
+registration (since 0.34.55): the Federation registers the Endpoint in
+Affinities, keeps the id it gets back and serves it with the Affinities URL;
+the installer writes `AFFINITIES_ENABLED`, `AFFINITIES_URL` and
+`AFFINITIES_EP_UUID`. See install/README.md. The steps below are the manual
+way.
+
 1. **Register your endpoint in Affinities**
 
    First, manually register your NDP-EP instance in the Affinities system:
