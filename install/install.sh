@@ -130,6 +130,9 @@ want_access_requests="no"
 want_netbird=""
 netbird_management_url=""
 netbird_setup_key_file=""
+# The owner's NDP access token, read from a file for unattended runs; with it
+# the NetBird setup key comes from the Federation (issue #361).
+ndp_token_file=""
 want_affinities=""
 # S3 object storage. want_s3 turns it on; with no s3_endpoint the bundled MinIO
 # is installed (compose profile 's3'), otherwise the Endpoint points at the
@@ -226,9 +229,13 @@ Options:
                           configuration. Kept on re-runs.
   --netbird-setup-key-file <path>
                           File holding the NetBird setup key (implies
-                          --netbird). Without it the key is asked for, hidden.
-                          The key is never written anywhere. Not needed once
-                          the machine is connected.
+                          --netbird). Without it the key is fetched from the
+                          Federation with your NDP access token (see
+                          --ndp-token-file), or asked for, hidden. Never
+                          written anywhere. Not needed once connected.
+  --ndp-token-file <path> File holding your NDP access token, for unattended
+                          runs; otherwise it is asked for, hidden. Never
+                          written anywhere.
   --netbird-management-url <url>
                           Override the management URL the Federation gives.
   --affinities            Turn on the Affinities integration, with the
@@ -302,6 +309,7 @@ while [[ $# -gt 0 ]]; do
     --netbird)         want_netbird="yes"; shift ;;
     --netbird-setup-key-file) netbird_setup_key_file="${2:-}"; want_netbird="yes"; shift 2 ;;
     --netbird-management-url) netbird_management_url="${2:-}"; shift 2 ;;
+    --ndp-token-file)  ndp_token_file="${2:-}"; shift 2 ;;
     --affinities)      want_affinities="yes"; shift ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
@@ -1323,8 +1331,59 @@ if [[ "$want_netbird" == "yes" ]]; then
     else
       key_file="$netbird_setup_key_file"
       temp_key=""
+      if [[ -z "$key_file" && -n "$config_id" ]]; then
+        # From the Federation (1.12.10): it hands the key only to the owner of
+        # this configuration, so the person installing never needs to know it
+        # (issue #361). Neither the token nor the key is written anywhere but
+        # these private temporary files, removed as soon as they are used.
+        token="${remember_token:-}"
+        if [[ -z "$token" && -n "$ndp_token_file" ]]; then
+          [[ -r "$ndp_token_file" ]] || fail "Cannot read the NDP token file: $ndp_token_file"
+          token="$(tr -d '[:space:]' < "$ndp_token_file")"
+        fi
+        if [[ -z "$token" ]] && interactive; then
+          ask_secret token "Your NDP access token, to fetch the NetBird key (not shown)"
+        fi
+        if [[ -n "$token" ]]; then
+          headers="$(mktemp)"; enrolment="$(mktemp)"
+          chmod 600 "$headers" "$enrolment"
+          printf 'Authorization: Bearer %s\n' "$token" > "$headers"
+          unset token
+          code="$(curl -s -m 20 -o "$enrolment" -w '%{http_code}' -H @"$headers" \
+            "${federation_url%/}/ep/${config_id}/netbird" || echo 000)"
+          rm -f "$headers"
+          if [[ "$code" == "200" ]]; then
+            temp_key="$(mktemp)"
+            chmod 600 "$temp_key"
+            python3 - "$enrolment" "$temp_key" <<'PY'
+import json, sys
+with open(sys.argv[1]) as handle:
+    key = (json.load(handle) or {}).get("setup_key") or ""
+with open(sys.argv[2], "w") as handle:
+    handle.write(key)
+PY
+            if [[ -s "$temp_key" ]]; then
+              key_file="$temp_key"
+              ok "NetBird setup key received from the Federation"
+            else
+              rm -f "$temp_key"
+              temp_key=""
+              warn "The Federation's answer held no NetBird setup key."
+            fi
+          else
+            case "$code" in
+              401) warn "The Federation did not accept that NDP token." ;;
+              403) warn "That NDP token does not own configuration $config_id." ;;
+              404) warn "This Federation does not hand out NetBird keys (needs 1.12.10 or later)." ;;
+              503) warn "This Federation has no NetBird setup key configured." ;;
+              *)   warn "The Federation answered HTTP $code for the NetBird key." ;;
+            esac
+          fi
+          rm -f "$enrolment"
+        fi
+      fi
       if [[ -z "$key_file" ]]; then
-        interactive || fail "--netbird needs the setup key: pass --netbird-setup-key-file <path>."
+        interactive || fail "--netbird needs the setup key: give your NDP token (--ndp-token-file <path>) so the Federation hands it over, or pass --netbird-setup-key-file <path>."
         ask_secret netbird_key "NetBird setup key (not shown)"
         [[ -n "$netbird_key" ]] || fail "No NetBird setup key given."
         # Through a private file, so the key is not on a command line.

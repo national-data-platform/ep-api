@@ -32,6 +32,8 @@ pytestmark = pytest.mark.skipif(
 CONFIG_ID = "cfg359"
 SETUP_KEY = "SETUP-KEY-359-never-stored"
 MANAGEMENT_URL = "https://netbird.example.org"
+FEDERATION_KEY = "KEY-FROM-THE-FEDERATION-361"
+OWNER_TOKEN = "owner-ndp-token-361"
 
 
 def _configuration(**extra):
@@ -50,6 +52,21 @@ def federation():
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
+            if self.path == f"/ep/{CONFIG_ID}/netbird":
+                # Federation 1.12.10: only the owner's token gets the key.
+                if self.headers.get("Authorization") != f"Bearer {OWNER_TOKEN}":
+                    self.send_response(403)
+                    self.end_headers()
+                    return
+                data = json.dumps(
+                    {"management_url": MANAGEMENT_URL, "setup_key": FEDERATION_KEY}
+                ).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
             if self.path != f"/ep/{CONFIG_ID}":
                 self.send_response(404)
                 self.end_headers()
@@ -234,7 +251,7 @@ def test_netbird_without_a_key_stops_when_not_connected(host, federation):
     result = _install(host, federation, "--netbird")
 
     assert result.returncode == 1
-    assert "--netbird-setup-key-file" in result.stderr
+    assert "--ndp-token-file" in result.stderr
 
 
 def test_affinities_is_turned_on_from_the_configuration(host, federation):
@@ -264,3 +281,38 @@ def test_affinities_without_an_id_stops(host, federation):
 
     assert result.returncode == 1
     assert "--affinities needs a Federation registration" in result.stderr
+
+
+def test_the_key_comes_from_the_federation_with_the_owners_token(host, federation):
+    """Issue #361: the person installing never sees the key."""
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    token_file = host["tmp"] / "ndp-token"
+    token_file.write_text(OWNER_TOKEN + "\n", encoding="utf-8")
+
+    result = _install(
+        host, federation, "--netbird", "--ndp-token-file", str(token_file)
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (host["tmp"] / "key.seen").read_text() == FEDERATION_KEY
+    assert _env(host)["NETBIRD_ENABLED"] == "True"
+    for secret in (FEDERATION_KEY, OWNER_TOKEN):
+        assert secret not in result.stdout + result.stderr
+        assert secret not in _netbird_calls(host)
+        for name in (".env", ".env.install-state"):
+            text = (host["checkout"] / name).read_text(encoding="utf-8")
+            assert secret not in text
+
+
+def test_a_token_that_does_not_own_the_configuration_stops(host, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    token_file = host["tmp"] / "ndp-token"
+    token_file.write_text("someone-elses-token", encoding="utf-8")
+
+    result = _install(
+        host, federation, "--netbird", "--ndp-token-file", str(token_file)
+    )
+
+    assert result.returncode == 1
+    assert "does not own configuration" in result.stderr
+    assert "netbird up" not in _netbird_calls(host)

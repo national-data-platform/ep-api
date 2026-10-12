@@ -175,10 +175,14 @@ checkout keeps them without the flags.
   one on the host, as on the machines already in the network: if `netbird` is
   missing, NetBird's official script installs it (`sudo`). If the machine is
   not connected yet, it runs `netbird up --management-url <url>
-  --setup-key-file <file>` (`sudo`) with the key from
-  `--netbird-setup-key-file <path>` or, interactively, a hidden prompt. The key
-  is never written to `.env`, the install state or the output; once connected
-  it is not needed again. Groups are assigned by the NetBird server's policy.
+  --setup-key-file <file>` (`sudo`). The key comes from the Federation (1.12.10
+  or later), which hands it only to the owner of the configuration: the
+  installer asks for your NDP access token (hidden; `--ndp-token-file <path>`
+  for unattended runs) and fetches it, so you never need to know the key
+  (since 0.34.56). `--netbird-setup-key-file <path>`, or a hidden prompt when
+  the Federation cannot give it, are the alternatives. Neither the token nor
+  the key is written to `.env`, the install state or the output; once
+  connected the key is not needed again. Groups are assigned by the NetBird server's policy.
   The installer then writes `NETBIRD_ENABLED=True` and the machine's NetBird
   address (`NETBIRD_IP`) to `.env`, for the metrics report. The Endpoint's own
   domain and port do not change.
@@ -212,6 +216,7 @@ checkout keeps them without the flags.
 | `--netbird` | join NDP's NetBird network (see [NetBird and Affinities](#netbird-and-affinities)) |
 | `--netbird-setup-key-file <path>` | file with the NetBird setup key; implies `--netbird` |
 | `--netbird-management-url <url>` | override the management URL the Federation gives |
+| `--ndp-token-file <path>` | file with your NDP access token, so `--netbird` fetches the key from the Federation without a prompt |
 | `--affinities` | turn the Affinities integration on from the Federation configuration |
 | `--no-start` | write everything, bring nothing up; prints the command to start it |
 | `--yes` | no prompts at all (see [Without prompts](#without-prompts)), and overwrite an existing `.env` without asking |
