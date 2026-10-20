@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.58] - 2026-10-20
+
+### Fixed
+- **An unattended run reported NetBird not joined on a machine already connected to it.** With 0.34.57 a new installation joins NetBird by default; run with `--yes` or without a terminal on a host already in NDP's network (another Endpoint on it had joined), the installer said it needed `sudo` and could not ask for the password, and wrote `NETBIRD_ENABLED=False`. It checked for passwordless `sudo` before looking at the existing connection, which needs no `sudo`. It now reads the connection first (`netbird status` as the user, through `sudo` only if that fails) and only requires `sudo` to install or join. New test in `install/tests/test_netbird_affinities.py`. Verified on a host already connected to NetBird: re-running the installer unattended on a second Endpoint recorded the connection (`NETBIRD_ENABLED=True`, the NetBird address, reported in its metrics), with the rest of its `.env` unchanged (#367).
+
 ## [0.34.57] - 2026-10-20
 
 ### Changed
