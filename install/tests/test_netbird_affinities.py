@@ -1,9 +1,10 @@
 """
 The installer joins NDP's NetBird network and turns Affinities on (issue #359).
 
-Both are opt-in (``--netbird``, ``--affinities``) and remembered, so a re-run
-keeps them. The URLs come from the Federation configuration
-(sci-ndp/ndp-federation#122), not from the installer. The NetBird setup key is
+Affinities is opt-in (``--affinities``); NetBird is on by default for new
+installations (issue #363) and opt-in (``--netbird``) for Endpoints installed
+before. Both are remembered, so a re-run keeps them. The URLs come from the
+Federation configuration (sci-ndp/ndp-federation#122), not from the installer. The NetBird setup key is
 read from a file or a hidden prompt and never written anywhere.
 
 A stand-in Federation serves the configuration; ``netbird`` and ``sudo`` are
@@ -120,7 +121,9 @@ def host(tmp_path):
         "esac\n",
         encoding="utf-8",
     )
-    (stubs / "sudo").write_text('#!/bin/sh\nexec "$@"\n', encoding="utf-8")
+    (stubs / "sudo").write_text(
+        '#!/bin/sh\n[ "$1" = "-n" ] && shift\nexec "$@"\n', encoding="utf-8"
+    )
     (stubs / "docker").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     for stub in stubs.iterdir():
         stub.chmod(0o755)
@@ -169,14 +172,14 @@ def _netbird_calls(host):
     return host["log"].read_text(encoding="utf-8") if host["log"].exists() else ""
 
 
-def test_without_the_flags_nothing_changes(host, federation):
+def test_without_the_flags_affinities_stays_off(host, federation):
     federation["config"] = _configuration(
         netbird_management_url=MANAGEMENT_URL,
         affinities_url="https://affinities.example.org",
         affinities_uid="aff-uid-1",
     )
 
-    result = _install(host, federation)
+    result = _install(host, federation, "--no-netbird")
 
     assert result.returncode == 0, result.stdout + result.stderr
     env = _env(host)
@@ -316,3 +319,140 @@ def test_a_token_that_does_not_own_the_configuration_stops(host, federation):
     assert result.returncode == 1
     assert "does not own configuration" in result.stderr
     assert "netbird up" not in _netbird_calls(host)
+
+
+# ---------------------------------------------------------------------------
+# NetBird by default on new installations (issue #363)
+# ---------------------------------------------------------------------------
+# A new installation joins without --netbird; it never stops because of
+# NetBird. An Endpoint installed earlier, re-run to upgrade, keeps what it had.
+
+
+def _token_file(host, token=OWNER_TOKEN):
+    token_file = host["tmp"] / "ndp-token"
+    token_file.write_text(token, encoding="utf-8")
+    return str(token_file)
+
+
+def _state(host):
+    path = host["checkout"] / ".env.install-state"
+    if not path.exists():
+        return {}
+    return dict(
+        line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines() if "=" in line
+    )
+
+
+def test_a_new_installation_joins_netbird_by_default(host, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+
+    result = _install(host, federation, "--ndp-token-file", _token_file(host))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"netbird up --management-url {MANAGEMENT_URL}" in _netbird_calls(host), result.stderr
+    assert (host["tmp"] / "key.seen").read_text() == FEDERATION_KEY
+    assert _env(host)["NETBIRD_ENABLED"] == "True"
+    assert _state(host)["NETBIRD"] == "yes"
+
+
+def test_by_default_a_missing_key_does_not_stop_the_installation(host, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+
+    result = _install(host, federation)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "netbird up" not in _netbird_calls(host)
+    assert _env(host)["NETBIRD_ENABLED"] == "False"
+    assert "did not join NetBird" in result.stderr
+    assert "--ndp-token-file" in result.stderr
+
+
+def test_by_default_a_refused_key_does_not_stop_the_installation(host, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+
+    result = _install(
+        host, federation, "--ndp-token-file", _token_file(host, "someone-elses-token")
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "does not own configuration" in result.stderr
+    assert "netbird up" not in _netbird_calls(host)
+    assert _env(host)["NETBIRD_ENABLED"] == "False"
+
+
+def test_by_default_no_management_url_installs_without_netbird(host, federation):
+    result = _install(host, federation, "--ndp-token-file", _token_file(host))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "netbird up" not in _netbird_calls(host)
+    assert _env(host)["NETBIRD_ENABLED"] == "False"
+
+
+def test_a_failed_default_join_is_tried_again_on_the_next_run(host, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    _install(host, federation)
+
+    result = _install(host, federation, "--ndp-token-file", _token_file(host))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"netbird up --management-url {MANAGEMENT_URL}" in _netbird_calls(host)
+    assert _env(host)["NETBIRD_ENABLED"] == "True"
+
+
+def test_no_netbird_turns_it_off_and_is_remembered(host, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    token = _token_file(host)
+
+    first = _install(host, federation, "--no-netbird", "--ndp-token-file", token)
+    again = _install(host, federation, "--ndp-token-file", token)
+
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert again.returncode == 0, again.stdout + again.stderr
+    assert _netbird_calls(host) == ""
+    assert _env(host)["NETBIRD_ENABLED"] == "False"
+    assert _state(host)["NETBIRD"] == "no"
+
+
+def test_an_endpoint_installed_before_is_not_joined_on_upgrade(host, federation):
+    """Installed before NetBird existed in the installer: nothing recorded."""
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    _install(host, federation, "--no-netbird")
+    state = host["checkout"] / ".env.install-state"
+    state.write_text(
+        "".join(
+            line + "\n"
+            for line in state.read_text(encoding="utf-8").splitlines()
+            if not line.startswith("NETBIRD=")
+        ),
+        encoding="utf-8",
+    )
+
+    result = _install(host, federation, "--ndp-token-file", _token_file(host))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _netbird_calls(host) == ""
+    assert _env(host)["NETBIRD_ENABLED"] == "False"
+
+
+def test_explicit_netbird_still_stops_without_a_key(host, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+
+    result = _install(host, federation, "--netbird")
+
+    assert result.returncode == 1
+    assert "--ndp-token-file" in result.stderr
+
+
+def test_by_default_without_passwordless_sudo_it_carries_on(host, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    # sudo that would need a password: -n refuses.
+    (host["stubs"] / "sudo").write_text(
+        '#!/bin/sh\n[ "$1" = "-n" ] && exit 1\nexec "$@"\n', encoding="utf-8"
+    )
+
+    result = _install(host, federation, "--ndp-token-file", _token_file(host))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "needs sudo" in result.stderr
+    assert "netbird up" not in _netbird_calls(host)
+    assert _env(host)["NETBIRD_ENABLED"] == "False"
