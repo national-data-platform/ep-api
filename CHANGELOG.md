@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.57] - 2026-10-20
+
+### Changed
+- **New installations join NDP's NetBird network by default.** Since 0.34.55 the installer only joined with `--netbird`, and the command the platform's create-endpoint page generates does not pass it, so an Endpoint installed from the website never joined and was never asked for what joining needs. A new installation (a checkout with no `.env` and no install state) now joins without the flag, taking the management URL and the setup key from the Federation as `--netbird` does. Joining never stops it: when the Federation gives no management URL or key, `sudo` would need a password nobody can type, or nothing can be asked, the installer says why it did not join and how to join later, and carries on; the next run tries again. `--no-netbird` turns it off and is remembered. `--netbird` keeps stopping the installation when it cannot join. An Endpoint installed before, with nothing recorded, keeps what it had when re-run to upgrade: it only joins with `--netbird`. New tests in `install/tests/test_netbird_affinities.py`. Verified on a real host: an Endpoint registered from ndp-test.sdsc.edu against the test Federation and installed without `--netbird` installed the NetBird client, joined NDP's network (management and signal connected, NetBird address reported in its metrics), and its owner created a dataset that reached Affinities; re-running the installer on an Endpoint installed with 0.34.56 left its `.env` and install state byte for byte as they were and never mentioned NetBird (#363).
+
 ## [0.34.56] - 2026-10-12
 
 ### Added

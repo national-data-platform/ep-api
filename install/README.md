@@ -164,10 +164,20 @@ the installer says so and carries on.
 
 ## NetBird and Affinities
 
-Both are opt-in and need a Federation registration (`--config-id`) on
-Federation 1.12.9 or later, which serves the URLs with the configuration
-(since 0.34.55). Once turned on, a re-run of the installer in the same
-checkout keeps them without the flags.
+Both need a Federation registration (`--config-id`) on Federation 1.12.9 or
+later, which serves the URLs with the configuration (since 0.34.55). Once
+turned on, a re-run of the installer in the same checkout keeps them without
+the flags.
+
+A **new installation joins NetBird by default** (since 0.34.57): without
+`--netbird` the installer tries to join and, when it cannot (no management
+URL or setup key from the Federation, `sudo` that would need a password nobody
+can type, or no terminal to ask in), says why and how to join later and
+carries on without it; the next run tries again. `--no-netbird` turns it off,
+and is remembered. With `--netbird` it stops instead when it cannot join. An
+Endpoint installed before 0.34.57 keeps what it had when the installer is
+re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
+(`--affinities`).
 
 - **`--netbird`** joins the machine to NDP's NetBird network, whose
   management URL the Federation gives (`netbird_management_url`;
@@ -213,7 +223,8 @@ checkout keeps them without the flags.
 | `--s3-secure` | reach that S3 over https |
 | `--ckan-*` | see [CKAN](#ckan) |
 | `--dry-run` | render the configuration and run the checks, start nothing |
-| `--netbird` | join NDP's NetBird network (see [NetBird and Affinities](#netbird-and-affinities)) |
+| `--netbird` | join NDP's NetBird network, and stop if it cannot (see [NetBird and Affinities](#netbird-and-affinities)); a new installation joins without it |
+| `--no-netbird` | do not join NetBird; remembered |
 | `--netbird-setup-key-file <path>` | file with the NetBird setup key; implies `--netbird` |
 | `--netbird-management-url <url>` | override the management URL the Federation gives |
 | `--ndp-token-file <path>` | file with your NDP access token, so `--netbird` fetches the key from the Federation without a prompt |
