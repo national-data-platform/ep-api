@@ -226,7 +226,10 @@ Options:
   --netbird               Join this machine to NDP's NetBird network. Installs
                           the NetBird client on the host if missing (needs
                           sudo); the management URL comes from the Federation
-                          configuration. Kept on re-runs.
+                          configuration. Kept on re-runs. A new installation
+                          joins without it, but carries on, saying why, when
+                          it cannot; with --netbird it stops instead.
+  --no-netbird            Do not join NetBird. Kept on re-runs.
   --netbird-setup-key-file <path>
                           File holding the NetBird setup key (implies
                           --netbird). Without it the key is fetched from the
@@ -307,6 +310,7 @@ while [[ $# -gt 0 ]]; do
     --s3-region)       s3_region="${2:-}"; shift 2 ;;
     --s3-secure)       s3_secure="True"; shift ;;
     --netbird)         want_netbird="yes"; shift ;;
+    --no-netbird)      want_netbird="no"; shift ;;
     --netbird-setup-key-file) netbird_setup_key_file="${2:-}"; want_netbird="yes"; shift 2 ;;
     --netbird-management-url) netbird_management_url="${2:-}"; shift 2 ;;
     --ndp-token-file)  ndp_token_file="${2:-}"; shift 2 ;;
@@ -442,6 +446,10 @@ first_free_port() {
 # Helpers
 # --------------------------------------------------------------
 STATE_FILE="$REPO_ROOT/.env.install-state"
+# A checkout with neither file has never been installed. New installations
+# join NetBird by default; one installed earlier keeps what it had (#363).
+fresh_install="false"
+[[ -f "$STATE_FILE" || -f "$REPO_ROOT/.env" ]] || fresh_install="true"
 
 state_get() {
   [[ -f "$STATE_FILE" ]] || return 0
@@ -1261,10 +1269,18 @@ put METRICS_ENDPOINT "${federation_url%/}/metrics/"
 # --------------------------------------------------------------
 # Affinities and NetBird (issue #359)
 # --------------------------------------------------------------
-# Both opt-in, and remembered: a re-run keeps what the last run of this
-# checkout turned on, so an upgrade does not quietly switch them off.
+# Remembered: a re-run keeps what the last run of this checkout turned on, so
+# an upgrade does not quietly switch them off. Affinities is opt-in. NetBird is
+# on by default for a new installation (issue #363) and then must never stop
+# it: "default" joins when it can and otherwise says why and carries on, and a
+# failed default join is tried again on the next run. --netbird, or a join
+# that succeeded, makes it required. An Endpoint installed before, with
+# nothing recorded, only joins with --netbird.
 [[ -n "$want_affinities" ]] || want_affinities="$(state_get AFFINITIES)"
 [[ -n "$want_netbird" ]]    || want_netbird="$(state_get NETBIRD)"
+if [[ -z "$want_netbird" && "$fresh_install" == "true" ]]; then
+  want_netbird="default"
+fi
 
 if [[ "$want_affinities" == "yes" ]]; then
   # The Federation registers each Endpoint in Affinities and keeps the id it
@@ -1303,112 +1319,165 @@ print({
 }[sys.argv[1]])' "$1"
 }
 
-if [[ "$want_netbird" == "yes" ]]; then
+netbird_stop() {
+  # Required (--netbird): stop the installation. Default: say why NetBird was
+  # not joined and how to join later, and carry on without it.
+  if [[ "$want_netbird" == "yes" ]]; then
+    fail "$1"
+  fi
+  warn "This Endpoint did not join NetBird: $1
+       It is installed and works without it. To join later, re-run the installer
+       with --ndp-token-file <file holding your NDP access token> (or
+       --netbird-setup-key-file <path>), or with --no-netbird to stop trying."
+  return 1
+}
+
+join_netbird() {
   step "Joining NDP's NetBird network"
   netbird_url="${netbird_management_url:-${fed_netbird_url:-}}"
-  [[ -n "$netbird_url" ]] \
-    || fail "--netbird needs the NetBird management URL: from the Federation configuration
-       (Federation 1.12.9 or later, with --config-id) or --netbird-management-url."
+  if [[ -z "$netbird_url" ]]; then
+    # Without a registration there is no network to join: say nothing then.
+    [[ "$want_netbird" == "default" && -z "$config_id" ]] && {
+      info "No Federation registration, so no NetBird network to join."
+      return 1
+    }
+    netbird_stop "--netbird needs the NetBird management URL: from the Federation configuration
+       (Federation 1.12.9 or later, with --config-id) or --netbird-management-url." || return 1
+  fi
   netbird_sudo=()
-  [[ "$(id -u)" == "0" ]] || netbird_sudo=(sudo)
+  if [[ "$(id -u)" != "0" ]]; then
+    netbird_sudo=(sudo)
+    # Asked for its password only where someone can answer.
+    if [[ "$want_netbird" == "default" ]] && ! interactive && ! sudo -n true 2>/dev/null; then
+      netbird_stop "it needs sudo, and sudo would ask for a password nobody can type here." || return 1
+    fi
+  fi
 
   if [[ "$dry_run" == "true" ]]; then
     warn "--dry-run: would join $netbird_url (installing the NetBird client if missing)."
-  else
-    # Native on the host, as on the machines already in the network: the
-    # Endpoint and CKAN are reached over the host's network.
-    if ! command -v netbird >/dev/null 2>&1; then
-      info "Installing the NetBird client with NetBird's official script (needs sudo)."
-      curl -fsSL https://pkgs.netbird.io/install.sh | "${netbird_sudo[@]}" sh \
-        || fail "Could not install the NetBird client."
-    fi
+    return 1
+  fi
 
-    if [[ "$(netbird_status | netbird_field connected)" == "yes" ]]; then
-      current_url="$(netbird_status | netbird_field url)"
-      ok "Already connected to NetBird (${current_url:-management URL not reported})."
-      [[ -z "$current_url" || "${current_url%/}" == "${netbird_url%/}"* ]] \
-        || warn "This machine is connected to $current_url, not $netbird_url; left as it is."
-    else
-      key_file="$netbird_setup_key_file"
-      temp_key=""
-      if [[ -z "$key_file" && -n "$config_id" ]]; then
-        # From the Federation (1.12.10): it hands the key only to the owner of
-        # this configuration, so the person installing never needs to know it
-        # (issue #361). Neither the token nor the key is written anywhere but
-        # these private temporary files, removed as soon as they are used.
-        token="${remember_token:-}"
-        if [[ -z "$token" && -n "$ndp_token_file" ]]; then
-          [[ -r "$ndp_token_file" ]] || fail "Cannot read the NDP token file: $ndp_token_file"
-          token="$(tr -d '[:space:]' < "$ndp_token_file")"
-        fi
-        if [[ -z "$token" ]] && interactive; then
+  # Native on the host, as on the machines already in the network: the
+  # Endpoint and CKAN are reached over the host's network.
+  if ! command -v netbird >/dev/null 2>&1; then
+    info "Installing the NetBird client with NetBird's official script (needs sudo)."
+    curl -fsSL https://pkgs.netbird.io/install.sh | "${netbird_sudo[@]}" sh \
+      || { netbird_stop "Could not install the NetBird client." || return 1; }
+  fi
+
+  if [[ "$(netbird_status | netbird_field connected)" == "yes" ]]; then
+    current_url="$(netbird_status | netbird_field url)"
+    ok "Already connected to NetBird (${current_url:-management URL not reported})."
+    [[ -z "$current_url" || "${current_url%/}" == "${netbird_url%/}"* ]] \
+      || warn "This machine is connected to $current_url, not $netbird_url; left as it is."
+  else
+    key_file="$netbird_setup_key_file"
+    temp_key=""
+    if [[ -z "$key_file" && -n "$config_id" ]]; then
+      # From the Federation (1.12.10): it hands the key only to the owner of
+      # this configuration, so the person installing never needs to know it
+      # (issue #361). Neither the token nor the key is written anywhere but
+      # these private temporary files, removed as soon as they are used.
+      token="${remember_token:-}"
+      if [[ -z "$token" && -n "$ndp_token_file" ]]; then
+        [[ -r "$ndp_token_file" ]] \
+          || { netbird_stop "Cannot read the NDP token file: $ndp_token_file" || return 1; }
+        token="$(tr -d '[:space:]' < "$ndp_token_file")"
+      fi
+      if [[ -z "$token" ]] && interactive; then
+        if [[ "$want_netbird" == "default" ]]; then
+          ask_secret token "Your NDP access token, to join NetBird (not shown; Enter to skip)"
+        else
           ask_secret token "Your NDP access token, to fetch the NetBird key (not shown)"
         fi
-        if [[ -n "$token" ]]; then
-          headers="$(mktemp)"; enrolment="$(mktemp)"
-          chmod 600 "$headers" "$enrolment"
-          printf 'Authorization: Bearer %s\n' "$token" > "$headers"
-          unset token
-          code="$(curl -s -m 20 -o "$enrolment" -w '%{http_code}' -H @"$headers" \
-            "${federation_url%/}/ep/${config_id}/netbird" || echo 000)"
-          rm -f "$headers"
-          if [[ "$code" == "200" ]]; then
-            temp_key="$(mktemp)"
-            chmod 600 "$temp_key"
-            python3 - "$enrolment" "$temp_key" <<'PY'
+      fi
+      if [[ -n "$token" ]]; then
+        headers="$(mktemp)"; enrolment="$(mktemp)"
+        chmod 600 "$headers" "$enrolment"
+        printf 'Authorization: Bearer %s\n' "$token" > "$headers"
+        unset token
+        code="$(curl -s -m 20 -o "$enrolment" -w '%{http_code}' -H @"$headers" \
+          "${federation_url%/}/ep/${config_id}/netbird" || echo 000)"
+        rm -f "$headers"
+        if [[ "$code" == "200" ]]; then
+          temp_key="$(mktemp)"
+          chmod 600 "$temp_key"
+          python3 - "$enrolment" "$temp_key" <<'PY'
 import json, sys
 with open(sys.argv[1]) as handle:
     key = (json.load(handle) or {}).get("setup_key") or ""
 with open(sys.argv[2], "w") as handle:
     handle.write(key)
 PY
-            if [[ -s "$temp_key" ]]; then
-              key_file="$temp_key"
-              ok "NetBird setup key received from the Federation"
-            else
-              rm -f "$temp_key"
-              temp_key=""
-              warn "The Federation's answer held no NetBird setup key."
-            fi
+          if [[ -s "$temp_key" ]]; then
+            key_file="$temp_key"
+            ok "NetBird setup key received from the Federation"
           else
-            case "$code" in
-              401) warn "The Federation did not accept that NDP token." ;;
-              403) warn "That NDP token does not own configuration $config_id." ;;
-              404) warn "This Federation does not hand out NetBird keys (needs 1.12.10 or later)." ;;
-              503) warn "This Federation has no NetBird setup key configured." ;;
-              *)   warn "The Federation answered HTTP $code for the NetBird key." ;;
-            esac
+            rm -f "$temp_key"
+            temp_key=""
+            warn "The Federation's answer held no NetBird setup key."
           fi
-          rm -f "$enrolment"
+        else
+          case "$code" in
+            401) warn "The Federation did not accept that NDP token." ;;
+            403) warn "That NDP token does not own configuration $config_id." ;;
+            404) warn "This Federation does not hand out NetBird keys (needs 1.12.10 or later)." ;;
+            503) warn "This Federation has no NetBird setup key configured." ;;
+            *)   warn "The Federation answered HTTP $code for the NetBird key." ;;
+          esac
         fi
+        rm -f "$enrolment"
       fi
-      if [[ -z "$key_file" ]]; then
-        interactive || fail "--netbird needs the setup key: give your NDP token (--ndp-token-file <path>) so the Federation hands it over, or pass --netbird-setup-key-file <path>."
-        ask_secret netbird_key "NetBird setup key (not shown)"
-        [[ -n "$netbird_key" ]] || fail "No NetBird setup key given."
-        # Through a private file, so the key is not on a command line.
-        temp_key="$(mktemp)"
-        chmod 600 "$temp_key"
-        printf '%s' "$netbird_key" > "$temp_key"
-        unset netbird_key
-        key_file="$temp_key"
-      fi
-      [[ -r "$key_file" ]] || fail "Cannot read the NetBird setup key file: $key_file"
-      joined="yes"
-      "${netbird_sudo[@]}" netbird up --management-url "$netbird_url" \
-        --setup-key-file "$key_file" || joined="no"
-      [[ -n "$temp_key" ]] && rm -f "$temp_key"
-      [[ "$joined" == "yes" ]] || fail "netbird up failed; see the message above."
-      ok "Joined NetBird at $netbird_url"
     fi
-
-    netbird_ip="$(netbird_status | netbird_field ip)"
-    put NETBIRD_ENABLED "True"
-    [[ -n "$netbird_ip" ]] && put NETBIRD_IP "$netbird_ip"
-    ok "NetBird address ${netbird_ip:-not reported yet}, reported in the metrics"
-    state_set NETBIRD yes
+    if [[ -z "$key_file" ]]; then
+      interactive || {
+        netbird_stop "--netbird needs the setup key: give your NDP token (--ndp-token-file <path>) so the Federation hands it over, or pass --netbird-setup-key-file <path>." || return 1
+      }
+      if [[ "$want_netbird" == "default" ]]; then
+        ask_secret netbird_key "NetBird setup key (not shown; Enter to skip)"
+      else
+        ask_secret netbird_key "NetBird setup key (not shown)"
+      fi
+      [[ -n "$netbird_key" ]] || { netbird_stop "No NetBird setup key given." || return 1; }
+      # Through a private file, so the key is not on a command line.
+      temp_key="$(mktemp)"
+      chmod 600 "$temp_key"
+      printf '%s' "$netbird_key" > "$temp_key"
+      unset netbird_key
+      key_file="$temp_key"
+    fi
+    [[ -r "$key_file" ]] \
+      || { netbird_stop "Cannot read the NetBird setup key file: $key_file" || return 1; }
+    joined="yes"
+    "${netbird_sudo[@]}" netbird up --management-url "$netbird_url" \
+      --setup-key-file "$key_file" || joined="no"
+    [[ -n "$temp_key" ]] && rm -f "$temp_key"
+    [[ "$joined" == "yes" ]] \
+      || { netbird_stop "netbird up failed; see the message above." || return 1; }
+    ok "Joined NetBird at $netbird_url"
   fi
-fi
+
+  netbird_ip="$(netbird_status | netbird_field ip)"
+  put NETBIRD_ENABLED "True"
+  [[ -n "$netbird_ip" ]] && put NETBIRD_IP "$netbird_ip"
+  ok "NetBird address ${netbird_ip:-not reported yet}, reported in the metrics"
+  return 0
+}
+
+case "$want_netbird" in
+  yes|default)
+    if join_netbird; then
+      state_set NETBIRD yes
+    elif [[ "$dry_run" != "true" ]]; then
+      # Only a default join gets here: try again on the next run.
+      state_set NETBIRD default
+    fi
+    ;;
+  no)
+    [[ "$dry_run" == "true" ]] || state_set NETBIRD no
+    ;;
+esac
 
 # --------------------------------------------------------------
 step "Selecting the local catalog backend"
