@@ -339,7 +339,9 @@ def _state(host):
     if not path.exists():
         return {}
     return dict(
-        line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines() if "=" in line
+        line.split("=", 1)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if "=" in line
     )
 
 
@@ -349,7 +351,9 @@ def test_a_new_installation_joins_netbird_by_default(host, federation):
     result = _install(host, federation, "--ndp-token-file", _token_file(host))
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert f"netbird up --management-url {MANAGEMENT_URL}" in _netbird_calls(host), result.stderr
+    assert f"netbird up --management-url {MANAGEMENT_URL}" in _netbird_calls(
+        host
+    ), result.stderr
     assert (host["tmp"] / "key.seen").read_text() == FEDERATION_KEY
     assert _env(host)["NETBIRD_ENABLED"] == "True"
     assert _state(host)["NETBIRD"] == "yes"
