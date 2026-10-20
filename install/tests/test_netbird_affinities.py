@@ -460,3 +460,21 @@ def test_by_default_without_passwordless_sudo_it_carries_on(host, federation):
     assert "needs sudo" in result.stderr
     assert "netbird up" not in _netbird_calls(host)
     assert _env(host)["NETBIRD_ENABLED"] == "False"
+
+
+def test_an_unattended_run_on_a_connected_machine_records_netbird(host, federation):
+    """Issue #367: seeing an existing connection needs no sudo."""
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    # Already connected, as the second Endpoint on a host that joined before.
+    (host["tmp"] / "netbird.joined").touch()
+    # sudo that would need a password: -n refuses, anything else fails too.
+    (host["stubs"] / "sudo").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+
+    result = _install(host, federation)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "needs sudo" not in result.stderr
+    assert "netbird up" not in _netbird_calls(host)
+    assert _env(host)["NETBIRD_ENABLED"] == "True"
+    assert _env(host)["NETBIRD_IP"] == "100.64.0.7"
+    assert _state(host)["NETBIRD"] == "yes"

@@ -1299,8 +1299,11 @@ if [[ "$want_affinities" == "yes" ]]; then
 fi
 
 netbird_status() {
-  # The client's own view: management connection and address, as JSON.
-  "${netbird_sudo[@]}" netbird status --json 2>/dev/null || true
+  # The client's own view: management connection and address, as JSON. Read
+  # as the user first, which needs no sudo; through sudo only if that fails.
+  netbird status --json 2>/dev/null \
+    || { [[ ${#netbird_sudo[@]} -gt 0 ]] && "${netbird_sudo[@]}" netbird status --json 2>/dev/null; } \
+    || true
 }
 
 netbird_field() {
@@ -1345,10 +1348,18 @@ join_netbird() {
        (Federation 1.12.9 or later, with --config-id) or --netbird-management-url." || return 1
   fi
   netbird_sudo=()
+  # A machine already connected (another Endpoint on this host joined it) needs
+  # no sudo at all: seeing the connection does not (issue #367).
+  already_connected="no"
+  if command -v netbird >/dev/null 2>&1 \
+     && [[ "$(netbird_status | netbird_field connected)" == "yes" ]]; then
+    already_connected="yes"
+  fi
   if [[ "$(id -u)" != "0" ]]; then
     netbird_sudo=(sudo)
     # Asked for its password only where someone can answer.
-    if [[ "$want_netbird" == "default" ]] && ! interactive && ! sudo -n true 2>/dev/null; then
+    if [[ "$want_netbird" == "default" && "$already_connected" == "no" ]] \
+       && ! interactive && ! sudo -n true 2>/dev/null; then
       netbird_stop "it needs sudo, and sudo would ask for a password nobody can type here." || return 1
     fi
   fi
