@@ -285,6 +285,22 @@ registration says the Endpoint is public. The report goes to `METRICS_ENDPOINT`
 `METRICS_INTERVAL_SECONDS` (default 3300). Look for "Successfully posted
 metrics" or "Error posting metrics" in the logs.
 
+## Changing the bundled MongoDB password
+
+An Endpoint whose bundled MongoDB was created before 0.34.62 uses `admin123`,
+and the installer keeps it because the data only opens with it. To change it,
+from the checkout (`<instance>` is `ndp` unless installed with `--instance`):
+
+```bash
+NEW="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+docker exec <instance>-mongodb mongosh -u admin -p admin123 admin --quiet \
+  --eval "db.changeUserPassword('admin', '$NEW')"
+echo "MONGODB_ROOT_PASSWORD=$NEW" >> .env.install-state
+```
+
+Then run the installer again with the same options: it takes the password from
+the install state, writes it to `.env` and restarts the Endpoint with it.
+
 ## Security checklist for production
 
 - **`TEST_TOKEN`.** Any request carrying it as a bearer token is accepted as a
@@ -292,12 +308,16 @@ metrics" or "Error posting metrics" in the logs.
   service. `example.env` sets `TEST_TOKEN=testing_token` and the installer does
   not change it, and if the variable is absent the default is also
   `testing_token`. Set it explicitly to empty (`TEST_TOKEN=`) in `.env`.
-- **Bundled default credentials** in `docker-compose.yml` are the same in
-  every deployment: MongoDB `admin` / `admin123`; mongo-express `admin` /
-  `admin123`; MinIO `minioadmin` / `minioadmin123` (also the defaults of
-  `S3_ACCESS_KEY` / `S3_SECRET_KEY`); JupyterLab token `testing_token`. Change
-  them before exposing those services, and update the matching settings in
-  `.env` (`MONGODB_CONNECTION_STRING`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`).
+- **Bundled credentials.** Since 0.34.62 the installer generates the bundled
+  MongoDB's root password (`MONGODB_ROOT_PASSWORD`, also mongo-express's) and
+  MinIO's keys (`S3_ACCESS_KEY` / `S3_SECRET_KEY`) per installation and keeps
+  them in `.env.install-state`. An Endpoint installed earlier keeps the demo
+  values its data was created with — MongoDB `admin` / `admin123`, MinIO
+  `minioadmin` / `minioadmin123` — and the installer warns about it on every
+  run; see [Changing the bundled MongoDB password](#changing-the-bundled-mongodb-password).
+  Started by hand from `docker-compose.yml` without those variables in `.env`,
+  the services still get the demo values. The JupyterLab token is
+  `testing_token`.
 - **CORS** is fully open: `api/main.py` allows every origin, method and header,
   with credentials.
 - **Published ports.** `docker-compose.yml` publishes MongoDB (27018), MinIO
@@ -310,7 +330,10 @@ metrics" or "Error posting metrics" in the logs.
   (see `OIDC_*` in [configuration.md](configuration.md)).
 - **Certificate verification.** Keep `CKAN_VERIFY_SSL` and
   `PRE_CKAN_VERIFY_SSL` true except for a CKAN with a self-signed certificate
-  (the installer sets `CKAN_VERIFY_SSL=False` for the CKAN it installs).
+  (the installer sets `CKAN_VERIFY_SSL=False` for the CKAN it installs, and
+  says so on every run).
+- **NetBird client.** Where the installer installs it, it is the release
+  pinned in `install/netbird.sha256`, checked against that SHA-256 first.
 - **Secrets on disk.** `.env`, `.env.backup.*` and `.env.install-state` hold
   credentials; the installer creates the backups and the state file with mode
   600.

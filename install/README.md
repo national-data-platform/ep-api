@@ -191,7 +191,12 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
   management URL the Federation gives (`netbird_management_url`;
   `--netbird-management-url` overrides it). The NetBird client is the native
   one on the host, as on the machines already in the network: if `netbird` is
-  missing, NetBird's official script installs it (`sudo`). If the machine is
+  missing, the installer downloads the NetBird release pinned in
+  `install/netbird.sha256` (0.81.3, linux amd64/arm64) from GitHub, installs it
+  only if its SHA-256 matches the pinned one, and installs and starts its
+  service (`sudo`); a mismatch is reported and nothing is installed. To move
+  to a newer client, replace both lines of that file with the new release's
+  checksums. If the machine is
   not connected yet, it runs `netbird up --management-url <url>
   --setup-key-file <file>` (`sudo`). The key comes from the Federation (1.12.10
   or later), which hands it only to the owner of the configuration: the

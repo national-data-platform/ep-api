@@ -1,0 +1,7 @@
+# The NetBird client the installer puts on a host that has none (issue #375):
+# this release, checked against these SHA-256 sums before anything runs as
+# root. They are copied from netbird_<version>_checksums.txt of the release on
+# github.com/netbirdio/netbird and were checked against the downloaded files.
+# To move to a newer client, replace both lines with that release's.
+cbdea310068e35449f034544d5137fefee8f6d948fffd020883ffc8b3bab63b1  netbird_0.81.3_linux_amd64.tar.gz
+980eef938177108bdfa7d802566b6309123592a58631349a78f11cd97c76c22d  netbird_0.81.3_linux_arm64.tar.gz

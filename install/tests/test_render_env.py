@@ -236,8 +236,10 @@ def test_access_requests_bring_their_own_mongodb():
     assert (
         'profiles+=("mongodb")' in block
     ), "no MongoDB is installed for a backend that does not provide one"
+    # The connection string carries the installation's own password (#375);
+    # test_bundled_credentials.py checks what it renders.
     assert (
-        "put MONGODB_CONNECTION_STRING " in block
+        "bundled_mongodb_password" in block
     ), "the MongoDB installed for access requests is never pointed at"
 
 
