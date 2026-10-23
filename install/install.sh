@@ -149,6 +149,10 @@ assume_yes="false"
 # The Federation has no field for a remote-execution URL, so when registration
 # captures one it is applied straight to the .env after the config is fetched.
 reg_rexec_url=""
+# Where this run is recorded (issue #374). Empty means install.log next to the
+# checkout; /dev/null turns the record off. log_active is set once it is open.
+log_file=""
+log_active=""
 
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
 BLUE=$'\033[0;34m'; NC=$'\033[0m'
@@ -156,7 +160,11 @@ BLUE=$'\033[0;34m'; NC=$'\033[0m'
 info()    { echo "${BLUE}[info]${NC} $*"; }
 ok()      { echo "${GREEN}[ ok ]${NC} $*"; }
 warn()    { echo "${YELLOW}[warn]${NC} $*" >&2; }
-fail()    { echo "${RED}[fail]${NC} $*" >&2; exit 1; }
+fail()    {
+  echo "${RED}[fail]${NC} $*" >&2
+  [[ -n "$log_active" ]] && echo "       install log: $log_active" >&2
+  exit 1
+}
 step()    { echo; echo "${GREEN}==>${NC} $*"; }
 
 banner() {
@@ -268,6 +276,8 @@ have:
   --dry-run               Render .env and run the checks, start nothing
   --no-start              Write everything, do not bring the stack up
   --yes                   Do not prompt before overwriting an existing .env
+  --log-file <path>       Append this run to <path>. Default: install.log in
+                          the checkout. /dev/null keeps no log.
   -h, --help              This message
 
 The configuration id comes from registering the Endpoint with the Federation.
@@ -275,6 +285,9 @@ Values it supplies (organization, groups, streaming, staging catalog, identity
 provider) are applied on top of the documented defaults in example.env.
 USAGE
 }
+
+# As given, for the install log; the secrets among them are masked there.
+cli_args=("$@")
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -318,6 +331,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
+    --log-file)        log_file="${2:-}"; shift 2 ;;
     -h|--help)         usage; exit 0 ;;
     *)                 fail "Unknown option: $1 (try --help)" ;;
   esac
@@ -332,6 +346,63 @@ esac
 
 [[ "$backend" == "none" || "$backend" == "mongodb" || "$backend" == "ckan" ]] \
   || fail "--backend must be none, mongodb or ckan (got: $backend)"
+
+# --------------------------------------------------------------
+# The install log (issue #374)
+# --------------------------------------------------------------
+# Everything the run prints is also appended to a file, so a run that fails
+# unattended, or ten minutes in, leaves a record of what it was asked to do and
+# where it stopped. Appended, not truncated: a failed attempt and the retry
+# that followed are both kept. The terminal sees exactly what it did before.
+finish_log() { :; }
+[[ -n "$log_file" ]] || log_file="$REPO_ROOT/install.log"
+if [[ "$log_file" != "/dev/null" ]]; then
+  if ( umask 077; : >> "$log_file" ) 2>/dev/null; then
+    chmod 600 "$log_file" 2>/dev/null || true
+    shown_args=()
+    for ((_i = 0; _i < ${#cli_args[@]}; _i++)); do
+      shown_args+=("$(printf '%q' "${cli_args[$_i]}")")
+      case "${cli_args[$_i]}" in
+        --ckan-password|--ckan-api-key|--s3-access-key|--s3-secret-key)
+          if ((_i + 1 < ${#cli_args[@]})); then
+            shown_args+=("***"); _i=$((_i + 1))
+          fi ;;
+      esac
+    done
+    {
+      echo
+      echo "=== $(date -u '+%Y-%m-%dT%H:%M:%SZ') install.sh run"
+      echo "    version: $(git -C "$REPO_ROOT" describe --tags --always 2>/dev/null || echo unknown)"
+      echo "    args: ${shown_args[*]}"
+      echo "    user: $(id -un 2>/dev/null || echo unknown)@$(hostname 2>/dev/null || echo unknown)"
+      echo "    federation: $federation_url"
+    } >> "$log_file"
+    exec 5>&1 6>&2
+    exec > >(tee -a "$log_file")
+    log_out_pid=$!
+    exec 2> >(tee -a "$log_file" >&6)
+    log_err_pid=$!
+    log_active="$log_file"
+    # On the way out: hand the terminal back, let both copies finish writing,
+    # then strip the colour codes, which only make sense on a terminal.
+    finish_log() {
+      [[ -n "$log_active" ]] || return 0
+      exec 1>&5 2>&6
+      # Bounded: a daemon started during the run could still hold the pipe,
+      # and the record is not worth hanging the exit for.
+      local _w
+      for _w in $(seq 1 50); do
+        kill -0 "$log_out_pid" 2>/dev/null || kill -0 "$log_err_pid" 2>/dev/null || break
+        sleep 0.1
+      done
+      sed -i 's/\x1b\[[0-9;]*m//g' "$log_active" 2>/dev/null || true
+      log_active=""
+    }
+    trap finish_log EXIT
+  else
+    warn "Cannot write the install log at $log_file; carrying on without it."
+  fi
+fi
 
 banner
 
@@ -554,7 +625,7 @@ with_scheme() {
 # Collect the values that will override the documented defaults.
 # --------------------------------------------------------------
 overrides_file="$(mktemp)"
-trap 'rm -f "$overrides_file" "${config_file:-}"' EXIT
+trap 'rm -f "$overrides_file" "${config_file:-}"; finish_log' EXIT
 echo '{}' > "$overrides_file"
 
 put() {

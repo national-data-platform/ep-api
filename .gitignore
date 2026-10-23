@@ -12,3 +12,4 @@ setup_info.txt
 tests_backup/
 ui/node_modules/
 ui/build/
+/install.log

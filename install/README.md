@@ -231,6 +231,7 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
 | `--affinities` | turn the Affinities integration on from the Federation configuration |
 | `--no-start` | write everything, bring nothing up; prints the command to start it |
 | `--yes` | no prompts at all (see [Without prompts](#without-prompts)), and overwrite an existing `.env` without asking |
+| `--log-file <path>` | append the run to `<path>` instead of `install.log` in the checkout; `/dev/null` keeps no log (see [The install log](#the-install-log)) |
 | `-h`, `--help` | usage |
 
 The underscore spellings are the ones the platform's create-endpoint page
@@ -309,6 +310,18 @@ callers, so checking against one of those would pass with any string at all
 and prove nothing. Checking the key needs a username, so with `--ckan-url`
 pass `--ckan-sysadmin <name>` to enable it; without it the installer says the
 key went unverified rather than implying it passed.
+
+## The install log
+
+Every run is appended to `install.log` in the checkout (`~/ndp-ep` or
+`~/ndp-ep-<instance>` when installed from the web), readable by its owner only.
+Each run starts with a header — time, installer version (`git describe`),
+arguments, user and host, Federation — followed by everything the run printed,
+without colour codes. The values of `--ckan-password`, `--ckan-api-key`,
+`--s3-access-key` and `--s3-secret-key` are masked in the header; prompts that
+hide what is typed keep hiding it. Re-runs append, so a failed attempt and the
+retry are both there, and a failure ends with the path of the log. A log that
+cannot be written is reported and the install carries on.
 
 ## How it works
 

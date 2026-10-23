@@ -164,6 +164,9 @@ A URL you enter without a scheme gets `https://` added automatically.
   platform — or with your username and password.
 - As the Endpoint's administrator you'll see the management areas (datasets,
   services, organizations, access requests).
+- Each run of the installer is recorded in `install.log` next to the
+  Endpoint's files (`~/ndp-ep` by default). If an installation fails, that is
+  the file to send with a support request; the failure message gives its path.
 
 ## Running it again / other options
 
