@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.59] - 2026-10-23
+
+### Added
+- **Every installer run leaves a log.** The installer only wrote to the terminal, so a run that failed unattended, or ten minutes in, left nothing on the machine to say what it was asked to do or where it stopped. Each run is now appended to `install.log` in the checkout (`~/ndp-ep` or `~/ndp-ep-<instance>` from the web), mode 600, starting with a header (time, `git describe` of the installer, arguments with `--ckan-password`, `--ckan-api-key`, `--s3-access-key` and `--s3-secret-key` masked, user and host, Federation URL) and followed by everything the run printed, without colour codes. Re-runs append. A failure ends with `install log: <path>`. `--log-file <path>` writes it elsewhere and `--log-file /dev/null` turns it off; a log that cannot be written is reported and the run carries on. What the terminal shows, on stdout and stderr, is unchanged. New tests in `install/tests/test_install_log.py`. Verified with a real install of an Endpoint on this machine (Docker build included): the log held the header, the build output and the health check, without colour codes, and a failing run against a port already in use ended with the log's path on screen and in the file (#374).
+
 ## [0.34.58] - 2026-10-20
 
 ### Fixed
