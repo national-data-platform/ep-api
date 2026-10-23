@@ -43,15 +43,41 @@ if [[ -z "$_here" || ! -f "$_here/example.env" ]]; then
   echo "==> Fetching the NDP Endpoint repository"
   command -v git >/dev/null 2>&1 || { echo "git is required to install. Please install git and retry." >&2; exit 1; }
   repo_url="${EP_REPO_URL:-$REPO_URL_DEFAULT}"
-  repo_ref="${EP_REPO_REF:-main}"
   # A named instance (--instance, issue #355) gets a checkout of its own, so
   # a second Endpoint on the host does not reuse -- and reconfigure -- the
   # first one's.
   _instance=""
+  _ref=""
   _args=("$@")
   for ((_i = 0; _i < ${#_args[@]}; _i++)); do
     [[ "${_args[$_i]}" == "--instance" ]] && _instance="${_args[$((_i + 1))]:-}"
+    [[ "${_args[$_i]}" == "--ref" ]] && _ref="${_args[$((_i + 1))]:-}"
   done
+
+  # Which version to install (issue #371). It was main, so the same command
+  # installed a different program from one week to the next, and a bad push
+  # reached every new installation at once. Now the newest release tag
+  # (vX.Y.Z; pre-releases are not offered) unless --ref, then EP_REPO_REF --
+  # which the platform's setup.sh sets to pin one -- say otherwise.
+  repo_ref="${_ref:-${EP_REPO_REF:-}}"
+  if [[ -n "$repo_ref" ]]; then
+    echo "    Installer version: $repo_ref"
+  else
+    if ! _tags="$(git ls-remote --tags --refs "$repo_url" 'v*' 2>/dev/null)"; then
+      echo "Could not list the releases of $repo_url. Check the network, or name a" >&2
+      echo "version with --ref <tag> (or --ref main for the development version)." >&2
+      exit 1
+    fi
+    repo_ref="$(printf '%s\n' "$_tags" | sed -n 's|.*refs/tags/||p' \
+      | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)"
+    if [[ -n "$repo_ref" ]]; then
+      echo "    Installer version: $repo_ref (latest release)"
+    else
+      repo_ref="main"
+      echo "    $repo_url has no release; installing main, the development version." >&2
+      echo "    Installer version: main"
+    fi
+  fi
   if [[ -n "$_instance" && "$_instance" != "ndp" ]]; then
     target="${EP_INSTALL_DIR:-$HOME/ndp-ep-$_instance}"
   else
@@ -197,7 +223,7 @@ usage() {
 NDP Endpoint installer
 
 Usage:
-  # From the web (clones the repository, then installs):
+  # From the web (clones the latest release, then installs; --ref for another):
   bash <(curl -fsSL https://raw.githubusercontent.com/national-data-platform/ep-api/main/install/install.sh) [options]
 
   # From a checkout:
@@ -279,6 +305,9 @@ have:
   --dry-run               Render .env and run the checks, start nothing
   --no-start              Write everything, do not bring the stack up
   --yes                   Do not prompt before overwriting an existing .env
+  --ref <tag|branch>      From the web: install this version instead of the
+                          latest release (e.g. v0.34.61, or main for the
+                          development version). EP_REPO_REF does the same.
   --log-file <path>       Append this run to <path>. Default: install.log in
                           the checkout. /dev/null keeps no log.
   --compose-timeout <n>   Give up when building and starting a stack takes
@@ -338,6 +367,9 @@ while [[ $# -gt 0 ]]; do
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
     --log-file)        log_file="${2:-}"; shift 2 ;;
+    # Chooses the version when installing from the web; the bootstrap above
+    # has already acted on it, and a checkout runs what it has.
+    --ref)             shift 2 ;;
     --compose-timeout) compose_timeout="${2-}"; shift 2 ;;
     -h|--help)         usage; exit 0 ;;
     *)                 fail "Unknown option: $1 (try --help)" ;;
@@ -1895,6 +1927,10 @@ if [[ "$instance" != "ndp" ]]; then
   [[ "$dry_run" == "true" ]] || state_set EP_INSTANCE "$instance"
   ok "Instance '$instance': containers ${instance}-…, Compose project ndp-ep-$instance"
 fi
+
+# Which installer this is, for support and for a later status (issue #371).
+installer_version="$(git -C "$REPO_ROOT" describe --tags --always 2>/dev/null || echo unknown)"
+[[ "$dry_run" == "true" ]] || state_set INSTALLER_VERSION "$installer_version"
 
 # --------------------------------------------------------------
 step "Rendering .env from example.env"
