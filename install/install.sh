@@ -153,6 +153,9 @@ reg_rexec_url=""
 # checkout; /dev/null turns the record off. log_active is set once it is open.
 log_file=""
 log_active=""
+# How long one "docker compose up --build" may take before the run gives up
+# (issue #376): minutes, or seconds with an "s" suffix; 0 means no limit.
+compose_timeout="30"
 
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
 BLUE=$'\033[0;34m'; NC=$'\033[0m'
@@ -278,6 +281,9 @@ have:
   --yes                   Do not prompt before overwriting an existing .env
   --log-file <path>       Append this run to <path>. Default: install.log in
                           the checkout. /dev/null keeps no log.
+  --compose-timeout <n>   Give up when building and starting a stack takes
+                          longer than <n> minutes (or <n>s seconds). Default:
+                          30. 0 means no limit.
   -h, --help              This message
 
 The configuration id comes from registering the Endpoint with the Federation.
@@ -332,6 +338,7 @@ while [[ $# -gt 0 ]]; do
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
     --log-file)        log_file="${2:-}"; shift 2 ;;
+    --compose-timeout) compose_timeout="${2-}"; shift 2 ;;
     -h|--help)         usage; exit 0 ;;
     *)                 fail "Unknown option: $1 (try --help)" ;;
   esac
@@ -346,6 +353,9 @@ esac
 
 [[ "$backend" == "none" || "$backend" == "mongodb" || "$backend" == "ckan" ]] \
   || fail "--backend must be none, mongodb or ckan (got: $backend)"
+
+[[ "$compose_timeout" =~ ^[0-9]+s?$ ]] \
+  || fail "--compose-timeout must be a number of minutes, or of seconds ending in s (got: '$compose_timeout')"
 
 # --------------------------------------------------------------
 # The install log (issue #374)
@@ -429,6 +439,66 @@ fi
 docker info >/dev/null 2>&1 || fail "Cannot talk to the Docker daemon. Is it running, and is this user allowed to use it?"
 [[ -f "$REPO_ROOT/example.env" ]] || fail "example.env not found at $REPO_ROOT — run this from a checkout of the repository."
 ok "curl, python3, docker and compose are available"
+
+# --------------------------------------------------------------
+# A time limit on building and starting (issue #376)
+# --------------------------------------------------------------
+# "docker compose up --build" pulls and builds, and a pull stalled on a
+# registry, a rate limit or a proxy never returns: the run used to wait for
+# ever, with every earlier step reported as done. It now gives up after
+# --compose-timeout and says what to check; a heartbeat every minute tells a
+# slow first build from a hang.
+if [[ "$compose_timeout" == "0" || "$compose_timeout" == "0s" ]]; then
+  compose_limit=""
+  info "Docker Compose time limit: none"
+elif ! command -v timeout >/dev/null 2>&1; then
+  compose_limit=""
+  warn "'timeout' is not installed, so building and starting have no time limit."
+elif [[ "$compose_timeout" == *s ]]; then
+  compose_limit="$compose_timeout"
+  info "Docker Compose time limit: ${compose_timeout}"
+else
+  compose_limit="$((compose_timeout * 60))s"
+  info "Docker Compose time limit: ${compose_timeout} min"
+fi
+
+# compose_up WHAT DIR COMMAND... -- runs COMMAND in DIR within the limit.
+# Returns its status; 124 means the limit ran out.
+compose_up() {
+  local what="$1" dir="$2"; shift 2
+  local started=$SECONDS rc=0 beat
+  # The sleep is waited on rather than run in the foreground so that stopping
+  # the heartbeat stops it too: left behind, it would hold the terminal (and
+  # the install log's pipe) open for up to a minute after the run ended.
+  (
+    nap=""
+    trap 'kill "$nap" 2>/dev/null; exit 0' TERM
+    while :; do
+      sleep 60 & nap=$!
+      wait "$nap"
+      info "Still building and starting $what ($(( (SECONDS - started) / 60 )) min so far)"
+    done
+  ) &
+  beat=$!
+  if [[ -n "$compose_limit" ]]; then
+    (cd "$dir" && timeout -k 30 "$compose_limit" "$@") || rc=$?
+  else
+    (cd "$dir" && "$@") || rc=$?
+  fi
+  kill "$beat" 2>/dev/null || true
+  wait "$beat" 2>/dev/null || true
+  return "$rc"
+}
+
+compose_stalled() {
+  local what="$1" dir="$2"
+  fail "Building and starting $what did not finish within ${compose_limit}.
+       A pull or build is probably stalled. Check that this machine reaches the
+       registry (try: docker pull python:3.13-slim), Docker Hub's rate limit
+       (docker login helps), and any proxy; then run the installer again, which
+       picks up where it stopped. A slow machine can allow more time with
+       --compose-timeout <minutes>. To look: cd $dir && ${COMPOSE[*]} logs"
+}
 
 # --------------------------------------------------------------
 # Asking
@@ -1697,8 +1767,10 @@ else
     ok "Ports $ckan_ssl_port, $ckan_http_port and $ckan_app_port are free"
 
     info "Building and starting CKAN — this takes several minutes the first time"
-    (cd "$ckan_dir" && "${COMPOSE[@]}" up -d --build) \
-      || fail "CKAN failed to start. Inspect it with: cd $ckan_dir && ${COMPOSE[*]} logs"
+    rc=0
+    compose_up CKAN "$ckan_dir" "${COMPOSE[@]}" up -d --build || rc=$?
+    [[ $rc -eq 124 ]] && compose_stalled CKAN "$ckan_dir"
+    [[ $rc -eq 0 ]] || fail "CKAN failed to start. Inspect it with: cd $ckan_dir && ${COMPOSE[*]} logs"
 
     step "Waiting for CKAN to become ready"
     ckan_cid=""
@@ -1982,7 +2054,11 @@ cd "$REPO_ROOT"
 # making the mismatch look like a configuration problem. Unchanged sources
 # come from the layer cache, so this costs little after the first run.
 info "Building the image from this checkout; the first run takes a few minutes."
-EP_API_PORT="$ep_api_port" "${COMPOSE[@]}" "${profile_args[@]}" up -d --build
+rc=0
+compose_up "the Endpoint" "$REPO_ROOT" \
+  env EP_API_PORT="$ep_api_port" "${COMPOSE[@]}" "${profile_args[@]}" up -d --build || rc=$?
+[[ $rc -eq 124 ]] && compose_stalled "the Endpoint" "$REPO_ROOT"
+[[ $rc -eq 0 ]] || fail "Docker Compose could not start the Endpoint (exit $rc). Inspect it with: cd $REPO_ROOT && ${COMPOSE[*]} logs"
 
 # --------------------------------------------------------------
 step "Verifying the Endpoint answers"
