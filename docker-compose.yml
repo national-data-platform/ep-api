@@ -43,8 +43,10 @@ services:
     ports:
       - "${MONGODB_HOST_PORT:-27018}:27017"
     environment:
+      # From .env, which the installer fills with a password of this
+      # installation's own (issue #375); admin123 only when it has none.
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-admin123}
       MONGO_INITDB_DATABASE: ndp_local_catalog
     volumes:
       - mongodb_data:/data/db
@@ -79,8 +81,10 @@ services:
       - "${MINIO_HOST_PORT:-9002}:9000"      # API port
       - "${MINIO_CONSOLE_HOST_PORT:-9003}:9001"      # Console UI
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
+      # The keys the Endpoint connects with (S3_ACCESS_KEY/S3_SECRET_KEY in
+      # .env), generated per installation by the installer (issue #375).
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin123}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
@@ -189,10 +193,10 @@ services:
       - "${MONGO_EXPRESS_HOST_PORT:-8082}:8081"
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: admin123
-      ME_CONFIG_MONGODB_URL: mongodb://admin:admin123@mongodb:27017/
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_ROOT_PASSWORD:-admin123}
+      ME_CONFIG_MONGODB_URL: mongodb://admin:${MONGODB_ROOT_PASSWORD:-admin123}@mongodb:27017/
       ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: admin123
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGODB_ROOT_PASSWORD:-admin123}
       ME_CONFIG_MONGODB_ENABLE_ADMIN: 'true'
     networks:
       - ndp-network

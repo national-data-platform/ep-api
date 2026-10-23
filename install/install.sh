@@ -744,6 +744,80 @@ PY
 }
 
 # --------------------------------------------------------------
+# Credentials of the bundled MongoDB and MinIO (issue #375)
+# --------------------------------------------------------------
+# They were the same demo pairs on every Endpoint (admin/admin123,
+# minioadmin/minioadmin123), and a named instance publishes both services on
+# host ports. A new installation now generates its own and keeps them in the
+# install state. One whose service already holds data keeps what it was
+# created with -- from the install state, the current .env, or, with neither,
+# the demo pair when a data volume is already there -- since MongoDB and MinIO
+# only accept the credentials their data was created with.
+current_env() {
+  # current_env KEY -- the value in the .env this run is about to replace.
+  [[ -f "$REPO_ROOT/.env" ]] || return 0
+  grep -E "^$1=" "$REPO_ROOT/.env" | tail -n1 | cut -d= -f2- | sed 's/^"\(.*\)"$/\1/' || true
+}
+
+compose_volume_exists() {
+  # The project is ndp-ep-<instance> for a named instance, otherwise Compose's
+  # default: the checkout's directory name.
+  local project
+  if [[ "$instance" != "ndp" ]]; then
+    project="ndp-ep-$instance"
+  else
+    project="$(basename "$REPO_ROOT" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
+  fi
+  docker volume inspect "${project}_$1" >/dev/null 2>&1
+}
+
+new_secret() { python3 -c 'import secrets; print(secrets.token_urlsafe(24))'; }
+
+bundled_mongodb_password() {
+  local password
+  password="$(state_get MONGODB_ROOT_PASSWORD)"
+  if [[ -z "$password" ]]; then
+    password="$(current_env MONGODB_CONNECTION_STRING | sed -n 's|^mongodb://admin:\([^@]*\)@mongodb:27017.*|\1|p')"
+  fi
+  if [[ -z "$password" ]] && compose_volume_exists mongodb_data; then
+    password="admin123"
+  fi
+  [[ -n "$password" ]] || password="$(new_secret)"
+  if [[ "$password" == "admin123" ]]; then
+    warn "The bundled MongoDB keeps the demo password it was created with (admin123);
+       its data only opens with it. See docs/operations.md to change it."
+  fi
+  [[ "$dry_run" == "true" ]] || state_set MONGODB_ROOT_PASSWORD "$password"
+  put MONGODB_ROOT_PASSWORD "$password"
+  put MONGODB_CONNECTION_STRING "mongodb://admin:${password}@mongodb:27017"
+}
+
+bundled_minio_keys() {
+  local access secret
+  access="$(state_get MINIO_ROOT_USER)"; secret="$(state_get MINIO_ROOT_PASSWORD)"
+  if [[ -z "$access" || -z "$secret" ]] && [[ "$(current_env S3_ENDPOINT)" == "minio:9000" ]]; then
+    access="$(current_env S3_ACCESS_KEY)"; secret="$(current_env S3_SECRET_KEY)"
+  fi
+  if [[ -z "$access" || -z "$secret" ]] && compose_volume_exists minio_data; then
+    access="minioadmin"; secret="minioadmin123"
+  fi
+  if [[ -z "$access" || -z "$secret" ]]; then
+    access="ndp-$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
+    secret="$(new_secret)"
+  fi
+  if [[ "$secret" == "minioadmin123" ]]; then
+    warn "The bundled MinIO keeps the demo keys it was created with (minioadmin)."
+  fi
+  if [[ "$dry_run" != "true" ]]; then
+    state_set MINIO_ROOT_USER "$access"
+    state_set MINIO_ROOT_PASSWORD "$secret"
+  fi
+  put S3_ACCESS_KEY "$access"
+  put S3_SECRET_KEY "$secret"
+}
+
+
+# --------------------------------------------------------------
 # Registering with the Federation
 # --------------------------------------------------------------
 register_with_federation() {
@@ -1508,6 +1582,43 @@ netbird_stop() {
   return 1
 }
 
+# install_netbird_client -- the pinned NetBird release in install/netbird.sha256,
+# installed only once its SHA-256 matches (issue #375). It replaced piping
+# NetBird's install script, unpinned and unverified, into a root shell.
+# EP_NETBIRD_RELEASES_URL (a mirror) and EP_NETBIRD_BIN_DIR (where the binary
+# goes) default to GitHub's releases and /usr/bin.
+install_netbird_client() {
+  local arch name version sum work url bin_dir
+  [[ "$(uname -s)" == "Linux" ]] || { warn "The NetBird client can only be installed here on Linux."; return 1; }
+  case "$(uname -m)" in
+    x86_64|amd64)  arch="amd64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) warn "No pinned NetBird client for $(uname -m); install it by hand and run this again."; return 1 ;;
+  esac
+  read -r sum name < <(grep -E "_linux_${arch}\.tar\.gz\$" "$REPO_ROOT/install/netbird.sha256")
+  version="$(sed -n 's/^netbird_\([0-9.]*\)_linux_.*/\1/p' <<< "$name")"
+  [[ -n "$sum" && -n "$version" ]] || { warn "install/netbird.sha256 has no entry for linux/$arch."; return 1; }
+  url="${EP_NETBIRD_RELEASES_URL:-https://github.com/netbirdio/netbird/releases/download}/v${version}/${name}"
+  bin_dir="${EP_NETBIRD_BIN_DIR:-/usr/bin}"
+  work="$(mktemp -d)"
+  info "Installing the NetBird client $version (needs sudo)."
+  if ! curl -fsSL -o "$work/$name" "$url"; then
+    rm -rf "$work"; warn "Could not download $url"; return 1
+  fi
+  if ! (cd "$work" && printf '%s  %s\n' "$sum" "$name" | sha256sum -c --status); then
+    rm -rf "$work"
+    warn "The NetBird client downloaded from $url does not match its pinned checksum; not installed."
+    return 1
+  fi
+  tar -xzf "$work/$name" -C "$work" netbird \
+    && "${netbird_sudo[@]}" install -m 0755 "$work/netbird" "$bin_dir/netbird" \
+    && "${netbird_sudo[@]}" "$bin_dir/netbird" service install \
+    && "${netbird_sudo[@]}" "$bin_dir/netbird" service start \
+    || { rm -rf "$work"; warn "Could not install the NetBird client service."; return 1; }
+  rm -rf "$work"
+  ok "Installed the NetBird client $version (sha256 verified)."
+}
+
 join_netbird() {
   step "Joining NDP's NetBird network"
   netbird_url="${netbird_management_url:-${fed_netbird_url:-}}"
@@ -1545,9 +1656,7 @@ join_netbird() {
   # Native on the host, as on the machines already in the network: the
   # Endpoint and CKAN are reached over the host's network.
   if ! command -v netbird >/dev/null 2>&1; then
-    info "Installing the NetBird client with NetBird's official script (needs sudo)."
-    curl -fsSL https://pkgs.netbird.io/install.sh | "${netbird_sudo[@]}" sh \
-      || { netbird_stop "Could not install the NetBird client." || return 1; }
+    install_netbird_client || { netbird_stop "Could not install the NetBird client." || return 1; }
   fi
 
   if [[ "$(netbird_status | netbird_field connected)" == "yes" ]]; then
@@ -1699,12 +1808,12 @@ elif [[ "$backend" == "mongodb" && -n "$mongodb_url" ]]; then
   ok "Using the existing MongoDB at $mongodb_url"
 elif [[ "$backend" == "mongodb" ]]; then
   # Provisioned by this repository's own compose file. That MongoDB is started
-  # with root credentials (admin/admin123), so the connection string must carry
-  # them — without them the Endpoint cannot create indexes or write, and
-  # /search fails with "Command createIndexes requires authentication".
+  # with root credentials, so the connection string must carry them — without
+  # them the Endpoint cannot create indexes or write, and /search fails with
+  # "Command createIndexes requires authentication".
   profiles+=("mongodb")
   put CKAN_LOCAL_ENABLED "True"
-  put MONGODB_CONNECTION_STRING "mongodb://admin:admin123@mongodb:27017"
+  bundled_mongodb_password
   ok "Using the bundled MongoDB (compose profile 'mongodb')"
 elif [[ -n "$ckan_url" ]]; then
   # Pointing at a CKAN that already exists.
@@ -1846,8 +1955,11 @@ else
   put CKAN_LOCAL_ENABLED "True"
   put CKAN_URL "$ckan_site_url"
   put CKAN_API_KEY "$ckan_api_key"
-  # CKAN is served over https with a self-signed certificate.
+  # CKAN is served over https with a self-signed certificate. Said, not done
+  # silently: the operator should know certificate checks are off (#375).
   put CKAN_VERIFY_SSL "False"
+  warn "CKAN_VERIFY_SSL=False: the CKAN installed here has a self-signed certificate, so the
+       Endpoint does not verify it. Fine on a private network; see docs/configuration.md."
   ckan_url="$ckan_site_url"
 fi
 
@@ -1866,14 +1978,14 @@ if [[ "$want_access_requests" == "yes" ]]; then
     ok "Access requests enabled, stored in the MongoDB installed for the catalog"
   else
     profiles+=("mongodb")
-    put MONGODB_CONNECTION_STRING "mongodb://admin:admin123@mongodb:27017"
+    bundled_mongodb_password
     ok "Access requests enabled — installing MongoDB for them (compose profile 'mongodb')"
   fi
 fi
 
 # S3 object storage. With an endpoint given, point at that existing service;
-# otherwise install the bundled MinIO (compose profile 's3'), whose fixed
-# credentials match the defaults documented in example.env. The default put of
+# otherwise install the bundled MinIO (compose profile 's3'), started with the
+# keys bundled_minio_keys gives the Endpoint. The default put of
 # S3_ENABLED "False" above is what leaves it off when S3 was not chosen.
 if [[ "$want_s3" == "yes" ]]; then
   put S3_ENABLED "True"
@@ -1889,8 +2001,7 @@ if [[ "$want_s3" == "yes" ]]; then
   else
     profiles+=("s3")
     put S3_ENDPOINT "minio:9000"
-    put S3_ACCESS_KEY "minioadmin"
-    put S3_SECRET_KEY "minioadmin123"
+    bundled_minio_keys
     put S3_SECURE "False"
     put S3_REGION "us-east-1"
     ok "S3 enabled — installing MinIO (compose profile 's3')"

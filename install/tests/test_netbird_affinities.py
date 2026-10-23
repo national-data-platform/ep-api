@@ -478,3 +478,133 @@ def test_an_unattended_run_on_a_connected_machine_records_netbird(host, federati
     assert _env(host)["NETBIRD_ENABLED"] == "True"
     assert _env(host)["NETBIRD_IP"] == "100.64.0.7"
     assert _state(host)["NETBIRD"] == "yes"
+
+
+# The NetBird client is installed from a pinned release whose checksum the
+# installer carries (install/netbird.sha256), not by piping NetBird's install
+# script into a root shell (issue #375). A local "release" stands in for
+# GitHub: a tarball holding the stub client.
+
+
+def _arch():
+    machine = os.uname().machine
+    return {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64"}.get(machine)
+
+
+@pytest.fixture
+def no_client(host):
+    """The host without a NetBird client, and a release of the stub one."""
+    import hashlib
+    import tarfile
+
+    pinned = (host["checkout"] / "install" / "netbird.sha256").read_text()
+    version = re.search(r"netbird_([0-9.]+)_linux_", pinned).group(1)
+    name = f"netbird_{version}_linux_{_arch()}.tar.gz"
+    releases = host["tmp"] / "releases"
+    (releases / f"v{version}").mkdir(parents=True)
+    tarball = releases / f"v{version}" / name
+    with tarfile.open(tarball, "w:gz") as archive:
+        archive.add(host["stubs"] / "netbird", arcname="netbird")
+    (host["stubs"] / "netbird").unlink()
+    bin_dir = host["tmp"] / "installed-bin"
+    bin_dir.mkdir()
+    return {
+        **host,
+        "releases": releases,
+        "bin_dir": bin_dir,
+        "tarball": tarball,
+        "sha": hashlib.sha256(tarball.read_bytes()).hexdigest(),
+        "name": name,
+        "pinned": pinned,
+    }
+
+
+def _pin(no_client, sha):
+    lines = [
+        f"{sha}  {no_client['name']}" if no_client["name"] in line else line
+        for line in no_client["pinned"].splitlines()
+    ]
+    (no_client["checkout"] / "install" / "netbird.sha256").write_text(
+        "\n".join(lines) + "\n"
+    )
+
+
+def _install_fresh(no_client, federation):
+    path = os.pathsep.join(
+        [str(no_client["stubs"]), str(no_client["bin_dir"]), os.environ["PATH"]]
+    )
+    return subprocess.run(
+        [
+            BASH,
+            str(no_client["checkout"] / "install" / "install.sh"),
+            "--config-id",
+            CONFIG_ID,
+            "--federation-url",
+            federation["url"],
+            "--backend",
+            "none",
+            "--netbird-setup-key-file",
+            str(no_client["key"]),
+            "--yes",
+            "--no-start",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={
+            **os.environ,
+            "PATH": path,
+            "EP_NETBIRD_RELEASES_URL": f"file://{no_client['releases']}",
+            "EP_NETBIRD_BIN_DIR": str(no_client["bin_dir"]),
+        },
+        stdin=subprocess.DEVNULL,
+    )
+
+
+@pytest.mark.skipif(_arch() is None, reason="NetBird ships linux amd64/arm64 only")
+def test_the_client_is_installed_from_the_pinned_release(no_client, federation):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    _pin(no_client, no_client["sha"])
+
+    result = _install_fresh(no_client, federation)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (no_client["bin_dir"] / "netbird").exists()
+    calls = _netbird_calls(no_client)
+    assert "netbird service install" in calls
+    assert "netbird service start" in calls
+    assert f"netbird up --management-url {MANAGEMENT_URL}" in calls
+    assert "sha256 verified" in result.stdout
+
+
+@pytest.mark.skipif(_arch() is None, reason="NetBird ships linux amd64/arm64 only")
+def test_a_client_that_does_not_match_the_checksum_is_not_installed(
+    no_client, federation
+):
+    federation["config"] = _configuration(netbird_management_url=MANAGEMENT_URL)
+    _pin(no_client, "0" * 64)
+
+    result = _install_fresh(no_client, federation)
+
+    assert result.returncode != 0
+    assert not (no_client["bin_dir"] / "netbird").exists()
+    assert "checksum" in result.stderr
+    assert _netbird_calls(no_client) == ""
+
+
+def test_the_install_script_is_no_longer_piped_into_a_shell():
+    body = (REPO / "install" / "install.sh").read_text(encoding="utf-8")
+
+    assert "pkgs.netbird.io/install.sh" not in body
+
+
+def test_the_pinned_checksums_are_well_formed():
+    pinned = (REPO / "install" / "netbird.sha256").read_text(encoding="utf-8")
+    entries = [line for line in pinned.splitlines() if line and line[0] != "#"]
+
+    assert len(entries) == 2
+    for line in entries:
+        assert re.fullmatch(
+            r"[0-9a-f]{64}  netbird_[0-9]+\.[0-9]+\.[0-9]+_linux_(amd64|arm64)\.tar\.gz",
+            line,
+        )
