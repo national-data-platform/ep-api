@@ -232,6 +232,7 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
 | `--no-start` | write everything, bring nothing up; prints the command to start it |
 | `--yes` | no prompts at all (see [Without prompts](#without-prompts)), and overwrite an existing `.env` without asking |
 | `--log-file <path>` | append the run to `<path>` instead of `install.log` in the checkout; `/dev/null` keeps no log (see [The install log](#the-install-log)) |
+| `--compose-timeout <n>` | give up when building and starting a stack takes more than `<n>` minutes (`<n>s` for seconds); default `30`, `0` for no limit |
 | `-h`, `--help` | usage |
 
 The underscore spellings are the ones the platform's create-endpoint page
@@ -322,6 +323,16 @@ without colour codes. The values of `--ckan-password`, `--ckan-api-key`,
 hide what is typed keep hiding it. Re-runs append, so a failed attempt and the
 retry are both there, and a failure ends with the path of the log. A log that
 cannot be written is reported and the install carries on.
+
+## Time limit on building and starting
+
+`docker compose up -d --build`, for the Endpoint and for the CKAN the installer
+sets up, runs under a time limit: 30 minutes unless `--compose-timeout` says
+otherwise. While it runs, a line every minute says it is still working, so a
+slow first build is not mistaken for a hang. A pull stalled on a registry, a
+Docker Hub rate limit or a proxy then stops the run with what to check instead
+of waiting for ever; running the installer again carries on from there. Without
+the `timeout` command (coreutils) there is no limit, and the installer says so.
 
 ## How it works
 

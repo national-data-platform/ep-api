@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.60] - 2026-10-23
+
+### Added
+- **Building and starting has a time limit.** The installer ran `docker compose up -d --build`, for the Endpoint and for the CKAN it sets up, with no limit, so a pull stalled on a registry, a Docker Hub rate limit or a proxy kept the run waiting for ever after every earlier step had reported success, and an unattended install just looked busy. Both now run under `--compose-timeout` (minutes, or seconds with an `s` suffix; 30 minutes by default, `0` for no limit), print a line every minute while they work, and when the limit runs out the run stops saying what to check (reaching the registry with `docker pull`, the rate limit, a proxy) and that running it again carries on. A compose that fails outright is reported as such, with its exit code, instead of ending the run without a message. Without `timeout` (coreutils) there is no limit and the installer says so. New tests in `install/tests/test_compose_timeout.py`. Verified with a real install on this machine: with `--compose-timeout 2s` the image build was stopped after 3 seconds with that message, and running the installer again without the flag finished the install, healthy (#376).
+
 ## [0.34.59] - 2026-10-23
 
 ### Added
