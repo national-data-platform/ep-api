@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.61] - 2026-10-23
+
+### Changed
+- **Installed from the web, the installer runs the latest release instead of `main`.** `bash <(curl …/install.sh)` cloned `main`, so the same command installed a different program from one week to the next, a bad push reached every new installation and every upgrade at once, and nobody could tell afterwards which installer an Endpoint had run. It now resolves the newest release tag (`vX.Y.Z`, compared as versions; pre-releases skipped), prints `Installer version: vX.Y.Z (latest release)` and clones that; a re-run moves an existing checkout to the newest release. `--ref <tag|branch>` installs another version (`main` for the development one), and `EP_REPO_REF` keeps working, the flag winning; the platform's `setup.sh`, which pins its version with `EP_REPO_REF`, is unaffected. A repository with no release falls back to `main` and says so; one whose releases cannot be listed stops with a message naming `--ref`. The version that ran (`git describe`) is recorded as `INSTALLER_VERSION` in `.env.install-state`. New tests in `install/tests/test_default_release_ref.py`, against a local repository with releases, a pre-release and newer commits on `main`. Verified with a real piped install from GitHub: it resolved and cloned v0.34.60, built it and the Endpoint answered healthy (#371).
+
 ## [0.34.60] - 2026-10-23
 
 ### Added

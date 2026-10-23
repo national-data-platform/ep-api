@@ -6,13 +6,21 @@ cd ep-api
 ./install/install.sh --config-id <your-federation-config-id>
 ```
 
-or, without a checkout (the script clones the repository into `~/ndp-ep` —
-`EP_INSTALL_DIR`, `EP_REPO_URL` and `EP_REPO_REF` override the location,
-repository and branch or tag — and runs from there):
+or, without a checkout (the script clones the latest release of the repository
+into `~/ndp-ep` and runs from there):
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/national-data-platform/ep-api/main/install/install.sh) [options]
 ```
+
+From the web it installs the newest release tag (`vX.Y.Z`; pre-releases are
+skipped) and prints which, so the same command installs the same program until
+a new version is released. `--ref <tag|branch>` installs another one — a tag to
+pin a version, `main` for the development version — and so does `EP_REPO_REF`,
+which the platform's `setup.sh` sets; the flag wins over it. `EP_INSTALL_DIR`
+and `EP_REPO_URL` override the location and the repository. The version that
+ran is recorded as `INSTALLER_VERSION` in `.env.install-state` and in the
+[install log](#the-install-log).
 
 The installer needs `curl`, `python3`, `docker` and Docker Compose (`git` too
 when it has to clone). It renders `.env` from `example.env`, builds the image
@@ -231,6 +239,7 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
 | `--affinities` | turn the Affinities integration on from the Federation configuration |
 | `--no-start` | write everything, bring nothing up; prints the command to start it |
 | `--yes` | no prompts at all (see [Without prompts](#without-prompts)), and overwrite an existing `.env` without asking |
+| `--ref <tag\|branch>` | from the web: install this version instead of the latest release (`main` for the development version) |
 | `--log-file <path>` | append the run to `<path>` instead of `install.log` in the checkout; `/dev/null` keeps no log (see [The install log](#the-install-log)) |
 | `--compose-timeout <n>` | give up when building and starting a stack takes more than `<n>` minutes (`<n>s` for seconds); default `30`, `0` for no limit |
 | `-h`, `--help` | usage |

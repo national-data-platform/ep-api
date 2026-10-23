@@ -81,9 +81,10 @@ means moving the checkout to the new version and rebuilding.
 **With the installer.** Run it again; it renders `.env` again and runs
 `up -d --build`, which rebuilds the image from the checkout.
 
-- Run from the web (`bash <(curl -fsSL ...)`), it fetches `EP_REPO_REF`
-  (default `main`; a tag such as `v0.34.45` pins a version) into
-  `EP_INSTALL_DIR` (default `~/ndp-ep`) and runs from there.
+- Run from the web (`bash <(curl -fsSL ...)`), it fetches the latest release
+  (since 0.34.61; `main` before) into `EP_INSTALL_DIR` (default `~/ndp-ep`)
+  and runs from there. `--ref vX.Y.Z` or `EP_REPO_REF` pins a version, and
+  `--ref main` takes the development version.
 - Run from an existing checkout, it uses that checkout as it is: update it
   first (`git fetch --tags && git checkout vX.Y.Z`).
 - It refuses a host port that is already in use, except when the holder is
