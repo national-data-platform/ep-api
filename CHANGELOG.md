@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.64] - 2026-10-23
+
+### Added
+- **Each release carries its installer and a checksum.** The documented install was `bash <(curl …/main/install/install.sh)`: an unversioned URL with nothing to check the bytes against, so neither an operator nor a security policy could verify what was about to run as their user, and no one could say afterwards which program an Endpoint had run. The release workflow now attaches `install.sh` and `SHA256SUMS` to every release (built by `scripts/build_installer_asset.py`), and `install/README.md` documents downloading both for a version, `sha256sum -c SHA256SUMS`, then running it. The asset is `install/install.sh` of that tag with one line set, `INSTALLER_RELEASE`, so it installs its own release rather than the newest (`--ref` and `EP_REPO_REF` still choose another). The checksum of the installer that ran is recorded as `INSTALLER_SHA256` in `.env.install-state`, next to `INSTALLER_VERSION`. Not signed yet: a signature needs a key held by the organization, still to be decided. New tests in `tests/test_build_installer_asset.py` and `install/tests/test_default_release_ref.py`. Verified with a real install: the asset built for v0.34.63 passed `sha256sum -c`, cloned v0.34.63 although run from outside any checkout, and the Endpoint it installed answered healthy (#373).
+
 ## [0.34.63] - 2026-10-23
 
 ### Added

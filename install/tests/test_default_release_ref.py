@@ -179,6 +179,56 @@ def test_an_unreachable_repository_stops_with_a_message(tmp_path):
     assert "--ref" in result.stderr
 
 
+def _asset(tmp_path, tag):
+    """The installer as a release publishes it (scripts/build_installer_asset.py)."""
+    import sys
+
+    sys.path.insert(0, str(INSTALLER.parents[1]))
+    from scripts.build_installer_asset import build
+
+    out = tmp_path / "release-asset"
+    build(tag, out, installer=INSTALLER)
+    return out / "install.sh"
+
+
+def test_a_release_asset_installs_its_own_release(tmp_path, remote):
+    """Downloaded from v0.9.0, it installs v0.9.0 though v0.10.0 is newer."""
+    asset = _asset(tmp_path, "v0.9.0")
+    env = {
+        **os.environ,
+        "EP_REPO_URL": str(remote),
+        "EP_INSTALL_DIR": str(tmp_path / "ndp-ep"),
+    }
+    env.pop("EP_REPO_REF", None)
+
+    result = subprocess.run(
+        [BASH, str(asset)], capture_output=True, text=True, timeout=120, env=env
+    )
+
+    assert "RAN v0.9.0" in result.stdout, result.stdout + result.stderr
+    assert "the release this installer came from" in result.stdout
+
+
+def test_ref_still_chooses_over_the_embedded_release(tmp_path, remote):
+    asset = _asset(tmp_path, "v0.9.0")
+    env = {
+        **os.environ,
+        "EP_REPO_URL": str(remote),
+        "EP_INSTALL_DIR": str(tmp_path / "ndp-ep"),
+    }
+    env.pop("EP_REPO_REF", None)
+
+    result = subprocess.run(
+        [BASH, str(asset), "--ref", "main"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=env,
+    )
+
+    assert "RAN main" in result.stdout
+
+
 def test_the_installed_version_is_recorded(tmp_path):
     """The install state says which installer ran (for support and status)."""
     root = tmp_path / "ep-api"
@@ -214,3 +264,7 @@ def test_the_installed_version_is_recorded(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     state = (root / ".env.install-state").read_text(encoding="utf-8")
     assert "INSTALLER_VERSION=v1.2.3" in state.splitlines()
+    import hashlib
+
+    digest = hashlib.sha256((root / "install" / "install.sh").read_bytes()).hexdigest()
+    assert f"INSTALLER_SHA256={digest}" in state.splitlines()

@@ -125,6 +125,18 @@ jobs:
               --prerelease="$prerelease"
           fi
 
+      # The installer of this release and its checksum, so an install can be
+      # pinned to a version and verified before it runs (issue #373). The
+      # asset clones this release; see scripts/build_installer_asset.py.
+      - name: Attach the installer and its checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag='${{ steps.meta.outputs.tag }}'
+          python scripts/build_installer_asset.py "$tag" dist
+          gh release upload "$tag" dist/install.sh dist/SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber
+
       - name: Summarise what was published
         run: |
           {
