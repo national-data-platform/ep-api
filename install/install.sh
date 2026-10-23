@@ -25,6 +25,12 @@ set -euo pipefail
 
 REPO_URL_DEFAULT="https://github.com/national-data-platform/ep-api.git"
 
+# Empty here. In the install.sh attached to a release, which is checksummed
+# in that release's SHA256SUMS, it names that release, so the downloaded
+# installer installs its own version (scripts/build_installer_asset.py,
+# issue #373). Keep it on a line of its own, exactly as it is.
+INSTALLER_RELEASE=""
+
 # --------------------------------------------------------------
 # Bootstrap: work whether run from a checkout or piped from the web.
 # --------------------------------------------------------------
@@ -85,6 +91,9 @@ if [[ -z "$_here" || ! -f "$_here/example.env" ]]; then
   repo_ref="${_ref:-${EP_REPO_REF:-}}"
   if [[ -n "$repo_ref" ]]; then
     echo "    Installer version: $repo_ref"
+  elif [[ -n "$INSTALLER_RELEASE" ]]; then
+    repo_ref="$INSTALLER_RELEASE"
+    echo "    Installer version: $repo_ref (the release this installer came from)"
   else
     if ! _tags="$(git ls-remote --tags --refs "$repo_url" 'v*' 2>/dev/null)"; then
       echo "Could not list the releases of $repo_url. Check the network, or name a" >&2
@@ -2307,6 +2316,9 @@ fi
 # Which installer this is, for support and for a later status (issue #371).
 installer_version="$(git -C "$REPO_ROOT" describe --tags --always 2>/dev/null || echo unknown)"
 [[ "$dry_run" == "true" ]] || state_set INSTALLER_VERSION "$installer_version"
+# And the checksum of the installer that ran, to compare with a release's
+# SHA256SUMS (issue #373).
+[[ "$dry_run" == "true" ]] || state_set INSTALLER_SHA256 "$(sha256sum "$REPO_ROOT/install/install.sh" | cut -d' ' -f1)"
 # The published port, which status and start report (issue #372).
 [[ "$dry_run" == "true" ]] || state_set EP_API_PORT "$ep_api_port"
 

@@ -22,6 +22,25 @@ and `EP_REPO_URL` override the location and the repository. The version that
 ran is recorded as `INSTALLER_VERSION` in `.env.install-state` and in the
 [install log](#the-install-log).
 
+### Verified, pinned to a release
+
+Each release (since 0.34.64) carries the installer and its checksum as assets:
+`install.sh` and `SHA256SUMS`. Downloaded from a release, the installer installs
+that release, and it can be checked before it runs:
+
+```bash
+V=v0.34.64   # the release to install
+curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
+curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
+sha256sum -c SHA256SUMS && bash install.sh [options]
+```
+
+The checksum protects against a corrupted or altered download, not against a
+compromised GitHub account; the assets are not signed yet. The asset is
+`install/install.sh` of that tag with one line set (`INSTALLER_RELEASE`, built
+by `scripts/build_installer_asset.py`). The checksum of the installer that ran
+is recorded as `INSTALLER_SHA256` in `.env.install-state`.
+
 The installer needs `curl`, `python3`, `docker` and Docker Compose (`git` too
 when it has to clone). It renders `.env` from `example.env`, builds the image
 from the checkout and starts it with `docker compose up -d --build`, then waits

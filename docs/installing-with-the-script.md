@@ -24,6 +24,10 @@ Endpoint up. Nothing is written or started until you confirm.
   copy the token from your user panel. The token is sent only to the Federation
   and is never stored.
 
+To install a specific version and check the installer before it runs, use
+the `install.sh` and `SHA256SUMS` attached to that release (see
+[install/README.md](../install/README.md#verified-pinned-to-a-release)).
+
 ## What the installer asks
 
 Run it and answer the prompts. Each has a short explanation on screen; the main
