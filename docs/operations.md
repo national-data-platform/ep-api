@@ -16,6 +16,10 @@ The installer renders `.env` from `example.env`, then runs
 `docker compose --profile <...> up -d --build` from the repository checkout and
 waits for `${ROOT_PATH}/health` to answer 200.
 
+Once installed, `./install/install.sh status`, `stop`, `start` and
+`uninstall [--remove-data]` manage it (see
+[install/README.md](../install/README.md#managing-an-installed-endpoint)).
+
 ## What runs
 
 Everything is defined in `docker-compose.yml`. The `api` service always starts;

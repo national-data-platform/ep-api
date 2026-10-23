@@ -137,6 +137,11 @@ class TestStatus:
 
         assert "secret-xyz" not in result.stdout + result.stderr
 
+    def test_it_leaves_no_log_behind(self, endpoint):
+        _run(endpoint, "status")
+
+        assert not (endpoint["root"] / "install.log").exists()
+
     def test_it_does_not_install_anything(self, endpoint):
         result = _run(endpoint, "status")
 
@@ -229,10 +234,25 @@ class TestUninstall:
         assert (endpoint["root"] / "install" / "install.sh").exists()
 
 
+def test_another_checkouts_endpoint_is_not_reported_as_this_one(endpoint):
+    """No containers of this project: no port from a same-named container."""
+    (endpoint["tmp"] / "all.txt").write_text("")
+    (endpoint["tmp"] / "running.txt").write_text("")
+    state = endpoint["root"] / ".env.install-state"
+    state.write_text(state.read_text().replace("EP_API_PORT=8099\n", ""))
+
+    result = _run(endpoint, "status")
+
+    assert "port: unknown" in result.stdout
+    assert "docker port ndp-ep-api" not in _calls(endpoint)
+
+
 class TestNamedInstances:
     def test_the_project_follows_the_instance(self, endpoint):
         state = endpoint["root"] / ".env.install-state"
-        state.write_text(state.read_text().replace("EP_INSTANCE=ndp", "EP_INSTANCE=glsr"))
+        state.write_text(
+            state.read_text().replace("EP_INSTANCE=ndp", "EP_INSTANCE=glsr")
+        )
 
         result = _run(endpoint, "status")
 

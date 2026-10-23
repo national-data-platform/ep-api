@@ -447,6 +447,8 @@ esac
 # that followed are both kept. The terminal sees exactly what it did before.
 finish_log() { :; }
 [[ -n "$log_file" ]] || log_file="$REPO_ROOT/install.log"
+# status only looks, so it leaves nothing behind (issue #372).
+[[ "$subcommand" == "status" ]] && log_file="/dev/null"
 if [[ "$log_file" != "/dev/null" ]]; then
   if ( umask 077; : >> "$log_file" ) 2>/dev/null; then
     chmod 600 "$log_file" 2>/dev/null || true
@@ -544,8 +546,12 @@ lc_containers() {
 }
 
 lc_port() {
-  local port
-  port="$(docker port "${lc_instance}-ep-api" 80 2>/dev/null | head -n1 | sed 's/.*://')"
+  # Found by its project's labels, not by name: another checkout's Endpoint
+  # can have the same container name.
+  local port="" api
+  api="$(docker ps -aq --filter "label=com.docker.compose.project=$lc_project" \
+    --filter "label=com.docker.compose.service=api" 2>/dev/null | head -n1 || true)"
+  [[ -z "$api" ]] || port="$(docker port "$api" 80 2>/dev/null | head -n1 | sed 's/.*://')"
   [[ -n "$port" ]] || port="$(lc_state EP_API_PORT)"
   printf '%s' "$port"
 }
@@ -561,7 +567,7 @@ lc_status() {
   echo "  instance: $lc_instance"
   echo "  compose project: $lc_project"
   echo "  version: $version"
-  echo "  catalog: $(lc_env LOCAL_CATALOG_BACKEND)"
+  echo "  catalog: $(lc_env LOCAL_CATALOG_BACKEND || true)"
   echo "  containers: $running running of $all"
   echo "  port: ${port:-unknown}"
   if [[ -n "$port" ]]; then
