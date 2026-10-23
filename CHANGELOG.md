@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.62] - 2026-10-23
+
+### Security
+- **The bundled MongoDB and MinIO get credentials of their own.** They were created with the same demo pairs on every Endpoint (`admin`/`admin123`, `minioadmin`/`minioadmin123`), and a named instance publishes both on host ports, so a database and an object store on the LAN were behind passwords anyone can look up. A new installation now generates a MongoDB root password and MinIO keys (Python `secrets`), keeps them in `.env.install-state` and reuses them on re-runs; `docker-compose.yml` starts the services with them (`MONGODB_ROOT_PASSWORD`, new in `example.env`, and `S3_ACCESS_KEY`/`S3_SECRET_KEY`), falling back to the demo values only when they are not set. An Endpoint whose service already holds data keeps what it was created with -- found in the install state, in its current `.env`, or, with neither, by its data volume -- since MongoDB and MinIO only open their data with those, and the installer warns on every run that it still uses the demo password; `docs/operations.md` explains how to change it. An external MongoDB or S3 is untouched.
+- **The NetBird client is installed from a pinned, checksummed release.** The installer piped NetBird's install script, unpinned and unverified, into a root shell. Where `netbird` is missing it now downloads the release pinned in `install/netbird.sha256` (0.81.3, linux amd64/arm64, checksums taken from that release and checked against the downloaded files), installs it only if its SHA-256 matches, and installs and starts its service; a mismatch is reported and nothing is installed. Machines that already have the client are not touched.
+- **Turning CKAN certificate checks off is said.** The installer set `CKAN_VERIFY_SSL=False` for the CKAN it installs (self-signed certificate) without a word; it now warns on every run and `docs/configuration.md` explains the trade-off.
+
+New tests in `install/tests/test_bundled_credentials.py` and `install/tests/test_netbird_affinities.py`. Verified on this machine with real installs: a new Endpoint with MongoDB, MinIO and access requests started with generated credentials, created an organization in MongoDB and a bucket in MinIO, refused `admin123`, and kept its credentials and data across a re-run; an Endpoint installed with 0.34.61 and upgraded kept `admin123` with the warning and its data, and changing its password as `docs/operations.md` says left it healthy with `admin123` refused; the pinned NetBird 0.81.3 was downloaded from GitHub and verified, and a tampered checksum was refused (#375).
+
 ## [0.34.61] - 2026-10-23
 
 ### Changed

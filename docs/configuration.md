@@ -289,7 +289,12 @@ than the placeholder is set (`ckan_api_key_configured`), never the key itself. *
 #### `CKAN_VERIFY_SSL`
 *Optional · default: `True`.*
 Verify CKAN's TLS certificate. **Where:** set `False` only for self-signed/dev
-CKAN instances (less secure).
+CKAN instances (less secure). The installer sets it to `False` for the CKAN it
+installs, which serves a self-signed certificate, and says so on every run: the
+traffic is still encrypted, but the Endpoint does not check whom it talks to.
+That is acceptable when CKAN runs on the same host or a private network; to
+turn verification on, give that CKAN a certificate the Endpoint trusts and set
+`True`.
 
 #### `CKAN_GLOBAL_URL`
 *Optional · default: `https://nationaldataplatform.org/catalog`.*
@@ -302,7 +307,18 @@ Read-only global NDP catalog the EP can search alongside the local one.
 *Required (MongoDB backend) · default: `mongodb://localhost:27017`.*
 MongoDB connection URI for the local catalog, and also for the access-request
 store whatever the catalog backend is. **Where:** your MongoDB. With the
-bundled Compose (`--profile mongodb`) use `mongodb://admin:admin123@mongodb:27017`.
+bundled Compose (`--profile mongodb`) use
+`mongodb://admin:<MONGODB_ROOT_PASSWORD>@mongodb:27017`; the installer writes it.
+
+#### `MONGODB_ROOT_PASSWORD`
+*Bundled MongoDB only · default: `admin123`.*
+Root password `docker-compose.yml` creates the bundled MongoDB with
+(`${MONGODB_ROOT_PASSWORD:-admin123}`, also used by mongo-express). The
+installer generates one per installation and keeps it in
+`.env.install-state`; an Endpoint whose MongoDB was created with `admin123`
+keeps it, because its data only opens with it (see
+[operations.md](operations.md#changing-the-bundled-mongodb-password)). It only
+takes effect when the MongoDB data volume is created.
 
 #### `MONGODB_DATABASE`
 *Optional · default: `ndp_local_catalog`.*
@@ -349,9 +365,11 @@ community fork of MinIO, published on the host as 9002 (API) and 9003
 #### `S3_ACCESS_KEY` / `S3_SECRET_KEY`
 *Required if `S3_ENABLED=True` · dev defaults: `minioadmin` / `minioadmin123`.*
 Credentials for the S3 service. **Where:** your MinIO/S3 admin console (Access
-Keys). The bundled service is started with `minioadmin` / `minioadmin123`
-(set in `docker-compose.yml`); change both places together for anything beyond
-development.
+Keys). The bundled service is started with these same two values
+(`docker-compose.yml`: `${S3_ACCESS_KEY:-minioadmin}`,
+`${S3_SECRET_KEY:-minioadmin123}`). The installer generates them per
+installation and keeps them in `.env.install-state`; an Endpoint whose MinIO
+already holds data keeps the keys it was created with.
 
 #### `S3_SECURE`
 *Optional · default: `False`.*
