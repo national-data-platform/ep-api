@@ -326,6 +326,34 @@ and prove nothing. Checking the key needs a username, so with `--ckan-url`
 pass `--ckan-sysadmin <name>` to enable it; without it the installer says the
 key went unverified rather than implying it passed.
 
+## Managing an installed Endpoint
+
+The same script reports on, stops, starts and removes the Endpoint a checkout
+holds — from the checkout (`./install/install.sh <command>`) or from the web
+(`bash <(curl …/install.sh) <command>`, which acts on `~/ndp-ep`, or
+`~/ndp-ep-<name>` with `--instance <name>`, or `EP_INSTALL_DIR`, without
+fetching anything). It finds the containers, volumes and networks by their
+Compose project label, so no port or profile has to be remembered.
+
+| Command | |
+|---|---|
+| `status` | instance, Compose project, installer version, catalog, containers running, port, `/health`, NetBird connection, the CKAN set up for it; changes nothing and writes no log |
+| `stop` | stops the Endpoint's containers, and the CKAN the installer set up for it |
+| `start` | starts them again as they were created, on the same ports (unlike a bare `docker compose up`, which publishes the default port, #370) |
+| `uninstall` | removes the containers and networks, the CKAN containers the installer created, and the `.env.backup.*` files, which hold old credentials; asks first (`--yes` where nobody can answer) |
+| `uninstall --remove-data` | also deletes the data volumes (and the CKAN's), `.env` and `.env.install-state` |
+
+Without `--remove-data` the data, `.env` and the install state stay, so running
+the installer again brings the same Endpoint back with its data: the state
+holds the generated MongoDB and MinIO credentials that data opens with. The
+checkout itself is never deleted, and the machine stays in NetBird (other
+Endpoints on it may use it); `uninstall` says how to leave.
+
+The install records the port (`EP_API_PORT`) and the CKAN folder it created
+(`CKAN_DIR`, `CKAN_CREATED`) in `.env.install-state` since 0.34.63; for an
+Endpoint installed earlier the port is read from its running container and the
+CKAN folder is the installer's default.
+
 ## The install log
 
 Every run is appended to `install.log` in the checkout (`~/ndp-ep` or

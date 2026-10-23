@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.63] - 2026-10-23
+
+### Added
+- **`status`, `stop`, `start` and `uninstall` for an installed Endpoint.** The installer could only install: stopping an Endpoint meant guessing its Compose project and port, removing one was a hunt through containers, volumes, the CKAN it set up and the `.env.backup.*` files that hold old credentials, and support could not ask what was running without reading `.env`. The same script now takes a command, from the checkout or from the web (where it acts on the installed checkout without fetching or moving it), and finds everything by the Compose project's labels. `status` reports instance, project, installer version, catalog, containers, port, `/health`, NetBird and the CKAN set up for it, and changes nothing. `stop` and `start` stop and start the Endpoint's containers and its CKAN as they were created, so the port stays (a bare `docker compose up` publishes the default port, #370). `uninstall` asks first (`--yes` without a terminal), removes the containers, networks, the CKAN containers the installer created and the `.env.backup.*` files, keeps the data, `.env` and install state so a later install brings it back with its data, and with `--remove-data` deletes the volumes, `.env` and the install state too; it never deletes the checkout and leaves NetBird, saying how to leave it. The install state now records `EP_API_PORT`, `CKAN_DIR` and `CKAN_CREATED`. New tests in `install/tests/test_lifecycle_commands.py`. Verified on this machine: an Endpoint with MongoDB and MinIO installed, reported by `status`, stopped (port no longer answering) and started (healthy on the same port, its bucket still there), uninstalled keeping its volumes and reinstalled with its data, then uninstalled with `--remove-data` leaving no container, volume or credential file; `status` from the web reported two Endpoints installed with 0.34.56 on the same host, each with its own port and health (#372).
+
 ## [0.34.62] - 2026-10-23
 
 ### Security

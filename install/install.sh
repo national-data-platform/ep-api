@@ -39,6 +39,29 @@ if [[ "$_script" != /dev/fd/* && "$_script" != /proc/self/fd/* && -f "$_script" 
   _here="$(cd "$(dirname "$_script")/.." 2>/dev/null && pwd || true)"
 fi
 
+# status, stop, start and uninstall act on an Endpoint already installed
+# (issue #372). Piped from the web they run against its checkout as it is:
+# nothing is fetched, and the checkout is not moved to another version.
+case "${1:-}" in
+  status|stop|start|uninstall)
+    if [[ -z "$_here" || ! -f "$_here/example.env" ]]; then
+      _instance=""
+      _args=("$@")
+      for ((_i = 0; _i < ${#_args[@]}; _i++)); do
+        [[ "${_args[$_i]}" == "--instance" ]] && _instance="${_args[$((_i + 1))]:-}"
+      done
+      if [[ -n "$_instance" && "$_instance" != "ndp" ]]; then
+        _here="${EP_INSTALL_DIR:-$HOME/ndp-ep-$_instance}"
+      else
+        _here="${EP_INSTALL_DIR:-$HOME/ndp-ep}"
+      fi
+      if [[ ! -f "$_here/example.env" ]]; then
+        echo "No Endpoint installed at $_here (set EP_INSTALL_DIR, or --instance <name>)." >&2
+        exit 1
+      fi
+    fi ;;
+esac
+
 if [[ -z "$_here" || ! -f "$_here/example.env" ]]; then
   echo "==> Fetching the NDP Endpoint repository"
   command -v git >/dev/null 2>&1 || { echo "git is required to install. Please install git and retry." >&2; exit 1; }
@@ -182,6 +205,9 @@ log_active=""
 # How long one "docker compose up --build" may take before the run gives up
 # (issue #376): minutes, or seconds with an "s" suffix; 0 means no limit.
 compose_timeout="30"
+# status | stop | start | uninstall (issue #372); empty means install.
+subcommand=""
+remove_data="false"
 
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
 BLUE=$'\033[0;34m'; NC=$'\033[0m'
@@ -229,6 +255,24 @@ Usage:
   # From a checkout:
   install.sh --config-id <id> [options]
   install.sh --backend mongodb [options]        # standalone, no Federation
+
+  # An installed Endpoint (from its checkout, or from the web as above):
+  install.sh status | stop | start [--instance <name>]
+  install.sh uninstall [--remove-data] [--yes] [--instance <name>]
+
+Commands:
+  status                  What is installed and running: instance, Compose
+                          project, version, catalog, containers, port, health,
+                          NetBird. Changes nothing.
+  stop, start             Stop or start this Endpoint's containers (and the
+                          CKAN the installer set up for it) as they are, on
+                          the ports they were created with.
+  uninstall               Remove this Endpoint's containers and networks and
+                          the .env backups (old credentials). Its data, .env
+                          and install state are kept unless --remove-data,
+                          which also deletes its volumes. Asks first; --yes
+                          when nobody can answer. The checkout and NetBird
+                          are left in place.
 
 Options:
   --config-id <id>        Federation configuration id for this Endpoint.
@@ -324,6 +368,10 @@ USAGE
 # As given, for the install log; the secrets among them are masked there.
 cli_args=("$@")
 
+case "${1:-}" in
+  status|stop|start|uninstall) subcommand="$1"; shift ;;
+esac
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     # The underscore spellings are what the platform's "create endpoint"
@@ -371,6 +419,7 @@ while [[ $# -gt 0 ]]; do
     # has already acted on it, and a checkout runs what it has.
     --ref)             shift 2 ;;
     --compose-timeout) compose_timeout="${2-}"; shift 2 ;;
+    --remove-data)     remove_data="true"; shift ;;
     -h|--help)         usage; exit 0 ;;
     *)                 fail "Unknown option: $1 (try --help)" ;;
   esac
@@ -398,6 +447,8 @@ esac
 # that followed are both kept. The terminal sees exactly what it did before.
 finish_log() { :; }
 [[ -n "$log_file" ]] || log_file="$REPO_ROOT/install.log"
+# status only looks, so it leaves nothing behind (issue #372).
+[[ "$subcommand" == "status" ]] && log_file="/dev/null"
 if [[ "$log_file" != "/dev/null" ]]; then
   if ( umask 077; : >> "$log_file" ) 2>/dev/null; then
     chmod 600 "$log_file" 2>/dev/null || true
@@ -444,6 +495,217 @@ if [[ "$log_file" != "/dev/null" ]]; then
   else
     warn "Cannot write the install log at $log_file; carrying on without it."
   fi
+fi
+
+# --------------------------------------------------------------
+# status, stop, start, uninstall (issue #372)
+# --------------------------------------------------------------
+# They act on the Endpoint this checkout holds, through the labels Compose puts
+# on its containers, volumes and networks, so neither its port nor its profiles
+# have to be remembered. The install state says what the installer set up.
+lc_state() {
+  [[ -f "$REPO_ROOT/.env.install-state" ]] || return 0
+  grep -E "^$1=" "$REPO_ROOT/.env.install-state" | tail -n1 | cut -d= -f2- || true
+}
+
+lc_env() {
+  [[ -f "$REPO_ROOT/.env" ]] || return 0
+  grep -E "^$1=" "$REPO_ROOT/.env" | tail -n1 | cut -d= -f2- | sed 's/^"\(.*\)"$/\1/' || true
+}
+
+lc_project() {
+  local project
+  project="$(lc_env COMPOSE_PROJECT_NAME)"
+  if [[ -z "$project" && "$lc_instance" != "ndp" ]]; then
+    project="ndp-ep-$lc_instance"
+  fi
+  # Compose's own default: the checkout's directory name.
+  [[ -n "$project" ]] || project="$(basename "$REPO_ROOT" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')"
+  printf '%s' "$project"
+}
+
+# The CKAN this installer set up for the Endpoint, if any: recorded since
+# 0.34.63, otherwise where the installer puts it by default.
+lc_ckan_dir() {
+  local dir
+  dir="$(lc_state CKAN_DIR)"
+  if [[ -z "$dir" && -n "$(lc_state CKAN_URL)" ]]; then
+    if [[ "$lc_instance" != "ndp" ]]; then
+      dir="$(dirname "$REPO_ROOT")/ndp-ckan-$lc_instance"
+    else
+      dir="$(dirname "$REPO_ROOT")/ndp-ckan"
+    fi
+  fi
+  [[ -n "$dir" && -f "$dir/docker-compose.yml" ]] && printf '%s' "$dir"
+  return 0
+}
+
+lc_containers() {
+  # lc_containers [-a] -- ids of the project's (running, or all) containers
+  docker ps -q "$@" --filter "label=com.docker.compose.project=$lc_project" 2>/dev/null || true
+}
+
+lc_port() {
+  # Found by its project's labels, not by name: another checkout's Endpoint
+  # can have the same container name.
+  local port="" api
+  api="$(docker ps -aq --filter "label=com.docker.compose.project=$lc_project" \
+    --filter "label=com.docker.compose.service=api" 2>/dev/null | head -n1 || true)"
+  [[ -z "$api" ]] || port="$(docker port "$api" 80 2>/dev/null | head -n1 | sed 's/.*://')"
+  [[ -n "$port" ]] || port="$(lc_state EP_API_PORT)"
+  printf '%s' "$port"
+}
+
+lc_status() {
+  local running all port health_url code nb ip version
+  version="$(lc_state INSTALLER_VERSION)"
+  [[ -n "$version" ]] || version="$(git -C "$REPO_ROOT" describe --tags --always 2>/dev/null || echo unknown)"
+  running="$(lc_containers | grep -c . || true)"
+  all="$(lc_containers -a | grep -c . || true)"
+  port="$(lc_port)"
+  echo "Endpoint at $REPO_ROOT"
+  echo "  instance: $lc_instance"
+  echo "  compose project: $lc_project"
+  echo "  version: $version"
+  echo "  catalog: $(lc_env LOCAL_CATALOG_BACKEND || true)"
+  echo "  containers: $running running of $all"
+  echo "  port: ${port:-unknown}"
+  if [[ -n "$port" ]]; then
+    health_url="http://localhost:${port}$(lc_env ROOT_PATH)/health"
+    code="$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$health_url" || true)"
+    if [[ "$code" == "200" ]]; then
+      echo "  health: healthy at $health_url"
+    else
+      echo "  health: not answering at $health_url"
+    fi
+  fi
+  if ! command -v netbird >/dev/null 2>&1; then
+    echo "  NetBird: client not installed"
+  else
+    nb="$(netbird status --json 2>/dev/null || true)"
+    if [[ "$nb" =~ \"connected\":[[:space:]]*true ]]; then
+      ip="$(sed -n 's/.*"netbirdIp":[[:space:]]*"\([^"/]*\).*/\1/p' <<< "$nb")"
+      echo "  NetBird: connected${ip:+ ($ip)}"
+    else
+      echo "  NetBird: not connected"
+    fi
+  fi
+  local ckan; ckan="$(lc_ckan_dir)"
+  [[ -z "$ckan" ]] || echo "  CKAN: $ckan"
+}
+
+lc_stop() {
+  local ids ckan
+  ids="$(lc_containers | tr '\n' ' ' | sed 's/ *$//')"
+  if [[ -z "$ids" ]]; then
+    ok "Endpoint '$lc_instance' is already stopped."
+  else
+    # shellcheck disable=SC2086
+    docker stop $ids >/dev/null
+    ok "Stopped Endpoint '$lc_instance' (Compose project $lc_project)."
+  fi
+  ckan="$(lc_ckan_dir)"
+  if [[ -n "$ckan" ]]; then
+    (cd "$ckan" && "${lc_compose[@]}" stop >/dev/null 2>&1) && ok "Stopped its CKAN ($ckan)."
+  fi
+  return 0
+}
+
+lc_start() {
+  local ids ckan port
+  ids="$(lc_containers -a | tr '\n' ' ' | sed 's/ *$//')"
+  [[ -n "$ids" ]] || fail "Endpoint '$lc_instance' has no containers (Compose project $lc_project); run the installer to create them."
+  ckan="$(lc_ckan_dir)"
+  if [[ -n "$ckan" ]]; then
+    (cd "$ckan" && "${lc_compose[@]}" start >/dev/null 2>&1) && ok "Started its CKAN ($ckan)."
+  fi
+  # Started as they were created, on the ports they were created with. A
+  # "docker compose up" by hand would publish the default port instead (#370).
+  # shellcheck disable=SC2086
+  docker start $ids >/dev/null
+  port="$(lc_port)"
+  ok "Started Endpoint '$lc_instance'${port:+ on port $port}."
+}
+
+lc_uninstall() {
+  local ids volumes networks ckan reply
+  info "This removes Endpoint '$lc_instance' (Compose project $lc_project): its containers,"
+  info "its networks and the .env backups, which hold old credentials."
+  if [[ "$remove_data" == "true" ]]; then
+    warn "--remove-data: its volumes -- the catalog, the files in MinIO, everything it stored --"
+    warn "and its .env and install state are deleted too. This cannot be undone."
+  else
+    info "Its data, .env and install state are kept (--remove-data deletes them)."
+  fi
+  if [[ "$assume_yes" != "true" ]]; then
+    [[ -t 0 ]] || fail "uninstall asks for confirmation; run it with --yes where nobody can answer."
+    read -r -p "Remove it? [y/N] " reply
+    [[ "$reply" =~ ^[Yy]$ ]] || fail "Aborted; nothing was changed."
+  fi
+
+  ids="$(lc_containers -a | tr '\n' ' ' | sed 's/ *$//')"
+  # shellcheck disable=SC2086
+  [[ -z "$ids" ]] || docker rm -f $ids >/dev/null
+  networks="$(docker network ls -q --filter "label=com.docker.compose.project=$lc_project" 2>/dev/null | tr '\n' ' ' | sed 's/ *$//' || true)"
+  # shellcheck disable=SC2086
+  [[ -z "$networks" ]] || docker network rm $networks >/dev/null 2>&1 || true
+  ok "Removed its containers and networks."
+
+  ckan="$(lc_ckan_dir)"
+  if [[ -n "$ckan" && "$(lc_state CKAN_CREATED)" == "yes" ]]; then
+    if [[ "$remove_data" == "true" ]]; then
+      (cd "$ckan" && "${lc_compose[@]}" down -v >/dev/null 2>&1) || true
+      ok "Removed the CKAN installed for it, with its data; its files remain: rm -rf $ckan"
+    else
+      (cd "$ckan" && "${lc_compose[@]}" down >/dev/null 2>&1) || true
+      ok "Removed the CKAN containers installed for it; its data is kept, files at $ckan"
+    fi
+  elif [[ -n "$ckan" ]]; then
+    info "The CKAN at $ckan was not created by this installer; left as it is."
+  fi
+
+  rm -f "$REPO_ROOT"/.env.backup.*
+  ok "Removed the .env backups."
+
+  if [[ "$remove_data" == "true" ]]; then
+    volumes="$(docker volume ls -q --filter "label=com.docker.compose.project=$lc_project" 2>/dev/null | tr '\n' ' ' | sed 's/ *$//' || true)"
+    # shellcheck disable=SC2086
+    [[ -z "$volumes" ]] || docker volume rm $volumes >/dev/null
+    rm -f "$REPO_ROOT/.env" "$REPO_ROOT/.env.install-state"
+    ok "Removed its data volumes, .env and install state."
+  else
+    ok "Data volumes, .env and install state kept; the installer reuses them."
+  fi
+
+  if [[ "$(lc_state NETBIRD)" == "yes" || "$remove_data" == "true" ]] && command -v netbird >/dev/null 2>&1; then
+    info "This machine stays in NDP's NetBird network, which other Endpoints on it may use."
+    info "To leave it: sudo netbird down (and sudo netbird service uninstall to remove the client)."
+  fi
+  info "The checkout is left at $REPO_ROOT; remove it when no longer needed."
+}
+
+if [[ -z "$subcommand" && "$remove_data" == "true" ]]; then
+  fail "--remove-data only goes with uninstall."
+fi
+
+if [[ -n "$subcommand" ]]; then
+  command -v docker >/dev/null 2>&1 || fail "docker is required."
+  if docker compose version >/dev/null 2>&1; then
+    lc_compose=(docker compose)
+  else
+    lc_compose=(docker-compose)
+  fi
+  lc_instance="$instance"
+  [[ -n "$lc_instance" ]] || lc_instance="$(lc_state EP_INSTANCE)"
+  [[ -n "$lc_instance" ]] || lc_instance="ndp"
+  lc_project="$(lc_project)"
+  case "$subcommand" in
+    status)    lc_status ;;
+    stop)      lc_stop ;;
+    start)     lc_start ;;
+    uninstall) lc_uninstall ;;
+  esac
+  exit 0
 fi
 
 banner
@@ -1876,6 +2138,8 @@ else
       info "Cloning $ckan_repo into $ckan_dir"
       git clone --depth 1 "$ckan_repo" "$ckan_dir" \
         || fail "Could not clone the CKAN repository."
+      # Created here, so uninstall may remove it (issue #372).
+      state_set CKAN_CREATED yes
     else
       info "CKAN checkout already present at $ckan_dir"
     fi
@@ -1947,6 +2211,7 @@ else
 
     state_set CKAN_API_KEY "$ckan_api_key"
     state_set CKAN_URL "$ckan_site_url"
+    state_set CKAN_DIR "$ckan_dir"
     state_set CKAN_SYSADMIN "$ckan_sysadmin"
     state_set CKAN_PASSWORD "$ckan_password"
     ok "Token minted and saved to $(basename "$STATE_FILE") so re-running does not create another"
@@ -2042,6 +2307,8 @@ fi
 # Which installer this is, for support and for a later status (issue #371).
 installer_version="$(git -C "$REPO_ROOT" describe --tags --always 2>/dev/null || echo unknown)"
 [[ "$dry_run" == "true" ]] || state_set INSTALLER_VERSION "$installer_version"
+# The published port, which status and start report (issue #372).
+[[ "$dry_run" == "true" ]] || state_set EP_API_PORT "$ep_api_port"
 
 # --------------------------------------------------------------
 step "Rendering .env from example.env"
