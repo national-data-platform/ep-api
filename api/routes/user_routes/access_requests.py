@@ -21,7 +21,7 @@ from api.services.access_request_services import (
     reject_access_request,
     require_feature_enabled,
 )
-from api.services.auth_services import get_current_user, require_admin
+from api.services.auth_services import ep_admin_gate, get_current_user
 
 router = APIRouter()
 security = HTTPBearer()
@@ -72,7 +72,7 @@ async def list_requests(
         alias="status",
         pattern="^(pending|approved|rejected|all)$",
     ),
-    _admin: Dict[str, Any] = Depends(require_admin),
+    _admin: Dict[str, Any] = Depends(ep_admin_gate),
 ) -> List[AccessRequest]:
     require_feature_enabled()
     docs = list_access_requests(status_filter)  # type: ignore[arg-type]
@@ -86,18 +86,17 @@ async def list_requests(
     description=(
         "Approve a pending access request. The administrator chooses the "
         "role tier to grant via `grant_type`:\n\n"
-        "- **viewer** — adds the user to the endpoint group; read-only "
-        "access. (The AAI assigns the viewer role automatically on join.)\n"
-        "- **writer** — group membership plus the per-endpoint writer "
-        "role; can create, edit, delete and publish catalog content.\n"
-        "- **admin** — group membership plus the per-endpoint admin "
-        "role; full access including managing access requests.\n"
+        "- **viewer** — adds the user to the endpoint group as a viewer; "
+        "read-only access.\n"
+        "- **writer** — adds the user as an editor; can create, edit, "
+        "delete and publish catalog content.\n"
+        "- **admin** — adds the user as an admin; full access including "
+        "managing access requests.\n"
         "- **member** — deprecated alias for `viewer`, kept so existing "
         "clients keep working.\n\n"
-        "Roles are Keycloak realm roles named `ndp_{tier}` (platform-wide) "
-        "or `group:{AFFINITIES_EP_UUID}:{tier}` (per-endpoint). For the "
-        "full role model, how roles reach the JWT, the AAI role-management "
-        "API, and how to introduce a brand-new permission level, see "
+        "Keycloak decides what each level allows through the permission "
+        "gates of this Endpoint's client. For the full model and how to "
+        "introduce a brand-new permission level, see "
         "`docs/roles-and-permissions.md` in the repository.\n\n"
         "The IDP write is performed using the administrator's own bearer "
         "token, so no service account is involved."
@@ -115,7 +114,7 @@ async def approve_request(
     request_id: str,
     decision: AccessRequestApproveDecision,
     request: Request,
-    admin_info: Dict[str, Any] = Depends(require_admin),
+    admin_info: Dict[str, Any] = Depends(ep_admin_gate),
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> AccessRequest:
     require_feature_enabled()
@@ -148,7 +147,7 @@ async def approve_request(
 async def reject_request(
     request_id: str,
     decision: AccessRequestRejectDecision,
-    admin_info: Dict[str, Any] = Depends(require_admin),
+    admin_info: Dict[str, Any] = Depends(ep_admin_gate),
 ) -> AccessRequest:
     require_feature_enabled()
     doc = reject_access_request(

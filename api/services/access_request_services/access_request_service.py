@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import HTTPException, status
 
-from api.config.affinities_settings import affinities_settings
 from api.config.catalog_settings import catalog_settings
 from api.config.swagger_settings import swagger_settings
 from api.repositories.access_request_repository import AccessRequestRepository
@@ -22,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 # Module-level singleton so we reuse the MongoClient across requests.
 _repository: Optional[AccessRequestRepository] = None
+
+# The group permission level each grant_type is approved at.
+_GROUP_LEVEL = {
+    "viewer": "viewer",
+    "member": "viewer",
+    "writer": "editor",
+    "admin": "admin",
+}
 
 
 def require_feature_enabled() -> None:
@@ -62,30 +69,16 @@ def reset_repository_for_tests() -> None:
 
 def _endpoint_group() -> str:
     """
-    The identity-provider group an approval grants access through.
-
-    The first GROUP_NAMES entry, which on a registered Endpoint is the group
-    the Federation created for it (``ndp_ep/ep-<config-id>``) and the one the
-    access gate checks. Approval used to require AFFINITIES_EP_UUID, which
-    the installer never sets, so it failed with 503 on every Endpoint the
-    installer made (issue #325); that UUID is still used when no GROUP_NAMES
-    are configured.
+    The identity-provider group an approval grants access through: the one
+    the Federation created with the Endpoint's client, ``ndp_ep/<client>``,
+    whose levels the client's gates are decided on.
     """
-    group_names = swagger_settings.group_names
-    if isinstance(group_names, str):
-        for name in group_names.split(","):
-            if name.strip():
-                return name.strip()
-    ep_uuid = (affinities_settings.ep_uuid or "").strip()
-    if ep_uuid:
-        return ep_uuid
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=(
-            "No endpoint group is configured (GROUP_NAMES or "
-            "AFFINITIES_EP_UUID); cannot grant access."
-        ),
-    )
+    if not swagger_settings.authz_client_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AUTHZ_CLIENT_ID is not set; cannot grant access.",
+        )
+    return f"ndp_ep/{swagger_settings.authz_client_id}"
 
 
 def create_access_request(
@@ -145,32 +138,13 @@ def _grant_via_aai(
     username: str,
 ) -> None:
     """
-    Perform the IDP write for an approve decision.
-
-    The three tiers map to AAI calls as follows:
-
-    - ``viewer`` / ``member`` (alias): only add the user to the endpoint
-      group. The AAI assigns the viewer role automatically on join, so
-      no separate role assignment is needed.
-    - ``writer``: group membership plus the per-endpoint writer role.
-    - ``admin``: group membership plus the per-endpoint admin role.
-
-    For the role-assignment calls we pass the bare tier name
-    (``"writer"`` / ``"admin"``) plus the group name. The AAI builds the
-    fully-qualified ``group:{group}:{tier}`` server-side; passing the
-    qualified form here makes it double-prefix.
+    Perform the IDP write for an approve decision: add the user to the
+    endpoint group at the level for ``grant_type`` (the group calls the
+    writer tier "editor").
     """
-    group = _endpoint_group()
-
-    aai_client.add_user_to_group(admin_token, group, username)
-
-    if grant_type in ("writer", "admin"):
-        aai_client.assign_role(
-            admin_token,
-            grant_type,
-            username,
-            group,
-        )
+    aai_client.add_user_to_group(
+        admin_token, _endpoint_group(), username, _GROUP_LEVEL[grant_type]
+    )
 
 
 def approve_access_request(

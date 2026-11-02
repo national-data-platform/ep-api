@@ -3,7 +3,7 @@ Authorization tests for the S3 Management routes (``/s3/buckets`` and
 ``/s3/objects``).
 
 These endpoints back the S3 Management tool, which is an administrative storage
-feature. They must be guarded by :func:`get_user_for_write_operation` so that
+feature. They must be guarded by :func:`ep_editor_gate` so that
 viewers and users with no role cannot reach them — mirroring the UI, which only
 shows the S3 Management entry to writers.
 
@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 
 from api.routes.minio_routes.bucket_routes import router as bucket_router
 from api.routes.minio_routes.object_routes import router as object_router
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 app = FastAPI()
 app.include_router(bucket_router)
@@ -57,7 +57,7 @@ def test_s3_management_denies_users_without_write_permission():
             detail="You do not have permission to modify resources.",
         )
 
-    app.dependency_overrides[get_user_for_write_operation] = _deny
+    app.dependency_overrides[ep_editor_gate] = _deny
 
     for method, path, kwargs in S3_MANAGEMENT_ENDPOINTS:
         response = getattr(client, method)(path, **kwargs)
@@ -71,7 +71,7 @@ def test_s3_management_allows_writers_past_the_guard():
     """A writer passes the guard (the call then fails for an unrelated reason,
     not 401/403)."""
 
-    app.dependency_overrides[get_user_for_write_operation] = lambda: {
+    app.dependency_overrides[ep_editor_gate] = lambda: {
         "username": "writer-user",
         "sub": "writer-sub",
         "effective_role": "writer",

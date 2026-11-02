@@ -151,9 +151,8 @@ class TestGetStatus:
         mock_swagger.swagger_version = "1.0.0"
         mock_swagger.organization = "test-org"
         mock_swagger.ep_name = "Test EP"
-        mock_swagger.enable_group_based_access = False
         mock_swagger.use_jupyterlab = False
-        mock_swagger.auth_api_url = "http://auth.example.com"
+        mock_swagger.keycloak_url = "http://idp.example.com"
         mock_swagger.metrics_endpoint = "http://metrics.example.com"
         mock_swagger.metrics_interval_seconds = 60
         mock_swagger.is_public = True
@@ -193,9 +192,8 @@ class TestGetStatus:
         mock_swagger.swagger_version = "1.0.0"
         mock_swagger.organization = "test-org"
         mock_swagger.ep_name = "Test EP"
-        mock_swagger.enable_group_based_access = False
         mock_swagger.use_jupyterlab = False
-        mock_swagger.auth_api_url = ""
+        mock_swagger.keycloak_url = ""
         mock_swagger.metrics_endpoint = ""
         mock_swagger.metrics_interval_seconds = 60
         mock_swagger.is_public = True
@@ -234,9 +232,8 @@ class TestGetStatus:
         mock_swagger.swagger_version = "1.0.0"
         mock_swagger.organization = "test-org"
         mock_swagger.ep_name = "Test EP"
-        mock_swagger.enable_group_based_access = False
         mock_swagger.use_jupyterlab = False
-        mock_swagger.auth_api_url = ""
+        mock_swagger.keycloak_url = ""
         mock_swagger.metrics_endpoint = ""
         mock_swagger.metrics_interval_seconds = 60
         mock_swagger.is_public = True
@@ -277,10 +274,9 @@ class TestGetStatus:
         mock_swagger.swagger_version = "1.0.0"
         mock_swagger.organization = "test-org"
         mock_swagger.ep_name = "Test EP"
-        mock_swagger.enable_group_based_access = False
         mock_swagger.use_jupyterlab = True
         mock_swagger.jupyter_url = "http://jupyter.example.com"
-        mock_swagger.auth_api_url = ""
+        mock_swagger.keycloak_url = ""
         mock_swagger.metrics_endpoint = ""
         mock_swagger.metrics_interval_seconds = 60
         mock_swagger.is_public = True
@@ -318,9 +314,8 @@ class TestGetStatus:
         mock_swagger.swagger_version = "1.0.0"
         mock_swagger.organization = "test-org"
         mock_swagger.ep_name = "Test EP"
-        mock_swagger.enable_group_based_access = False
         mock_swagger.use_jupyterlab = False
-        mock_swagger.auth_api_url = ""
+        mock_swagger.keycloak_url = ""
         mock_swagger.metrics_endpoint = ""
         mock_swagger.metrics_interval_seconds = 60
         mock_swagger.is_public = True

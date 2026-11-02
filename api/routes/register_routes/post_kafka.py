@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import ckan_settings
 from api.models.request_kafka_model import KafkaDataSourceRequest
 from api.services import kafka_services
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -120,7 +120,7 @@ async def create_kafka_datasource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Add a Kafka topic and its associated metadata to the system.

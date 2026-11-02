@@ -1,7 +1,6 @@
 # api/services/auth_services/user_login.py
 import logging
 from typing import Any, Dict
-from urllib.parse import urlparse
 
 import requests
 from fastapi import HTTPException, status
@@ -9,23 +8,6 @@ from fastapi import HTTPException, status
 from api.config.swagger_settings import swagger_settings
 
 logger = logging.getLogger(__name__)
-
-
-def _build_login_url() -> str:
-    """
-    Derive the IDP login URL from the configured ``auth_api_url``.
-
-    The auth API URL points at the token-information endpoint (e.g.
-    ``https://idp.example.com/information``). The login endpoint lives on the
-    same server at ``/user/login``.
-    """
-    parsed = urlparse(swagger_settings.auth_api_url)
-    if not parsed.scheme or not parsed.netloc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Authentication service URL is not configured correctly.",
-        )
-    return f"{parsed.scheme}://{parsed.netloc}/user/login"
 
 
 def authenticate_with_credentials(username: str, password: str) -> Dict[str, Any]:
@@ -51,7 +33,7 @@ def authenticate_with_credentials(username: str, password: str) -> Dict[str, Any
         401: If credentials are invalid.
         502: If the authentication service is unreachable or misconfigured.
     """
-    login_url = _build_login_url()
+    login_url = f"{swagger_settings.aai_api_url}/user/login"
 
     try:
         response = requests.post(

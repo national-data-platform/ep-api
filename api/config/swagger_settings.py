@@ -1,5 +1,8 @@
 # api/config/swagger_settings.py
 
+from urllib.parse import urlparse
+
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -22,9 +25,18 @@ class Settings(BaseSettings):
     use_jupyterlab: bool = False
     jupyter_url: str = "https://jupyter.org/try-jupyter/lab/"
     test_token: str = "testing_token"
-    auth_api_url: str = "https://idp.nationaldataplatform.org/temp/information"
-    enable_group_based_access: bool = False
-    group_names: str = ""  # Comma-separated list of allowed groups
+
+    # The identity provider's host: the AAI API (aai_api_url) and the realm
+    # (keycloak_realm_url) are paths on it. AUTH_API_URL, the old name, is
+    # still read when KEYCLOAK_URL is not set.
+    keycloak_url: str = Field(
+        default="https://idp.nationaldataplatform.org",
+        validation_alias=AliasChoices("keycloak_url", "auth_api_url"),
+    )
+    # This Endpoint's Keycloak client (ep-<config-id>), whose gates decide
+    # every permission, and the realm it is in.
+    authz_client_id: str = ""
+    authz_realm: str = "NDP"
 
     # Access-request workflow (user requests entry → admin approves/rejects).
     # Requires a MongoDB instance reachable via MONGODB_CONNECTION_STRING
@@ -37,6 +49,23 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "extra": "allow",
     }
+
+    @field_validator("keycloak_url")
+    @classmethod
+    def keep_only_the_host(cls, value):
+        """Drop a path, such as the /temp/information AUTH_API_URL carried."""
+        parsed = urlparse(value)
+        return f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else value
+
+    @property
+    def aai_api_url(self) -> str:
+        """The AAI API: token information, login and group management."""
+        return f"{self.keycloak_url}/api"
+
+    @property
+    def keycloak_realm_url(self) -> str:
+        """The realm permission decisions are asked of."""
+        return f"{self.keycloak_url}/realms/{self.authz_realm}"
 
 
 swagger_settings = Settings()

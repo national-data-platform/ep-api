@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from api.config import catalog_settings, ckan_settings
 from api.routes.update_routes import router as update_router
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 # The update routes are mounted only when a local catalog is configured, so the
 # test mounts them itself instead of depending on the environment.
@@ -103,7 +103,7 @@ def local_catalog_only():
         return fake
 
     started = []
-    app.dependency_overrides[get_user_for_write_operation] = lambda: {
+    app.dependency_overrides[ep_editor_gate] = lambda: {
         "username": "writer",
         "roles": ["ndp_writer"],
     }

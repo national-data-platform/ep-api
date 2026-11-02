@@ -94,12 +94,9 @@ class TestRouteAnswersWithThatStatus:
         }
         from api.config.swagger_settings import swagger_settings
 
-        with (
-            patch(
-                "api.routes.register_routes.publish_dataset.publish_dataset_to_preckan"
-            ) as publish,
-            patch.object(swagger_settings, "enable_group_based_access", False),
-        ):
+        with patch(
+            "api.routes.register_routes.publish_dataset.publish_dataset_to_preckan"
+        ) as publish:
             publish.side_effect = exc
             return TestClient(app).post(
                 "/dataset/pkg-1/publish",

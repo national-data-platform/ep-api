@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import catalog_settings, ckan_settings
 from api.models.update_service_model import ServiceUpdateRequest
 from api.repositories import CKANRepository
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 from api.services.service_services import update_service
 
 router = APIRouter()
@@ -103,7 +103,7 @@ async def update_service_endpoint(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    _: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Update a service by service_id (full replacement).

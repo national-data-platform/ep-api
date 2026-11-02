@@ -5,7 +5,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.config.rexec_settings import rexec_settings
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -17,7 +17,7 @@ router = APIRouter()
         "Returns the the URL where the Remote Execution Deployment API is available."
     ),
 )
-async def get_rexec_details(_: Dict[str, Any] = Depends(get_user_for_write_operation)):
+async def get_rexec_details(_: Dict[str, Any] = Depends(ep_editor_gate)):
     """
     Endpoint to retrieve rexec deployment api connection details.
 
