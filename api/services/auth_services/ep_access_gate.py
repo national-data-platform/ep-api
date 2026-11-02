@@ -6,7 +6,7 @@ The Endpoint's Keycloak client (AUTHZ_CLIENT_ID, ``ep-<config-id>``) has
 three gates, set up by the AAI API from the Endpoint's group:
 ``admin-area`` (its admins), ``editor-area`` (admins and editors) and
 ``viewer-area`` (admins, editors and viewers); ``ndp_admin`` passes all
-three. :func:`ep_access_gate` makes the same decision call as the
+three on a client the AAI created with ``/client/create``. :func:`ep_access_gate` makes the same decision call as the
 Federation's ``app/services/ep_access_gate.py``; the three ``ep_*_gate``
 functions are the route dependencies built on it.
 """

@@ -40,25 +40,25 @@ def _effective_role(token: str) -> str:
         "This endpoint requires a valid Bearer token in the Authorization "
         "header.\n\n"
         "### Response Format\n"
-        "The response format depends on the authentication service but "
-        "typically includes:\n"
-        "- **roles**: List of user roles\n"
-        "- **groups**: List of groups the user belongs to\n"
+        "The AAI API's answer for the token (`<KEYCLOAK_URL>/api/information`):\n"
         "- **sub**: User identifier\n"
         "- **username**: Username\n"
-        "- **email**: User email (if available)\n\n"
+        "- **roles**, **groups**, **clientRoles**: what the user holds in the "
+        "realm, informational only\n\n"
         "The Endpoint adds **ndp_user_id** and **effective_role** (`admin`, "
         "`writer`, `viewer` or `none`). The role comes from Keycloak's "
         "permission gates on this Endpoint's client, not from the `roles` "
-        "above, which are informational only.\n\n"
+        "above.\n\n"
         "### Example Response\n"
         "```json\n"
         "{\n"
-        '  "roles": ["admin", "user"],\n'
-        '  "groups": ["University Research Group", "researchers"],\n'
-        '  "sub": "user123",\n'
-        '  "username": "john.doe",\n'
-        '  "email": "john.doe@university.edu"\n'
+        '  "roles": ["default-roles-ndp", "group:ndp_ep/ep-123:editor"],\n'
+        '  "groups": [{"id": "…", "path": "/ndp_ep/ep-123/editors", "name": "editors"}],\n'
+        '  "clientRoles": {},\n'
+        '  "sub": "6bfaa6c3-…",\n'
+        '  "username": "john.doe@university.edu",\n'
+        '  "ndp_user_id": "1160130875fda081",\n'
+        '  "effective_role": "writer"\n'
         "}\n"
         "```\n"
     ),
@@ -68,11 +68,19 @@ def _effective_role(token: str) -> str:
             "content": {
                 "application/json": {
                     "example": {
-                        "roles": ["admin", "user"],
-                        "groups": ["University Research Group", "researchers"],
-                        "sub": "user123",
-                        "username": "john.doe",
-                        "email": "john.doe@university.edu",
+                        "roles": ["default-roles-ndp", "group:ndp_ep/ep-123:editor"],
+                        "groups": [
+                            {
+                                "id": "…",
+                                "path": "/ndp_ep/ep-123/editors",
+                                "name": "editors",
+                            }
+                        ],
+                        "clientRoles": {},
+                        "sub": "6bfaa6c3-…",
+                        "username": "john.doe@university.edu",
+                        "ndp_user_id": "1160130875fda081",
+                        "effective_role": "writer",
                     }
                 }
             },

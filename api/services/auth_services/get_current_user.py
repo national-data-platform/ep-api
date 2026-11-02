@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     """
-    Validate user token and return user information.
+    Return who the bearer token belongs to, as the AAI API's /information
+    reports it. Routes that need a tier also send the token to Keycloak for
+    a decision (ep_access_gate.py).
 
     This function ensures that the returned user information always contains
     a 'sub' field. If the authentication service response doesn't include
