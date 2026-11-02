@@ -79,6 +79,20 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        elif response.status_code == 400:
+            # The auth service answers 400 for a token it cannot decode: a
+            # rejected token, not an upstream failure (issue #384).
+            try:
+                reason = response.json().get("error") or "Invalid token"
+            except ValueError:
+                reason = "Invalid token"
+            logger.warning(f"Token validation failed - {reason}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token: {reason}",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         elif response.status_code == 500:
             logger.error("Auth service returned internal server error")
             raise HTTPException(
