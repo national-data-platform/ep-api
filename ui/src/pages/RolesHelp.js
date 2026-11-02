@@ -3,9 +3,9 @@ import { ShieldAlert, ArrowLeft, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 /**
- * In-app runbook for adding a new role. Deliberately terse and
- * procedural — no conceptual intro. Reached from the "Add more roles"
- * button on the Access Requests page.
+ * In-app runbook for checking a permission and adding a permission level.
+ * Deliberately terse and procedural — no conceptual intro. Reached from the
+ * "Add more roles" button on the Access Requests page.
  */
 const Pre = ({ children }) => (
   <pre
@@ -56,7 +56,7 @@ const StepTitle = ({ n, children }) => (
 
 const RolesHelp = () => {
   const navigate = useNavigate();
-  const aai = 'https://idp.nationaldataplatform.org'; // AAI base (AUTH_API_URL host)
+  const idp = 'https://idp.nationaldataplatform.org'; // KEYCLOAK_URL
   const docUrl =
     'https://github.com/national-data-platform/ep-api/blob/main/docs/roles-and-permissions.md';
 
@@ -81,67 +81,56 @@ const RolesHelp = () => {
 
       <div className="card">
         <p style={{ margin: 0, color: '#475569', lineHeight: 1.55 }}>
-          A role is a Keycloak realm role named{' '}
-          <C>group:&#123;EP_UUID&#125;:&#123;name&#125;</C>, where{' '}
-          <C>EP_UUID</C> is this deployment&apos;s <C>AFFINITIES_EP_UUID</C>.
-          Replace <C>$EP_UUID</C>, <C>$ADMIN_TOKEN</C> (a group-admin&apos;s
-          bearer token) and <C>$USER</C> below.
+          Keycloak decides what a user may do here, through the permission
+          gates of this Endpoint&apos;s client (<C>AUTHZ_CLIENT_ID</C>,{' '}
+          <C>ep-&#123;config-id&#125;</C>). The tiers are levels of the
+          Endpoint&apos;s group: <C>viewers</C> pass <C>viewer-area</C>,{' '}
+          <C>editors</C> (the writer tier) <C>editor-area</C>, <C>admins</C>{' '}
+          <C>admin-area</C>. The <C>roles</C> in <C>GET /user/info</C> decide
+          nothing. Replace <C>$CLIENT</C>, <C>$USER_TOKEN</C> (the
+          user&apos;s bearer token) and <C>$GATE</C> below.
         </p>
 
-        <StepTitle n={1}>Create the role (AAI API)</StepTitle>
+        <StepTitle n={1}>Check what Keycloak decides</StepTitle>
         <p style={{ color: '#475569', lineHeight: 1.55, margin: 0 }}>
-          <C>roleName</C> is the <strong>bare</strong> name — the AAI prefixes{' '}
-          <C>group:$EP_UUID:</C> itself. The names <C>admin</C>, <C>editor</C>{' '}
-          and <C>viewer</C> are reserved and rejected.
+          The same request the Endpoint sends for every guarded route:
         </p>
-        <Pre>{`curl -X POST "${aai}/role/create" \\
-  -H "Authorization: Bearer $ADMIN_TOKEN" \\
-  -H "Content-Type: application/json" \\
-  -d '{"groupName":"'$EP_UUID'","roleName":"publisher"}'
-# -> 201 {"role":"group:$EP_UUID:publisher"}`}</Pre>
+        <Pre>{`curl -s -X POST "${idp}/realms/NDP/protocol/openid-connect/token" \\
+  -H "Authorization: Bearer $USER_TOKEN" \\
+  -d grant_type=urn:ietf:params:oauth:grant-type:uma-ticket \\
+  -d audience=$CLIENT -d permission=$GATE -d response_mode=decision
+# -> {"result":true}, or 403 "not_authorized"`}</Pre>
         <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
-          (Step 2 auto-creates the role too if you skip this, but creating it
-          explicitly lets you assign to many users at once with{' '}
-          <C>&quot;users&quot;:[…]</C>.)
+          A <C>400</C> means the client does not exist or has no such gate —
+          ask NDP support to link it to the Endpoint&apos;s group.
         </p>
 
-        <StepTitle n={2}>Assign it to a user (AAI API)</StepTitle>
+        <StepTitle n={2}>Create the level (NDP support)</StepTitle>
         <p style={{ color: '#475569', lineHeight: 1.55, margin: 0 }}>
-          Again the <strong>bare</strong> name plus <C>groupName</C>. Do not
-          pass the full <C>group:…:publisher</C> string — it double-prefixes
-          and fails.
-        </p>
-        <Pre>{`curl -X POST "${aai}/role/assign" \\
-  -H "Authorization: Bearer $ADMIN_TOKEN" \\
-  -H "Content-Type: application/json" \\
-  -d '{"groupName":"'$EP_UUID'","roleName":"publisher","username":"'$USER'"}'`}</Pre>
-        <p style={{ color: '#475569', lineHeight: 1.55, margin: 0 }}>
-          The user must <strong>log out and back in</strong> — the new role
-          only appears in a freshly minted JWT. No Keycloak client change is
-          needed; the realm-roles mapper puts it in the token automatically.
-          Verify with <C>GET /user/info</C> (look at the <C>roles</C> array).
+          A new level, say <C>publisher</C>, is a permission level of the
+          Endpoint&apos;s group that the AAI turns into a{' '}
+          <C>publisher-area</C> gate on the client, passed by its members and
+          the group&apos;s admins. It is created with{' '}
+          <C>customPermissions</C> when the client is created; for an
+          existing Endpoint, ask NDP support.
         </p>
 
         <StepTitle n={3}>Make the Endpoint enforce it (code change)</StepTitle>
         <p style={{ color: '#475569', lineHeight: 1.55, margin: 0 }}>
-          Steps 1–2 put the role in the token, but the Endpoint only grants
-          permissions for <C>admin</C> / <C>writer</C> / <C>viewer</C>. Any
-          other role rides in the token and grants nothing. To make{' '}
-          <C>publisher</C> actually do something, edit{' '}
-          <C>api/services/auth_services/authorization_service.py</C>:
+          The Endpoint only asks for <C>admin-area</C>, <C>editor-area</C> and{' '}
+          <C>viewer-area</C>. To make <C>publisher</C> actually do something,
+          edit <C>api/services/auth_services/</C>:
         </p>
         <ul style={{ color: '#475569', lineHeight: 1.7, paddingLeft: '1.4rem' }}>
           <li>
-            Add a matcher, e.g. <C>is_publisher()</C>, reusing{' '}
-            <C>_has_any_role(user_info, [endpoint_group_role_name(&quot;publisher&quot;), &quot;ndp_publisher&quot;])</C>.
+            In <C>ep_access_gate.py</C>, add <C>ep_publisher_gate</C>, built
+            like <C>ep_editor_gate</C> but asking{' '}
+            <C>ep_access_gate(token, &quot;publisher-area&quot;)</C>, and apply
+            it to the routes the level should guard.
           </li>
           <li>
-            Fold it into <C>effective_role()</C> at the right precedence.
-          </li>
-          <li>
-            Create/extend a dependency (like{' '}
-            <C>get_user_for_write_operation</C>) and apply it to the routes the
-            role should guard.
+            If the UI should know, fold it into <C>_effective_role()</C> in{' '}
+            <C>user_info.py</C> at the right precedence.
           </li>
           <li>Add tests, bump the version, redeploy.</li>
         </ul>
@@ -157,12 +146,12 @@ const RolesHelp = () => {
             marginTop: '0.5rem'
           }}
         >
-          If you only need <strong>viewer / writer / admin</strong> (in this or
-          another group), skip steps 1 and 3 entirely — just assign the
-          existing tier via the Access Requests screen. Step 3 is only for a
-          genuinely new permission level, and is the part to{' '}
-          <strong>request from NDP support</strong> if you can&apos;t change
-          the Endpoint code.
+          If you only need <strong>viewer / writer / admin</strong>, skip
+          steps 2 and 3 entirely — approve the tier on the Access Requests
+          screen, which adds the user to the group at that level. It applies
+          from their next request. Steps 2 and 3 are only for a genuinely new
+          permission level; <strong>request them from NDP support</strong> if
+          you can&apos;t change the Endpoint code.
         </p>
 
         <p style={{ marginTop: '1.25rem', marginBottom: 0 }}>
@@ -179,7 +168,7 @@ const RolesHelp = () => {
               gap: '0.4rem'
             }}
           >
-            Full reference (naming, JWT flow, AAI surface)
+            Full reference (gates, decision call, AAI surface)
             <ExternalLink size={16} />
           </a>
         </p>
