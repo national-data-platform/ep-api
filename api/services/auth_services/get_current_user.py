@@ -40,8 +40,9 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     """
     token = token_data.credentials
 
-    # Handle test token
-    if token == swagger_settings.test_token:
+    # Handle test token. An empty TEST_TOKEN (the default) disables it, so an
+    # empty bearer token can never match it (issue #383).
+    if swagger_settings.test_token and token == swagger_settings.test_token:
         # The test token is meant to grant full access without contacting the
         # authentication service. It must therefore carry the platform admin
         # role the endpoint actually recognizes (``ndp_admin``); the earlier

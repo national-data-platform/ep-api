@@ -121,9 +121,11 @@ uvicorn (4 workers) listens only on `127.0.0.1:8000` inside the container.
 
    `/status/` needs a token and answers 401 without one.
 
-`TEST_TOKEN` (default `testing_token`) is accepted as a Bearer token with the
-`ndp_admin` role, without contacting the identity service. It is meant for
-development only: **set `TEST_TOKEN=` (empty) in production.**
+`TEST_TOKEN`, when set, is accepted as a Bearer token with the `ndp_admin`
+role, without contacting the identity service. It is empty by default, which
+turns it off, and the installer always writes it empty. Set it only for local
+development (e.g. `TEST_TOKEN=testing_token`), never on an Endpoint others can
+reach.
 
 ### Compose profiles
 

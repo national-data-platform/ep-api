@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     swagger_title: str = "API Documentation"
     swagger_description: str = "This is the API documentation."
-    swagger_version: str = "0.34.64"
+    swagger_version: str = "0.34.65"
     root_path: str = ""  # API root path prefix (e.g., "/test" or "")
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"
@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     ep_name: str = "Unknown EP"
     use_jupyterlab: bool = False
     jupyter_url: str = "https://jupyter.org/try-jupyter/lab/"
-    test_token: str = "testing_token"
+    # Off unless set: a Bearer token equal to it is accepted as ndp_admin
+    # without contacting AUTH_API_URL (issue #383).
+    test_token: str = ""
     auth_api_url: str = "https://idp.nationaldataplatform.org/temp/information"
     enable_group_based_access: bool = False
     group_names: str = ""  # Comma-separated list of allowed groups

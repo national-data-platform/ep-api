@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.65] - 2026-11-02
+
+### Security
+- **The development test token is off unless set.** `TEST_TOKEN` defaulted to `testing_token`, a value published in this repository, and `example.env`, which the installer renders `.env` from, set the same value, so every installer-made Endpoint accepted `Bearer testing_token` as a platform administrator without contacting the identity service. The code default and `example.env` are now empty, an empty `TEST_TOKEN` matches no token (not even an empty one), and the installer writes `TEST_TOKEN` empty itself, so a later change to `example.env` cannot turn it back on. A configured value still works for local development. An Endpoint installed earlier keeps `testing_token` in its `.env` until the installer runs again or the line is emptied and the `api` container recreated (`docs/operations.md`). New tests in `tests/test_test_token_default.py` and `install/tests/test_test_token_blank.py` (#383).
+
 ## [0.34.64] - 2026-10-23
 
 ### Added
