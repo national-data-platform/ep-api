@@ -32,7 +32,7 @@ REMEMBERED_KEYS = (
     "s3_endpoint",
     "s3_secure",
     "ep_api_port",
-    "auth_api_url",
+    "idp_url",
     "want_access_requests",
     "mongodb_url",
     "ckan_url",
@@ -92,6 +92,11 @@ def from_payload(body):
 
     if not isinstance(stored, dict):
         return {}
+
+    # Remembered as auth_api_url, the AAI's /information URL, before the
+    # identity provider became KEYCLOAK_URL; the installer keeps its host.
+    if not stored.get("idp_url") and stored.get("auth_api_url"):
+        stored = {**stored, "idp_url": stored["auth_api_url"]}
 
     answers = {}
 
