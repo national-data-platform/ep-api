@@ -159,8 +159,10 @@ the Keycloak console also needs that role. See
 - **Secrets.** `.env` holds the CKAN API key, the staging-catalog token, the
   S3 keys and `TEST_TOKEN`. `.env.install-state` holds the CKAN sysadmin
   name, password and API key the installer created. There is no encryption
-  key setting. Change or clear `TEST_TOKEN` (default `testing_token`, which
-  is accepted as an `ndp_admin` token) on any Endpoint others can reach.
+  key setting. `TEST_TOKEN` is empty (off) by default and the installer
+  writes it empty; an Endpoint installed before 0.34.65 has `testing_token`,
+  accepted as an administrator, until it is cleared — clear it on any
+  Endpoint others can reach.
 - **Backups.** Back up `.env`, `.env.install-state`, the MongoDB volume
   (`mongodb_data`, which also holds access requests), the MinIO volume
   (`minio_data`) and, with an installed CKAN, that project's own volumes.

@@ -28,12 +28,12 @@ _UMA_GRANT = "urn:ietf:params:oauth:grant-type:uma-ticket"
 def ep_access_gate(token: str, gate: str) -> None:
     """
     Raise unless Keycloak lets the token's user through ``gate`` on this
-    Endpoint's client. The test token passes every gate without asking.
+    Endpoint's client. TEST_TOKEN, when set, passes every gate without asking.
 
     401: Keycloak rejects the token. 403: anything but a grant, including
     when AUTHZ_CLIENT_ID is not set. 502: Keycloak is unreachable or fails.
     """
-    if token == swagger_settings.test_token:
+    if swagger_settings.test_token and token == swagger_settings.test_token:
         return
     denied = HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,

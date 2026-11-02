@@ -82,7 +82,7 @@ sequenceDiagram
     Note over Installer: Applied: organization, name, the Keycloak client<br/>(AUTHZ_CLIENT_ID), listed-on-the-platform, staging<br/>catalog and PRE_CKAN_ORGANIZATION=ep-<config-id>.<br/>Streaming and JupyterHub stay off.
 
     Installer->>Operator: Existing .env backed up — overwrite?
-    Installer->>Installer: Render .env from example.env (23 values set),<br/>METRICS_ENDPOINT = <federation-url>/metrics/
+    Installer->>Installer: Render .env from example.env (24 values set),<br/>METRICS_ENDPOINT = <federation-url>/metrics/
     Installer->>Pre: Which organizations may this token write to?
     Pre-->>Installer: ep-<config-id> — or a warning, and the install continues
     Installer->>EP: EP_API_PORT=8002 docker compose up -d --build
@@ -123,7 +123,7 @@ install:
 ## The `.env` it produces
 
 Only the values that differ from the [standalone install](installing-standalone-no-catalog.md)
-are listed; everything else is identical. The 23 values set are the 18
+are listed; everything else is identical. The 24 values set are the 19
 variables the standalone install sets plus `AUTHZ_CLIENT_ID`,
 `AUTHZ_REALM`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` and
 `PRE_CKAN_ORGANIZATION`.

@@ -140,9 +140,10 @@ The route dependencies, each returning the user:
 - `ep_admin_gate` (`admin-area`) — `GET /user/access-requests` and the
   approve and reject routes.
 
-The token `TEST_TOKEN` (default `testing_token`) bypasses the AAI and
-Keycloak and passes every gate. Set it blank on any Endpoint others can
-reach; see [configuration.md](configuration.md#test_token).
+`TEST_TOKEN`, when set, is a token that bypasses the AAI and Keycloak and
+passes every gate. It is empty (off) by default; set it only for local
+development, never on an Endpoint others can reach; see
+[configuration.md](configuration.md#test_token).
 
 ---
 

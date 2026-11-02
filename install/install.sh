@@ -1665,6 +1665,9 @@ put AFFINITIES_ENABLED "False"
 put REXEC_CONNECTION "False"
 put PRE_CKAN_ENABLED "False"
 put OIDC_ENABLED "False"
+# The development bypass token stays off on an installed Endpoint, whatever
+# example.env says (issue #383).
+put TEST_TOKEN ""
 
 if [[ -n "$config_id" ]]; then
   step "Fetching the Federation registration"

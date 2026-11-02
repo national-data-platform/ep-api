@@ -265,10 +265,11 @@ permissions are asked of Keycloak, for the gates of the Endpoint's client
 `AUTHZ_CLIENT_ID` (`api/services/auth_services/ep_access_gate.py`):
 
 - 401 — the authentication service or Keycloak rejected the token (invalid or
-  expired, or issued by another realm than `AUTHZ_REALM`).
-- 502 — the authentication service or Keycloak could not be reached or
-  answered with an error. Check `KEYCLOAK_URL` and outbound access from the
-  host.
+  expired, or issued by another realm than `AUTHZ_REALM`); the authentication
+  service answered 400, 401, 403, or 200 with an `error`.
+- 502 — the authentication service or Keycloak could not be reached, failed
+  (5xx) or answered something unexpected. Check `KEYCLOAK_URL` and outbound
+  access from the host.
 - 403 — Keycloak did not let the user through the route's gate, named in the
   response: a write needs `editor-area` (editor or admin of the Endpoint's
   group), admin-only routes `admin-area`. If **every** user is refused, check
@@ -311,10 +312,12 @@ the install state, writes it to `.env` and restarts the Endpoint with it.
 ## Security checklist for production
 
 - **`TEST_TOKEN`.** Any request carrying it as a bearer token is accepted as
-  an administrator that passes every permission, without contacting the
-  authentication service or Keycloak. `example.env` sets `TEST_TOKEN=testing_token` and the installer does
-  not change it, and if the variable is absent the default is also
-  `testing_token`. Set it explicitly to empty (`TEST_TOKEN=`) in `.env`.
+  an administrator that passes every permission gate, without contacting the
+  authentication service or Keycloak. Since 0.34.65 it is empty by default and
+  in `example.env`, and the installer always writes it empty. An Endpoint
+  installed earlier has `TEST_TOKEN=testing_token` in its `.env` until the
+  installer is run again; set it to empty (`TEST_TOKEN=`) and recreate the
+  `api` container.
 - **Bundled credentials.** Since 0.34.62 the installer generates the bundled
   MongoDB's root password (`MONGODB_ROOT_PASSWORD`, also mongo-express's) and
   MinIO's keys (`S3_ACCESS_KEY` / `S3_SECRET_KEY`) per installation and keeps

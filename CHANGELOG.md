@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Keycloak decides every permission.** Each guarded route asks Keycloak, with the caller's own token, whether they pass a gate of the Endpoint's client (`AUTHZ_CLIENT_ID`, `ep-<config-id>`): `admin-area`, `editor-area` or `viewer-area`, which follow the user's level (`admins`, `editors`, `viewers`) in the Endpoint's group `ndp_ep/ep-<config-id>`. It is the same decision call the Federation makes. The `roles` and `groups` the AAI API reports no longer count. The route dependencies are the gates themselves, `ep_admin_gate`, `ep_editor_gate` and `ep_viewer_gate` in `api/services/auth_services/ep_access_gate.py`; `authorization_service.py` and its role-name matchers are removed. `/user/info` reports `effective_role` from the gates and, when `AUTHZ_CLIENT_ID` is set, lets in only users with a level.
+- **One identity-provider setting, `KEYCLOAK_URL`.** The AAI API (`<KEYCLOAK_URL>/api`) and the realm (`<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`) are derived from it. `AUTH_API_URL` is still read when it is not set, keeping only its host. This also fixes username/password login and access-request approval, which were sent to paths that answer 404.
+- **Approving an access request** adds the user to `ndp_ep/<AUTHZ_CLIENT_ID>` at the tier's level (`viewer`, `editor` for writer, `admin`) with one `/group/add-user` call.
+- **The installer** asks for the identity provider's host and writes `KEYCLOAK_URL`, and writes `AUTHZ_CLIENT_ID` and `AUTHZ_REALM` from the Federation registration when it names this Endpoint's own client.
+- **`GET /status/`** reports `keycloak_url` instead of `auth_api_url`, and no longer `group_based_access`.
+
+### Removed
+- `GROUP_NAMES` and `ENABLE_GROUP_BASED_ACCESS`: the group follows from `AUTHZ_CLIENT_ID`, and the entry check applies whenever it is set.
+
+**Breaking:** without `AUTHZ_CLIENT_ID` every guarded route answers 403 and approval answers 503; an Endpoint registered before the Federation linked clients to groups needs its client linked first (the AAI's `tools/adopt_client.py`). Users who could write only through a realm role (`ndp_writer`, `group:<g>:writer`) are refused until they hold the editor or admin level.
+
+## [0.34.66] - 2026-11-02
+
+### Fixed
+- **A token the authentication service cannot decode is a 401, not a 502.** The authentication service answers 400 for a malformed or unknown token (`{"error": "Failed to decode token", ...}`), and anything other than 401, 403 or 500 was reported as `502 Bad Gateway`, so a client saw a server failure for a rejected token and could not tell that it had to log in again or refresh. A 400 now answers `401 Unauthorized` with `WWW-Authenticate: Bearer` and the service's reason; 502 stays for an unreachable service, 5xx and unexpected answers. New test in `tests/test_get_current_user_errors.py` (#384).
+
+## [0.34.65] - 2026-11-02
+
+### Security
+- **The development test token is off unless set.** `TEST_TOKEN` defaulted to `testing_token`, a value published in this repository, and `example.env`, which the installer renders `.env` from, set the same value, so every installer-made Endpoint accepted `Bearer testing_token` as a platform administrator without contacting the identity service. The code default and `example.env` are now empty, an empty `TEST_TOKEN` matches no token (not even an empty one), and the installer writes `TEST_TOKEN` empty itself, so a later change to `example.env` cannot turn it back on. A configured value still works for local development. An Endpoint installed earlier keeps `testing_token` in its `.env` until the installer runs again or the line is emptied and the `api` container recreated (`docs/operations.md`). New tests in `tests/test_test_token_default.py` and `install/tests/test_test_token_blank.py` (#383).
+
 ## [0.34.64] - 2026-10-23
 
 ### Added

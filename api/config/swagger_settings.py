@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     swagger_title: str = "API Documentation"
     swagger_description: str = "This is the API documentation."
-    swagger_version: str = "0.34.64"
+    swagger_version: str = "0.34.66"
     root_path: str = ""  # API root path prefix (e.g., "/test" or "")
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"
@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     ep_name: str = "Unknown EP"
     use_jupyterlab: bool = False
     jupyter_url: str = "https://jupyter.org/try-jupyter/lab/"
-    test_token: str = "testing_token"
+    # Off unless set: a Bearer token equal to it passes every permission gate
+    # without contacting the AAI API or Keycloak (issue #383).
+    test_token: str = ""
 
     # The identity provider's host: the AAI API (aai_api_url) and the realm
     # (keycloak_realm_url) are paths on it. AUTH_API_URL, the old name, is

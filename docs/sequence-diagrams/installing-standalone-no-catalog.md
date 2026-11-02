@@ -22,7 +22,7 @@ The unattended equivalent is:
 With `--yes` no prompt is shown at all, so organization and name are not
 asked: `.env` keeps `example.env`'s demo values `ORGANIZATION-DEMO` and
 `EP-DEMO`, and no `KEYCLOAK_URL` override is written (`example.env`'s value
-is the same NDP host). That run sets 15 values instead of 18; everything
+is the same NDP host). That run sets 16 values instead of 19; everything
 else below is the same.
 
 ## The sequence
@@ -84,7 +84,7 @@ sequenceDiagram
     end
 
     Installer->>Render: example.env + the answers
-    Render-->>Installer: .env (18 values set)
+    Render-->>Installer: .env (19 values set)
     Note over Render: Every variable comes from example.env,<br/>so nothing new is missed
 
     Installer->>AAI: POST with an invalid token
@@ -145,7 +145,7 @@ KAFKA_CONNECTION=False
 KAFKA_HOST=kafka
 KAFKA_PORT=9093
 MAX_STREAMS=10
-TEST_TOKEN=testing_token
+TEST_TOKEN=
 OIDC_ENABLED=False
 USE_JUPYTERLAB=False
 JUPYTER_URL=http://jupyterlab:8888
@@ -173,7 +173,7 @@ AFFINITIES_EP_UUID=
 AFFINITIES_TIMEOUT=30
 ```
 
-The 18 values the installer set:
+The 19 values the installer set:
 
 | Variable | Value | Why |
 |---|---|---|
@@ -185,11 +185,9 @@ The 18 values the installer set:
 | `CKAN_URL`, `CKAN_API_KEY`, `MONGODB_CONNECTION_STRING` | empty | Nothing must point at a service that was not installed |
 | `IS_PUBLIC` | `False` | No registration, so nothing is reported to the Federation |
 | `KAFKA_CONNECTION`, `S3_ENABLED`, `USE_JUPYTERLAB`, `PELICAN_ENABLED`, `AFFINITIES_ENABLED`, `REXEC_CONNECTION`, `PRE_CKAN_ENABLED`, `OIDC_ENABLED` | `False` | `example.env` is a demo with several integrations on; a fresh install provisions none of them |
+| `TEST_TOKEN` | empty | Keeps the development bypass token off, whatever `example.env` says |
 
-Everything else is `example.env`'s documented default, untouched. One of those
-defaults is worth knowing: **`TEST_TOKEN=testing_token`** is a development
-convenience that is accepted as a token with the `ndp_admin` role. Change it,
-or clear it, on anything reachable by others.
+Everything else is `example.env`'s documented default, untouched.
 
 The port is not in `.env`: it is passed to Docker Compose as `EP_API_PORT`
 when the stack is started.

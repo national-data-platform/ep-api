@@ -94,9 +94,12 @@ class TestRouteAnswersWithThatStatus:
         }
         from api.config.swagger_settings import swagger_settings
 
-        with patch(
-            "api.routes.register_routes.publish_dataset.publish_dataset_to_preckan"
-        ) as publish:
+        with (
+            patch(
+                "api.routes.register_routes.publish_dataset.publish_dataset_to_preckan"
+            ) as publish,
+            patch.object(swagger_settings, "test_token", "testing_token"),
+        ):
             publish.side_effect = exc
             return TestClient(app).post(
                 "/dataset/pkg-1/publish",

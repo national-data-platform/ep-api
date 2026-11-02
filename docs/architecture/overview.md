@@ -255,7 +255,8 @@ traceback and answered with a generic message.
 the single source of identity. It uses FastAPI's `HTTPBearer`, so a request
 without an `Authorization: Bearer …` header is rejected before it runs.
 
-- If the token equals `TEST_TOKEN` (default `testing_token`), it returns a
+- If `TEST_TOKEN` is set (it is empty, so off, by default) and the token
+  equals it, it returns a
   fixed user — `sub: test_user`, `username: Test User`,
   `roles: ["ndp_admin"]`, `groups: []` — without contacting the AAI. That
   token passes every permission gate without asking Keycloak, so the user is
