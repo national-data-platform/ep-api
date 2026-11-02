@@ -26,8 +26,8 @@ With `ROOT_PATH` set (e.g. `/ep`), everything moves under it: the UI at
 
 Start from `example.env` in the repository and see
 [docs/configuration.md](https://github.com/national-data-platform/ep-api/blob/main/docs/configuration.md)
-for every variable. `TEST_TOKEN` defaults to `testing_token`, which is
-accepted as an administrator token: set it empty in production.
+for every variable. `TEST_TOKEN`, when set, is accepted as an administrator
+token; it is empty by default (off). Set it only for local development.
 
 For the optional services (MongoDB, S3 storage, Kafka, JupyterLab, Pelican)
 and the installer, see the

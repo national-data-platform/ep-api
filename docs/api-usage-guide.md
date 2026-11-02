@@ -67,10 +67,9 @@ The response is the identity provider's, including `access_token`. `POST /token`
 accepts the same credentials as form fields (`username`, `password`) for older
 clients.
 
-`TEST_TOKEN` (default `testing_token`) is accepted without contacting the
-identity provider and acts as a platform administrator. It is meant for local
-development and should be blank anywhere else; the examples below use
-`$TOKEN` for either.
+`TEST_TOKEN`, when set, is accepted without contacting the identity provider
+and acts as a platform administrator. It is empty (off) by default and meant
+for local development only; the examples below use `$TOKEN` for either.
 
 ### `GET /user/info`
 

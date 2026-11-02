@@ -46,7 +46,8 @@ You really only need to set:
 - `CKAN_LOCAL_ENABLED=True` → if this EP should allow publishing (not read-only);
   `False` with `LOCAL_CATALOG_BACKEND=none`.
 - `ORGANIZATION`, `EP_NAME` → how your EP identifies itself.
-- `TEST_TOKEN` → blank in any deployment reachable by others (see below).
+- `TEST_TOKEN` → leave it blank (the default) in any deployment reachable by
+  others (see below).
 
 Everything else turns optional features on/off.
 
@@ -128,15 +129,16 @@ access requests (`<host>/group/add-user`, `<host>/role/assign`).
 for a self-hosted AAI use its `…/information` URL.
 
 #### `TEST_TOKEN`
-*Optional · dev only · default: `testing_token`.*
+*Optional · dev only · default: empty (off).*
 A fixed token the EP accepts without contacting AAI. **Whoever presents it is
 signed in as a platform administrator** (`roles: ["ndp_admin"]`, `sub:
-test_user`): it passes every role check and the group gate. The default value is
-public (it is in this repository and in `example.env`), so an Endpoint left at
-the default can be administered by anyone who can reach it.
-**Where:** you set it for local development. **Set it blank (`TEST_TOKEN=`) on
-any Endpoint others can reach**; a blank value can never match, because a
-bearer token is never empty.
+test_user`): it passes every role check and the group gate. Empty, it is off:
+no token, not even an empty one, matches it. The installer always writes it
+empty. Before 0.34.65 the default and `example.env` were `testing_token`, a
+public value, so an Endpoint installed earlier accepts it until its `.env` is
+changed (see the security checklist in `docs/operations.md`).
+**Where:** you set it for local development only, e.g.
+`TEST_TOKEN=testing_token`. **Never set it on an Endpoint others can reach.**
 
 #### `ENABLE_GROUP_BASED_ACCESS`
 *Optional · default: `False`.*
