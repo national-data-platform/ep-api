@@ -88,9 +88,10 @@ A platform to **publish, discover and share data** across institutions.
 
 ![w:1080](assets/diagrams/component-interactions.svg)
 
-<!-- note: narrate the diagram: the user signs in through AAI, whose token
-carries their ROLE (roles live in AAI/Keycloak, NOT in Affinities). With that
-token they publish and search in the NDP-EP, backed by a local catalog (CKAN or
+<!-- note: narrate the diagram: the user signs in through AAI; Keycloak decides
+their TIER from their level in the Endpoint's group (permissions live in
+AAI/Keycloak, NOT in Affinities). With that token they publish and search in
+the NDP-EP, backed by a local catalog (CKAN or
 MongoDB, or none) and optional S3 storage.
 When the Affinities integration is on, the EP registers the datasets and
 services it creates in Affinities. The EP is registered with Federation at
@@ -101,13 +102,13 @@ NetBird network (final bonus). -->
 
 ## Component interactions — step by step
 
-1. **Sign in** — through **AAI** (Keycloak); the token carries the user's **role** (viewer / writer / admin).
+1. **Sign in** — through **AAI** (Keycloak); Keycloak decides the user's **tier** (viewer / writer / admin) from their level in the Endpoint's group.
 2. **Use the Endpoint** — publish and search in the **NDP-EP**, backed by a local catalog (**CKAN** or **MongoDB**) and optional **S3** storage.
 3. **Register relationships** — with `AFFINITIES_ENABLED=True`, the EP registers the datasets and services it creates in **Affinities** (non-blocking).
 4. **Federate** — the installer registers the EP with **Federation**; the running EP then posts **metrics** to it.
 5. **Secure transport** — all of it can run over a private, encrypted **NetBird** network.
 
-<!-- note: roles live in AAI, NOT in Affinities. Affinities is a relationship
+<!-- note: permissions live in AAI, NOT in Affinities. Affinities is a relationship
 registry; the EP keeps working if it is down. The installer leaves the
 Affinities integration off (AFFINITIES_ENABLED=False). -->
 
@@ -120,7 +121,7 @@ Affinities integration off (AFFINITIES_ENABLED=False). -->
 
 **Steps:**
 1. Installation
-2. Identity and permissions (sign in and get a role)
+2. Identity and permissions (sign in and get a tier)
 3. The Endpoint in action (publish and search from the web)
 4. Automate with the Python library
 5. Federation (the Endpoint is registered and reports)
@@ -405,20 +406,20 @@ API are the same Endpoint — same data, same permissions. -->
 ---
 
 # Step 2 — Identity and permissions
-### A user signs in and gets a role
+### A user signs in and gets a tier
 
 ---
 
 ## Bootstrap the first admin
 
-The Endpoint has **no user store** — identity and roles come from **AAI (Keycloak)**.
+The Endpoint has **no user store** — identity and permissions come from **AAI (Keycloak)**.
 How the first admin is created depends on the deployment:
 
 - **🟢 NDP infrastructure (common case)** — registering the Endpoint with the
   Federation creates its Keycloak group `ndp_ep/ep-<config-id>`, with the
   **registering user as its administrator**. Holders of the platform-wide
-  `ndp_admin` role are admins on every Endpoint.
-- **🧪 Full stack (self-hosted)** — you assign the admin role yourself in your own
+  `ndp_admin` role are admins on every Endpoint whose client the AAI created.
+- **🧪 Full stack (self-hosted)** — you make the first admin yourself in your own
   Keycloak (next slide).
 
 <!-- note: registration happens from the installer (it asks for the operator's
@@ -429,15 +430,16 @@ the --config-id command. The Federation reads the user id from that token. -->
 
 ## Bootstrap the first admin — full stack
 
-Self-hosted only. Granting roles from the EP UI or the AAI API requires an
+Self-hosted only. Granting tiers from the EP UI or the AAI API requires an
 existing admin, so the first one is set directly in Keycloak:
 
 1. Create the user and set a password (appendix *Creating a user — Keycloak*).
-2. Assign the realm role **`ndp_admin`** (platform-wide), or
-   **`group:<G>:admin`** for this Endpoint only — `<G>` is an entry of
-   `GROUP_NAMES` (e.g. `ndp_ep/ep-<config-id>`) or `AFFINITIES_EP_UUID`.
+2. Assign the realm role **`ndp_admin`** (platform-wide), or, for this
+   Endpoint only, add the user to **`<G>/admins`** *and* assign the realm role
+   **`group:<G>:admin`** — `<G>` is `ndp_ep/<AUTHZ_CLIENT_ID>`. The Endpoint
+   checks the subgroup; the AAI API checks the role when they approve requests.
 
-The user signs in again to get a token that carries the role.
+A level applies straight away; `ndp_admin` needs a new sign-in.
 
 ---
 
@@ -452,21 +454,22 @@ Depends on the deployment:
 
 Signing in: **paste an NDP access token**, or **username and password**.
 
-> A user alone **cannot publish anything yet** — they still need a **role**.
+> A user alone **cannot publish anything yet** — they still need a **level** in
+> the Endpoint's group.
 
 ---
 
 ## Requesting access (user)
 
-On a registered Endpoint only members of its group (and `ndp_admin`) get in.
+On a registered Endpoint only users with a level in its group (and `ndp_admin`) get in.
 Anyone else is refused at sign-in and offered **Request access to this
 Endpoint**, with an optional **justification**.
 
 > Requires `ENABLE_ACCESS_REQUESTS=True` and a MongoDB; the installer provides
 > one when you answer yes to *Enable access requests?*.
 
-<!-- note: a user who can already enter but has no role does not see this
-form; an admin gives them a role outside the Endpoint (AAI API, appendix). -->
+<!-- note: a viewer who wants more can already enter, so does not see this
+form; an admin raises their level outside the Endpoint (AAI API, appendix). -->
 
 ---
 
@@ -483,10 +486,10 @@ On the **Access Requests** page, an admin reviews pending requests and
 **rejects** it, optionally with notes.
 
 Approval uses the admin's own token on the AAI: it adds the user to the
-**first `GROUP_NAMES` entry** (or `AFFINITIES_EP_UUID` when `GROUP_NAMES` is
-empty) and, for Writer or Admin, assigns that role on the group.
+Endpoint's group, **`ndp_ep/<AUTHZ_CLIENT_ID>`**, at the level picked (Writer
+is the AAI's **editor**).
 
-> The user signs in again to pick up the new role.
+> The new level applies straight away; the user just signs in again.
 
 ---
 
@@ -496,23 +499,24 @@ empty) and, for Writer or Admin, assigns that role on the group.
 
 ---
 
-## The three roles
+## The three tiers
 
-Roles come from **AAI** and are hierarchical (each tier includes the ones below):
+A tier is the user's **level in the Endpoint's group**, decided by **Keycloak**;
+tiers are hierarchical (each includes the ones below):
 
-| Role | Can do |
+| Tier | Can do |
 |---|---|
 | 👁️ **Viewer** | Search and browse. **Read-only.** |
 | ✏️ **Writer** | The above **+ create, edit, delete and publish** catalog items, and **S3 storage**. |
 | 🛠️ **Admin** | All of the above **+ Dashboard** and **Access Requests**. |
 
-Platform-wide: `ndp_viewer`, `ndp_writer`, `ndp_admin`. One Endpoint:
-`group:<G>:<tier>`. The AAI's **editor** role counts as **writer**.
+Levels: `<G>/viewers`, `<G>/editors` (the **writer** tier), `<G>/admins`.
+Platform-wide, only `ndp_admin` counts.
 
-> With no role, a user who got in can search and browse — nothing else.
+> Without a level, a user cannot enter a registered Endpoint.
 
 <!-- note: this is the permission model; it reappears live in Step 3. Search
-and resource reads need no role; the viewer tier adds the Pelican read routes. -->
+and resource reads need no tier; the viewer tier adds the Pelican read routes. -->
 
 ---
 
@@ -523,8 +527,8 @@ and resource reads need no role; the viewer tier adds the Pelican read routes. -
 
 ## Search — the landing page
 
-The home page is **Search**, available to **every signed-in user**, with or
-without a role. Type **free text** to search.
+The home page is **Search**, available to **every signed-in user** of the
+Endpoint, whatever their tier. Type **free text** to search.
 
 Results expand to show description, tags, license, version, geographic
 extent (on a map, when present) and the dataset's **resources**.
@@ -804,7 +808,7 @@ Manage **buckets** and **objects** in S3-compatible storage from the UI
 
 **Requires:**
 - `S3_ENABLED=True` in `.env`, plus `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` (and optionally `S3_SECURE`, `S3_REGION`) — the installer writes them when you enable S3.
-- **Writer or admin** role — the entry is hidden otherwise; every `/s3/*` API route answers `403` to other users.
+- **Writer or admin** tier — the entry is hidden otherwise; every `/s3/*` API route answers `403` to other users.
 
 ---
 
@@ -1006,8 +1010,8 @@ added to its metrics report.
 
 ## Obtaining an Affinities UID (`AFFINITIES_EP_UUID`)
 
-Needed only for the **Affinities integration** (`AFFINITIES_ENABLED=True`) or
-for roles/groups keyed on `AFFINITIES_EP_UUID`. A registered Endpoint is added
+Needed only for the **Affinities integration** (`AFFINITIES_ENABLED=True`) and
+as the Pelican event client id fallback; it plays no part in permissions. A registered Endpoint is added
 to Affinities by the Federation; the installer does not read that UID.
 
 In the Affinities web app (`http://localhost:3000`, or your Affinities URL):
@@ -1044,41 +1048,41 @@ In the Keycloak admin console, in the AAI's realm:
 
 ---
 
-## Assigning groups & roles — AAI API
+## Assigning tiers — AAI API
 
-After the user exists, assign groups/roles via the **AAI API** (base URL: scheme
-and host of `AUTH_API_URL`; the caller must already be an admin):
+After the user exists, give them a level via the **AAI API**
+(`$AAI` = `<KEYCLOAK_URL>/api`; the caller needs the realm role
+`group:<GROUP>:admin` or `ndp_admin`):
 
 ```bash
 # authenticate as an admin
 TOKEN=$(curl -s -X POST "$AAI/user/login" -H 'Content-Type: application/json' \
   -d '{"username":"<admin>","password":"<pass>"}' | jq -r .access_token)
 
-# join the Endpoint's group
+# make <user> an editor (writer tier) — role: viewer | editor | admin
 curl -s -X POST "$AAI/group/add-user" -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"group_name":"<GROUP>","username":"<user>"}'
+  -d '{"group_name":"<GROUP>","username":"<user>","role":"editor"}'
 ```
 
-`<GROUP>` is the Endpoint's group from `GROUP_NAMES` (`ndp_ep/ep-<config-id>`
-on a registered Endpoint).
+`<GROUP>` is `ndp_ep/<AUTHZ_CLIENT_ID>` (`ndp_ep/ep-<config-id>` on a
+registered Endpoint).
 
 ---
 
-## Assigning groups & roles — AAI API (cont.)
+## Assigning tiers — AAI API (cont.)
 
-Give a higher tier on that group (bare name: `writer` | `admin`):
+`/group/add-user` puts the user in the level's subgroup (`<GROUP>/editors`),
+which is what the Endpoint checks, and assigns the realm role
+`group:<GROUP>:editor`. It is the same call the Endpoint makes when an admin
+approves an access request.
 
-```bash
-curl -s -X POST "$AAI/role/assign" -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"role_name":"writer","username":"<user>","group_name":"<GROUP>"}'
-```
-
-These are the same calls the Endpoint makes when an admin approves an access request.
+`/role/assign` sets only the realm role: on its own it grants **nothing** on
+the Endpoint.
 
 > **First admin exception:** assign `ndp_admin` **directly in Keycloak** — no admin
-> exists yet to call this API. The user must sign in again for new roles to take effect.
+> exists yet to call this API. A level applies straight away; `ndp_admin`
+> needs a new sign-in.
 
 ---
 

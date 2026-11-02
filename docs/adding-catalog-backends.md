@@ -303,7 +303,7 @@ os.environ["LOCAL_CATALOG_BACKEND"] = "your_backend"
 os.environ["YOUR_BACKEND_CONNECTION_STRING"] = "..."
 os.environ["CKAN_LOCAL_ENABLED"] = "True"   # otherwise POST /dataset is not mounted
 os.environ["TEST_TOKEN"] = "integration-test-token"
-os.environ["ENABLE_GROUP_BASED_ACCESS"] = "False"
+os.environ["AUTHZ_CLIENT_ID"] = ""            # no entry check on /user/info
 os.environ["AFFINITIES_ENABLED"] = "False"
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -347,8 +347,9 @@ Points that make or break it:
   the app in a subprocess the way
   [`tests/test_put_dataset_route_unique.py`](../tests/test_put_dataset_route_unique.py)
   does.
-- **`TEST_TOKEN`** is accepted without calling `AUTH_API_URL` and carries
-  `ndp_admin`, so it passes the writer guard.
+- **`TEST_TOKEN`** is accepted without calling the AAI API and passes
+  every permission gate without asking Keycloak, so it passes the writer
+  guard even without `AUTHZ_CLIENT_ID`.
 - **`CKAN_LOCAL_ENABLED=True`** is required with any backend: without it the
   registration routes are not mounted and `POST /dataset` is 404.
 - **201**, not 200, is the success status of every creation route.

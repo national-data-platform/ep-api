@@ -53,9 +53,10 @@ uvicorn api.main:app --reload --port 8000
   `CKAN_LOCAL_ENABLED` (local catalog routes), `S3_ENABLED` (S3 routes) and
   `PELICAN_ENABLED` (Pelican routes). With `LOCAL_CATALOG_BACKEND=none` and
   `CKAN_LOCAL_ENABLED=False` nothing local is needed.
-- `TEST_TOKEN` is accepted as a bearer token and resolves to a user with the
-  `ndp_admin` role without contacting `AUTH_API_URL`
-  (`api/services/auth_services/get_current_user.py`). If the variable is not
+- `TEST_TOKEN` is accepted as a bearer token and resolves to an administrator
+  without contacting the AAI API or Keycloak
+  (`api/services/auth_services/get_current_user.py`, `ep_access_gate.py`), so
+  it works without `AUTHZ_CLIENT_ID`. If the variable is not
   set at all, the default is `testing_token`.
 - The app writes a log file under `logs/` in the working directory.
 - The interactive API docs are at `/docs`.
@@ -213,10 +214,13 @@ Commit messages follow the conventional style seen in the history:
   `CKAN_LOCAL_ENABLED` is true and the backend is not `none`, the S3 routers
   only with `S3_ENABLED`, and the Pelican router only with `PELICAN_ENABLED`.
 - **Authentication and authorization** — `api/services/auth_services/`:
-  `get_current_user.py` validates the bearer token against `AUTH_API_URL`;
-  `authorization_service.py` holds the role and group checks
-  (`require_admin`, group-based access). Roles are described in
-  [roles-and-permissions.md](roles-and-permissions.md).
+  `get_current_user.py` asks the AAI API who the bearer token belongs to
+  (`<KEYCLOAK_URL>/api/information`);
+  `ep_access_gate.py` asks Keycloak for the gates of the Endpoint's client
+  and holds the route dependencies `ep_admin_gate`, `ep_editor_gate` and
+  `ep_viewer_gate`. Tests use the
+  `keycloak` fixture in `tests/conftest.py` to grant a level. The model is
+  described in [roles-and-permissions.md](roles-and-permissions.md).
 - **Leader election** — the image runs four uvicorn workers, and each runs the
   FastAPI lifespan. `api/tasks/leader.py` makes one of them the leader by
   holding an exclusive `flock` on `ndp-ep-leader.lock` in the temporary

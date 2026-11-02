@@ -12,7 +12,7 @@ Related documents, not repeated here:
 - [../sequence-diagrams/](../sequence-diagrams/README.md) — step-by-step
   sequences: installing, publishing a dataset, registering and using a service.
 - [../configuration.md](../configuration.md) — every environment variable.
-- [../roles-and-permissions.md](../roles-and-permissions.md) — the role model
+- [../roles-and-permissions.md](../roles-and-permissions.md) — the permission model
   in detail.
 - [../adding-catalog-backends.md](../adding-catalog-backends.md) — how to add
   a catalog backend.
@@ -25,8 +25,8 @@ Related documents, not repeated here:
 ## 1. The Endpoint at a glance
 
 An Endpoint is one container that serves a React UI and a FastAPI API on the
-same port. It authenticates every caller against the platform's AAI
-(`AUTH_API_URL`), reads the global NDP catalog, and — when configured — keeps
+same port. It asks the platform's AAI (`<KEYCLOAK_URL>/api`) who every
+caller is, asks Keycloak what they may do, reads the global NDP catalog, and — when configured — keeps
 a local catalog (CKAN or MongoDB), publishes to a staging catalog (Pre-CKAN),
 manages S3 buckets, and talks to Kafka, Pelican, Affinities and the
 Federation.
@@ -45,7 +45,8 @@ flowchart LR
 
     Browser --> Nginx
 
-    Uvicorn -->|"POST token"| AAI["AAI<br/>AUTH_API_URL"]
+    Uvicorn -->|"POST token"| AAI["AAI API<br/>KEYCLOAK_URL/api"]
+    Uvicorn -->|"permission decision"| Keycloak["Keycloak realm<br/>gates of AUTHZ_CLIENT_ID"]
     Uvicorn -->|read| Global["Global NDP catalog (CKAN)<br/>CKAN_GLOBAL_URL"]
     Uvicorn -->|read/write| Local["Local catalog<br/>CKAN or MongoDB"]
     Uvicorn -->|read/write| Pre["Pre-CKAN staging catalog<br/>PRE_CKAN_URL"]
@@ -57,8 +58,8 @@ flowchart LR
     Uvicorn --> Mongo["MongoDB for access requests<br/>MONGODB_CONNECTION_STRING"]
 ```
 
-Every arrow out of the container except AAI and the global catalog is
-optional and controlled by configuration.
+Every arrow out of the container except AAI, Keycloak and the global catalog
+is optional and controlled by configuration.
 
 ---
 
@@ -185,7 +186,8 @@ sequenceDiagram
     participant M as Middleware<br/>(OTel*, correlation id, CORS)
     participant R as Route
     participant D as Auth dependency
-    participant A as AAI (AUTH_API_URL)
+    participant A as AAI API (KEYCLOAK_URL/api)
+    participant K as Keycloak realm
     participant S as Service
     participant P as Repository / external system
 
@@ -193,14 +195,15 @@ sequenceDiagram
     N->>M: proxy to 127.0.0.1:8000 (full path)
     M->>M: root_path strips ROOT_PATH, X-Correlation-ID read or generated
     M->>R: routed request
-    R->>D: Depends(get_current_user / get_user_for_…)
+    R->>D: Depends(get_current_user / ep_*_gate)
     alt token == TEST_TOKEN
         D-->>D: fixed admin user (no AAI call)
     else
-        D->>A: POST AUTH_API_URL with the token
-        A-->>D: user info (sub, username, roles, groups)
+        D->>A: POST /information with the token
+        A-->>D: user info (sub, username, …)
+        D->>K: UMA decision for the route's gate on AUTHZ_CLIENT_ID
+        K-->>D: {"result": true}, 403, or 401
     end
-    D->>D: group gate and role tier (authorization_service.py)
     D-->>R: user_info, or 401/403/502
     R->>S: call service
     S->>P: catalog / S3 / Kafka / Affinities …
@@ -254,53 +257,66 @@ without an `Authorization: Bearer …` header is rejected before it runs.
 
 - If the token equals `TEST_TOKEN` (default `testing_token`), it returns a
   fixed user — `sub: test_user`, `username: Test User`,
-  `roles: ["ndp_admin"]`, `groups: []` — without contacting the AAI. That user
-  is a full administrator.
-- Otherwise it sends `POST AUTH_API_URL` with `{"token": "<token>"}` (10 s
-  timeout). AAI 401/403 and a body containing `error` become **401**; AAI 500,
+  `roles: ["ndp_admin"]`, `groups: []` — without contacting the AAI. That
+  token passes every permission gate without asking Keycloak, so the user is
+  a full administrator.
+- Otherwise it sends `POST <KEYCLOAK_URL>/api/information` with
+  `{"token": "<token>"}` (10 s timeout). AAI 400/401/403 and a body
+  containing `error` become **401**; AAI 500,
   any other non-200, an unreachable AAI, or an unexpected failure become
   **502**. A response without `sub` gets `sub: "unknown"`.
 
 The user payload is passed through as returned by the AAI (`roles`, `groups`,
-`sub`, `username`, …). The Endpoint keeps no session; every authenticated
-request calls the AAI again.
+`sub`, `username`, …); its `roles` and `groups` are not used for
+authorization. The Endpoint keeps no session; every authenticated request
+calls the AAI again.
 
 Username/password sign-in (`POST /user/login`, and the form-encoded
-`POST /token` alias) is proxied to `<scheme>://<host of AUTH_API_URL>/user/login`
+`POST /token` alias) is proxied to `<KEYCLOAK_URL>/api/user/login`
 by [`user_login.py`](../../api/services/auth_services/user_login.py).
 
 ### Authorization
 
-[`authorization_service.py`](../../api/services/auth_services/authorization_service.py)
-implements three tiers, each implying the ones below: **admin** ⊃ **writer** ⊃
-**viewer**. Accepted role names (compared case-insensitively, group paths
-normalised by stripping slashes):
+Keycloak decides. `ep_access_gate` in
+[`ep_access_gate.py`](../../api/services/auth_services/ep_access_gate.py),
+named after the Federation's function and raising like it, asks the realm,
+with the caller's own token, whether they pass one of the
+three gates of the Endpoint's client `AUTHZ_CLIENT_ID` (`ep-<config-id>`):
+`POST <realm>/protocol/openid-connect/token` with the UMA grant,
+`audience=<AUTHZ_CLIENT_ID>`, `permission=<gate>` and
+`response_mode=decision`, as the Federation does. `<realm>` is
+`<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`. Only `{"result": true}`
+grants; Keycloak refusing, or no `AUTHZ_CLIENT_ID`, is **403**, rejecting the
+token **401**, failing or unreachable **502**. No client secret is involved.
 
-| Tier | Platform-wide | Per-Endpoint |
+| Tier | Gate | Passed by the Endpoint group's |
 |---|---|---|
-| admin | `ndp_admin` | `group:<g>:admin` for each `<g>` in `GROUP_NAMES`; with `AFFINITIES_EP_UUID=<u>`: `group:<u>:admin`, `group:ndp_ep/<u>:admin`, `group:ndp_ep/ep-<u>:admin` and the legacy `<u>_admin` |
-| writer | `ndp_writer`, `ndp_editor` | the same group forms with `:writer` or `:editor` |
-| viewer | `ndp_viewer` | the same group forms with `:viewer` |
+| admin | `admin-area` | admins |
+| writer | `editor-area` | admins, editors |
+| viewer | `viewer-area` | admins, editors, viewers |
 
-On top of the tiers there is an optional **group gate**: with
-`ENABLE_GROUP_BASED_ACCESS=True`, the caller must also hold `ndp_admin`, or be
-a member of the group named `AFFINITIES_EP_UUID`, or be a member of one of the
-`GROUP_NAMES` groups. An empty `GROUP_NAMES` with the gate on lets only the
-first two through.
+Keycloak evaluates live group membership; levels on parent groups count
+(those whose subgroup existed when the gates were set up) and `ndp_admin`
+passes every gate of a client the AAI created (a client linked later with
+`tools/adopt_client.py` has no `ndp_admin` policy). With `AUTHZ_CLIENT_ID` set, `/user/info`
+additionally requires a tier.
 
-The FastAPI dependencies that apply these rules:
+The FastAPI dependencies, in
+[`ep_access_gate.py`](../../api/services/auth_services/ep_access_gate.py)
+and [`get_current_user.py`](../../api/services/auth_services/get_current_user.py):
 
-| Dependency | Group gate | Tier | Used by |
-|---|---|---|---|
-| `get_current_user` | no | none (authenticated only) | `/status/*` (except `/status/rexec`), `/user/access-requests` (create), `/organization?mine=true` (optional token) |
-| `get_user_for_endpoint_access` | yes | none | `/user/info` (the UI's entry check) |
-| `get_user_for_read_operation` | yes | viewer | every `/pelican/*` route (router-level dependency) |
-| `get_user_for_write_operation` | yes | writer | every POST/PUT/PATCH/DELETE on the catalog, `/dataset/{id}/publish`, all `/s3/*` routes (reads included), `/status/rexec`, `/pelican/import-metadata` |
-| `require_admin` | no | admin | listing, approving and rejecting access requests |
+| Dependency | Gate | Used by |
+|---|---|---|
+| `get_current_user` | none (authenticated only) | `/status/*` (except `/status/rexec`), `/user/access-requests` (create), `/organization?mine=true` (optional token) |
+| `ep_viewer_gate` | `viewer-area` | every `/pelican/*` route (router-level dependency) |
+| `ep_editor_gate` | `editor-area` | every POST/PUT/PATCH/DELETE on the catalog, `/dataset/{id}/publish`, all `/s3/*` routes (reads included), `/status/rexec`, `/pelican/import-metadata` |
+| `ep_admin_gate` | `admin-area` | listing, approving and rejecting access requests |
 
 Catalog reads — `GET /search`, `POST /search`, `GET /organization`,
 `GET /resource/{id}`, `GET /resources/search` — take no token.
-`/user/info` adds `effective_role` (`admin`/`writer`/`viewer`/`none`) and
+`/user/info` (authenticated only; with `AUTHZ_CLIENT_ID` set it also
+requires a tier) adds `effective_role` (`admin`/`writer`/`viewer`/`none`,
+the highest gate passed) and
 `ndp_user_id` (first 16 hex characters of SHA-256 of `sub`) to the AAI
 payload. See [../roles-and-permissions.md](../roles-and-permissions.md).
 
@@ -500,7 +516,7 @@ Every worker, leader or not, also tests the S3 connection at startup when
 
 | Integration | Switch | Code | What the Endpoint does |
 |---|---|---|---|
-| AAI | always | `auth_services/get_current_user.py`, `user_login.py`, `aai_client.py` | Validates every token; proxies username/password login; on access-request approval calls `POST /group/add-user` and `POST /role/assign` with the approving admin's token, on the first `GROUP_NAMES` entry, falling back to `AFFINITIES_EP_UUID` (since 0.34.46; up to 0.34.45 always `AFFINITIES_EP_UUID`). |
+| AAI | always | `auth_services/get_current_user.py`, `user_login.py`, `aai_client.py` | Says who every token belongs to; proxies username/password login; on access-request approval calls `POST /group/add-user` with the approving admin's token, on the Endpoint's group `ndp_ep/<AUTHZ_CLIENT_ID>`. All under `<KEYCLOAK_URL>/api`. |
 | Federation | `IS_PUBLIC` | `tasks/metrics_task.py` | Posts the periodic metrics report. Registration happens in the installer, not in the API. |
 | Affinities | `AFFINITIES_ENABLED` + `AFFINITIES_URL` + `AFFINITIES_EP_UUID` | `affinities_services/affinities_client.py` | After `POST /dataset` and `POST /services` (for `server=local` and `server=pre_ckan`), registers the record, links it to this Endpoint, creates an affinity triple, and stores the returned UUID as the `ndp_affinity_uuid` extra. Failures are logged and never fail the request. `/ready` reports whether Affinities knows `AFFINITIES_EP_UUID`. See [../affinities-integration.md](../affinities-integration.md). |
 | Pelican | `PELICAN_ENABLED` | `routes/pelican_routes.py`, `repositories/pelican_repository.py`, `pelican_services/` | Browses and reads federations (OSDF by default, or `PELICAN_FEDERATION_URL`), streams downloads, imports a Pelican object as a resource of a local dataset, and relays file events from the event server. |
@@ -536,7 +552,7 @@ each instantiated once at import as a module-level singleton:
 
 | Module | Object | Variables |
 |---|---|---|
-| `swagger_settings.py` | `swagger_settings` | `ROOT_PATH`, `ORGANIZATION`, `EP_NAME`, `IS_PUBLIC`, `METRICS_*`, `USE_JUPYTERLAB`, `JUPYTER_URL`, `TEST_TOKEN`, `AUTH_API_URL`, `ENABLE_GROUP_BASED_ACCESS`, `GROUP_NAMES`, `ENABLE_ACCESS_REQUESTS`, `ACCESS_REQUESTS_COLLECTION`, `SWAGGER_*` (the version is the default of `swagger_version`) |
+| `swagger_settings.py` | `swagger_settings` | `ROOT_PATH`, `ORGANIZATION`, `EP_NAME`, `IS_PUBLIC`, `METRICS_*`, `USE_JUPYTERLAB`, `JUPYTER_URL`, `TEST_TOKEN`, `KEYCLOAK_URL` (`AUTH_API_URL` still read), `AUTHZ_CLIENT_ID`, `AUTHZ_REALM`, `ENABLE_ACCESS_REQUESTS`, `ACCESS_REQUESTS_COLLECTION`, `SWAGGER_*` (the version is the default of `swagger_version`) |
 | `catalog_settings.py` | `catalog_settings` | `LOCAL_CATALOG_BACKEND`, `MONGODB_CONNECTION_STRING`, `MONGODB_DATABASE` |
 | `ckan_settings.py` | `ckan_settings` | `CKAN_LOCAL_ENABLED`, `CKAN_URL`, `CKAN_API_KEY`, `CKAN_VERIFY_SSL`, `CKAN_GLOBAL_URL`, `PRE_CKAN_*` |
 | `minio_settings.py` | `s3_settings` | `S3_*` |

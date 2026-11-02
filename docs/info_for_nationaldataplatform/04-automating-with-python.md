@@ -50,7 +50,7 @@ client = APIClient(
 
 `base_url` is the Endpoint's API root, `<endpoint-url>` — the address of the
 web app **without** the `/ui/`. A URL given without a scheme gets `http://`.
-The Endpoint applies the same entry and role checks to calls from code as to
+The Endpoint applies the same entry and permission checks to calls from code as to
 the web app: what your token can do from code is exactly what your account can
 do in the browser.
 
@@ -113,7 +113,7 @@ client.register_kafka_topic({
 
 `register_service`, the `update_*` and `patch_*` methods, and
 `delete_organization` / `delete_resource` follow the same pattern. They need
-the writer (or admin) role and an Endpoint with a local catalog; on an
+the writer (or admin) tier and an Endpoint with a local catalog; on an
 Endpoint without one, the API routes they call do not exist.
 
 The library has no method for **Publish** (sending a dataset to the staging
@@ -139,7 +139,7 @@ client.delete_object("radar-archive-2025", "2025-01.nc")
 ```
 
 Like the S3 storage page, every S3 call requires the **writer** (or admin)
-role and an Endpoint with S3 enabled.
+tier and an Endpoint with S3 enabled.
 
 ## Typical use cases
 

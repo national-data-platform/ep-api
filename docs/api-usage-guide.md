@@ -54,8 +54,9 @@ Send an access token issued by the platform's identity provider:
 curl -s "$EP/user/info" -H "Authorization: Bearer $TOKEN"
 ```
 
-The Endpoint validates the token on every request by posting it to
-`AUTH_API_URL`. To obtain a token with a username and password:
+The Endpoint sends the token to the AAI API, `<KEYCLOAK_URL>/api/information`,
+on every request to learn who the user is; on routes that need a tier,
+Keycloak's decision call checks it too. To obtain a token with a username and password:
 
 ```bash
 curl -s -X POST "$EP/user/login" \
@@ -68,7 +69,7 @@ accepts the same credentials as form fields (`username`, `password`) for older
 clients.
 
 `TEST_TOKEN` (default `testing_token`) is accepted without contacting the
-identity provider and acts as a platform administrator. It is meant for local
+identity provider and passes every permission, as a platform administrator. It is meant for local
 development and should be blank anywhere else; the examples below use
 `$TOKEN` for either.
 
@@ -88,12 +89,15 @@ Returns the identity provider's payload plus `ndp_user_id` and
 }
 ```
 
-A real user's payload carries whatever the identity provider returns (`email`
-and others). `effective_role` is `admin`, `writer`, `viewer` or `none`;
+A real user's payload is the AAI API's answer: `sub`, `username`, and the
+realm's `roles`, `groups` (objects with `id`, `path` and `name`) and
+`clientRoles`. `effective_role` is `admin`, `writer`, `viewer` or `none`, the
+highest of the Endpoint's permission gates Keycloak lets the user through
+(`roles` and `groups` are the identity provider's and decide nothing);
 `ndp_user_id` is the first 16 hex characters of SHA-256 of `sub`, the same
-value stored in the `ndp_user_id` extra of datasets the user creates. With
-`ENABLE_GROUP_BASED_ACCESS=True`, a user outside the Endpoint's groups gets 403
-here.
+value stored in the `ndp_user_id` extra of datasets the user creates. On an
+Endpoint with a client (`AUTHZ_CLIENT_ID`), a user with no level on it
+(`effective_role` would be `none`) gets 403 here.
 
 ### Who may call what
 
@@ -101,14 +105,15 @@ here.
 |---|---|
 | No token | `GET /`, `/health`, `/ready`, `GET /search`, `POST /search`, `GET /organization` (except `mine=true`), `GET /resource/{id}`, `GET /resources/search`, `POST /user/login`, `POST /token`, the service proxy unless the service sets `requires_auth` |
 | Any valid token | `/status/*` (except `/status/rexec`), `POST /user/access-requests`, `GET /organization?mine=true` |
-| Group gate only | `GET /user/info` |
+| A tier, only with `AUTHZ_CLIENT_ID` set | `GET /user/info` |
 | viewer | `/pelican/*` |
 | writer | every POST/PUT/PATCH/DELETE on the catalog, `POST /dataset/{id}/publish`, every `/s3/buckets` and `/s3/objects` route (GETs included), `/status/rexec`, `POST /pelican/import-metadata` |
 | admin | `GET /user/access-requests`, approve, reject |
 
-"Group gate" applies only with `ENABLE_GROUP_BASED_ACCESS=True`, and also
-applies to every viewer and writer route. Details in
-[roles-and-permissions.md](roles-and-permissions.md).
+Keycloak decides each tier through the Endpoint's client (`AUTHZ_CLIENT_ID`):
+viewer is the `viewer-area` gate, writer `editor-area`, admin `admin-area`. A
+refusal is 403, as is every call without `AUTHZ_CLIENT_ID`. Details
+in [roles-and-permissions.md](roles-and-permissions.md).
 
 ---
 
@@ -181,9 +186,9 @@ curl -s "$EP/status/" -H "Authorization: Bearer $TOKEN"
 It answers 503 when any enabled check other than `affinities` is `down`.
 
 `GET /status/` always contains `api_version`, `organization`, `ep_name`,
-`group_based_access`, `local_catalog_backend`, `backend_connected`,
+`local_catalog_backend`, `backend_connected`,
 `pre_ckan_enabled`, `kafka_enabled`, `jupyterlab_enabled`, `s3_enabled`,
-`access_requests_enabled`, `auth_api_url`, `metrics_endpoint`,
+`access_requests_enabled`, `keycloak_url`, `metrics_endpoint`,
 `metrics_interval_seconds` and `is_public`; plus `pre_ckan_connected`,
 `kafka_host`/`kafka_port`, `jupyterlab_url` and `s3_connected` when the
 corresponding feature is on.
@@ -191,7 +196,7 @@ corresponding feature is on.
 Other status routes (token required): `GET /status/metrics` (system metrics
 and service status), `GET /status/kafka-details` (`kafka_host`, `kafka_port`,
 `kafka_connection`, `kafka_prefix`, `max_streams`), `GET /status/jupyter`
-(`jupyter_url`), `GET /status/rexec` (`deployment_api_url`, writer role).
+(`jupyter_url`), `GET /status/rexec` (`deployment_api_url`, writer tier).
 
 ---
 
@@ -565,7 +570,7 @@ curl -s -X PATCH "$EP/dataset/<dataset_id>/resource/<resource_id>" \
 
 ## Deleting
 
-All require the writer role, answer 200 with a `message`, and 404 when the
+All require the writer tier, answer 200 with a `message`, and 404 when the
 target does not exist.
 
 | Route | Deletes |
@@ -584,7 +589,7 @@ curl -s -X DELETE "$EP/organization/research_team?cascade=false" -H "Authorizati
 
 ## S3 buckets and objects
 
-Mounted only with `S3_ENABLED=True`; **every route requires the writer role**.
+Mounted only with `S3_ENABLED=True`; **every route requires the writer tier**.
 `503 S3 service is not configured` means the endpoint or keys are empty.
 Setup: [minio-setup.md](minio-setup.md).
 
@@ -646,7 +651,7 @@ host.
 ## Pelican
 
 Mounted only with `PELICAN_ENABLED=True`; every route requires the viewer
-role, and `POST /pelican/import-metadata` the writer role.
+tier, and `POST /pelican/import-metadata` the writer tier.
 
 | Route | Purpose |
 |---|---|

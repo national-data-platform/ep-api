@@ -1,9 +1,9 @@
 # Publishing data
 
-Publishing on an Endpoint requires the **writer** (or admin) role — see
+Publishing on an Endpoint requires the **writer** (or admin) tier — see
 [Requesting access and the role tiers](02-requesting-access-and-roles.md).
 
-With that role, the navigation bar shows a **`+ New`** menu. It has seven
+With that tier, the navigation bar shows a **`+ New`** menu. It has seven
 entries, and each one appears only when the part of the Endpoint it needs is
 configured, so the menu never offers something that cannot work:
 

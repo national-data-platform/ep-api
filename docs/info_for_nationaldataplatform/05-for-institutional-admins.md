@@ -75,8 +75,8 @@ needs from the Federation.
 The installer then:
 
 - renders `.env` from the documented `example.env`, applying the answers and
-  the registration: the Endpoint's group (`GROUP_NAMES`, which gates who may
-  enter), the staging-catalog URL, token and organization (`PRE_CKAN_*`),
+  the registration: the Endpoint's Keycloak client (`AUTHZ_CLIENT_ID`, whose
+  gates decide who may enter and what they may do), the staging-catalog URL, token and organization (`PRE_CKAN_*`),
   whether it is listed (`IS_PUBLIC`), and where to send metrics
   (`METRICS_ENDPOINT`);
 - picks the Docker Compose profiles that match (`mongodb`, `s3`, `kafka`);
@@ -94,17 +94,20 @@ is up to you; `ROOT_PATH` serves it under a path prefix if needed.
 
 ## Administrators of the Endpoint
 
-The Endpoint treats as **admin** anyone holding the per-Endpoint role
-`group:<endpoint group>:admin` or the platform-wide `ndp_admin` role; admins
-see the Dashboard and, with access requests enabled, the Access Requests page.
-The registration makes the registering operator the administrator of the
-Endpoint's group in the identity provider (Federation side; see its
-documentation). A token issued before the registration does not carry the new
-group: sign in with a fresh one.
+The Endpoint treats as **admin** anyone in the `admins` level of the
+Endpoint's group (`ndp_ep/ep-<config-id>/admins`) or holding the
+platform-wide `ndp_admin` role; Keycloak decides it through the Endpoint's
+client (`AUTHZ_CLIENT_ID`). Admins see the Dashboard and, with access
+requests enabled, the Access Requests page. The registration makes the
+registering operator an administrator of the Endpoint's group in the identity
+provider (Federation side; see its documentation), effective straight away.
 
 With access requests enabled, users who are refused entry can ask for access,
-and an admin approves them from the UI; since 0.34.46 approval adds them to
-the Endpoint's group and, for writer or admin, assigns the role on it. See
+and an admin approves them from the UI: approval adds them to the Endpoint's
+group at the level picked. The AAI API that makes the change checks the
+approving admin's realm role `group:ndp_ep/ep-<config-id>:admin` (or
+`ndp_admin`) rather than the level, so an admin added to `admins` by hand in
+the Keycloak console also needs that role. See
 [Requesting access and the role tiers](02-requesting-access-and-roles.md).
 
 ## What runs day to day

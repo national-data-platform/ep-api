@@ -54,8 +54,7 @@ Federation. A walk-through for operators is in
 
 Without a configuration id, an interactive run offers to register the Endpoint.
 Registration (`POST /ep/simple` on the Federation) creates this Endpoint's
-**Keycloak client and group**, which is what the group-based access control is
-keyed on. It also fetches a staging-catalog token and registers the Endpoint in
+**Keycloak client and group**, whose permission gates decide who may read, write and administer it. It also fetches a staging-catalog token and registers the Endpoint in
 Affinities.
 
 It needs your NDP access token, from your user panel on the platform. The user
