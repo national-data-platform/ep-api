@@ -104,7 +104,7 @@ staging-catalog checks.
 | `PRE_CKAN_ENABLED=False` | Works | **400** — "PRE-CKAN is disabled and cannot be used" |
 | `CKAN_LOCAL_ENABLED=False` | **404** — the route is not mounted | **404** — same |
 | `LOCAL_CATALOG_BACKEND=none` | **404** — nothing to write to | **404** |
-| Token refused by the authentication service | **401** when it answers 401, 403, or 200 with an `error`; **502** for any other status, including 400 | same |
+| Token refused by the authentication service | **401** when it answers 400, 401, 403, or 200 with an `error`; **502** for any other status | same |
 | Group access on, user outside the group | **403** | **403** |
 | User with no writer or admin role | **403** | **403** |
 | Dataset id or name not in the local catalog | — | **404** — "Dataset not found in local catalog" |

@@ -96,3 +96,26 @@ def test_valid_token_returns_user_info():
     ):
         info = _call()
     assert info["sub"] == "abc"
+
+
+def test_auth_service_400_is_401_not_502():
+    """
+    The auth service answers 400 for a token it cannot decode (issue #384).
+    That is a rejected token, so a client knows to log in again or refresh,
+    not an upstream failure.
+    """
+    with patch(
+        "api.services.auth_services.get_current_user.requests.post",
+        return_value=_resp(
+            400,
+            {
+                "error": "Failed to decode token",
+                "details": "Invalid token: Not enough segments",
+            },
+        ),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            _call()
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc.value.headers == {"WWW-Authenticate": "Bearer"}
+    assert "Failed to decode token" in exc.value.detail

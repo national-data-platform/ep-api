@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.66] - 2026-11-02
+
+### Fixed
+- **A token the authentication service cannot decode is a 401, not a 502.** The authentication service answers 400 for a malformed or unknown token (`{"error": "Failed to decode token", ...}`), and anything other than 401, 403 or 500 was reported as `502 Bad Gateway`, so a client saw a server failure for a rejected token and could not tell that it had to log in again or refresh. A 400 now answers `401 Unauthorized` with `WWW-Authenticate: Bearer` and the service's reason; 502 stays for an unreachable service, 5xx and unexpected answers. New test in `tests/test_get_current_user_errors.py` (#384).
+
 ## [0.34.65] - 2026-11-02
 
 ### Security

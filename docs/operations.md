@@ -262,9 +262,11 @@ recreate it with `EP_API_PORT=<port> docker compose up -d --force-recreate api`
 **401, 403 or 502 on authenticated routes.** Tokens are validated against
 `AUTH_API_URL` (`api/services/auth_services/get_current_user.py`):
 
-- 401 — the authentication service rejected the token (invalid or expired).
-- 502 — the authentication service could not be reached or answered with an
-  error. Check `AUTH_API_URL` and outbound access from the host.
+- 401 — the authentication service rejected the token (invalid or expired):
+  it answered 400, 401, 403, or 200 with an `error`.
+- 502 — the authentication service could not be reached, failed (5xx) or
+  answered something unexpected. Check `AUTH_API_URL` and outbound access from
+  the host.
 - 403 on a write — the user is not allowed to write on this Endpoint. With
   `ENABLE_GROUP_BASED_ACCESS=True` the user must hold `ndp_admin`, belong to
   the group named by `AFFINITIES_EP_UUID`, or belong to one of `GROUP_NAMES`;
