@@ -1522,7 +1522,14 @@ if interactive; then
     "authenticates users, searches the platform's global catalog and is" \
     "listed in the Federation. It is the quickest one to stand up, and a" \
     "catalog can be added later by running this again."
-  choose backend_choice "Which local catalog should this Endpoint use?" 1 \
+  # Offer what --backend (or the remembered settings) already chose, so
+  # pressing Enter keeps it instead of switching to None (issue #366).
+  case "$backend" in
+    mongodb) if [[ -n "$mongodb_url" ]]; then backend_default=3; else backend_default=2; fi ;;
+    ckan)    if [[ -n "$ckan_url" ]]; then backend_default=5; else backend_default=4; fi ;;
+    *)       backend_default=1 ;;
+  esac
+  choose backend_choice "Which local catalog should this Endpoint use?" "$backend_default" \
     "None — nothing is stored locally (quickest)" \
     "MongoDB, installed alongside the Endpoint" \
     "MongoDB, one I already have" \
@@ -1536,16 +1543,18 @@ if interactive; then
          "Connect to a MongoDB you already run, instead of installing one." \
          "Give its connection string, reachable from the Endpoint container."
        ask mongodb_url "MongoDB connection string" \
-         "mongodb://host.docker.internal:27017"
+         "${mongodb_url:-mongodb://host.docker.internal:27017}"
        ;;
     4) backend="ckan"; ckan_url="" ;;
     5) backend="ckan"
        section "Existing CKAN" \
          "Connect to a CKAN you already run. The key is verified before" \
          "anything is written."
-       ask ckan_url       "CKAN URL" ""
-       ask_secret ckan_api_key "CKAN API key (not shown)"
-       ask ckan_sysadmin  "CKAN username that key belongs to (blank to skip verifying it)" ""
+       ask ckan_url       "CKAN URL" "$ckan_url"
+       # A key given with --ckan-api-key is kept; asking would replace it
+       # with whatever is typed, or nothing.
+       [[ -n "$ckan_api_key" ]] || ask_secret ckan_api_key "CKAN API key (not shown)"
+       ask ckan_sysadmin  "CKAN username that key belongs to (blank to skip verifying it)" "$ckan_sysadmin"
        ;;
   esac
 
