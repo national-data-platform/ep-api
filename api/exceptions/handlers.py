@@ -3,7 +3,7 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Union
+from typing import Dict, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -20,6 +20,7 @@ def _build_error_response(
     detail: Union[str, dict, list],
     status_code: int,
     request: Request,
+    headers: Optional[Dict[str, str]] = None,
 ) -> JSONResponse:
     """
     Build a standardized error response.
@@ -34,6 +35,8 @@ def _build_error_response(
         HTTP status code.
     request : Request
         The original request.
+    headers : Optional[Dict[str, str]]
+        Response headers, e.g. ``WWW-Authenticate`` on a 401.
 
     Returns
     -------
@@ -50,7 +53,7 @@ def _build_error_response(
         "path": str(request.url.path),
     }
 
-    return JSONResponse(status_code=status_code, content=response_body)
+    return JSONResponse(status_code=status_code, content=response_body, headers=headers)
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
@@ -94,11 +97,14 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     elif exc.status_code >= 400:
         logger.warning(log_message)
 
+    # Keep the exception's headers (e.g. WWW-Authenticate on a 401); they
+    # were dropped before (issue #387).
     return _build_error_response(
         error_type=error_type,
         detail=exc.detail,
         status_code=exc.status_code,
         request=request,
+        headers=exc.headers,
     )
 
 

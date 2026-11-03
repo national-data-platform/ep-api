@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.67] - 2026-11-03
+
+### Fixed
+- **Error responses keep their headers.** The `HTTPException` handler rebuilt every error as a new JSON response from the status and detail only, so headers set on the exception were dropped. The visible one was `WWW-Authenticate: Bearer`, which `get_current_user` sets on every 401 and which never reached the client, so a 401 did not say which scheme to use (RFC 6750). The handler now passes the exception's headers through. New tests in `tests/test_exception_headers.py`. Verified against the production identity API: a rejected token got `401` without the header on 0.34.66 and `401` with `WWW-Authenticate: Bearer` with this version (#387).
+
 ## [0.34.66] - 2026-11-02
 
 ### Fixed
