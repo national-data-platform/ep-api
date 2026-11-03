@@ -2324,6 +2324,9 @@ installer_version="$(git -C "$REPO_ROOT" describe --tags --always 2>/dev/null ||
 [[ "$dry_run" == "true" ]] || state_set INSTALLER_SHA256 "$(sha256sum "$REPO_ROOT/install/install.sh" | cut -d' ' -f1)"
 # The published port, which status and start report (issue #372).
 [[ "$dry_run" == "true" ]] || state_set EP_API_PORT "$ep_api_port"
+# And in .env, so a plain `docker compose up` in the checkout publishes the
+# same port instead of the default 8002 (issue #370).
+put EP_API_PORT "$ep_api_port"
 
 # --------------------------------------------------------------
 step "Rendering .env from example.env"

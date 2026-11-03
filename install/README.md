@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v0.34.68   # the release to install
+V=v0.34.69   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]
@@ -398,8 +398,9 @@ the `timeout` command (coreutils) there is no limit, and the installer says so.
 ## How it works
 
 **It never edits files in this repository.** The published port is set with
-`EP_API_PORT`, which `docker-compose.yml` reads (`"${EP_API_PORT:-8002}:80"`),
-and optional services with compose profiles.
+`EP_API_PORT`, which `docker-compose.yml` reads (`"${EP_API_PORT:-8002}:80"`)
+and the installer also writes to `.env`, so a plain `docker compose up` keeps
+it; optional services are chosen with compose profiles.
 
 **It has no list of settings of its own.** `.env` is rendered from
 `example.env` by `install/render_env.py`, which keeps every comment and

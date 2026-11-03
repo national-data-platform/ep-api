@@ -105,8 +105,10 @@ git fetch --tags && git checkout vX.Y.Z
 EP_API_PORT=<port> docker compose --profile <profile> ... up -d --build
 ```
 
-`EP_API_PORT` is not stored in `.env`; without it the API is published on
-8002. Pass the same profiles the installation uses, or their containers are
+Since 0.34.69 the installer writes `EP_API_PORT` to `.env`, so the prefix can
+be left out; an Endpoint installed earlier has it only in `.env.install-state`,
+and without the prefix its API is published on 8002 (running the installer
+again writes it). Pass the same profiles the installation uses, or their containers are
 left as they are.
 
 The image is also published on Docker Hub as `rbardaji/ndp-ep-api:<version>`
@@ -256,7 +258,9 @@ for features that are switched on (`api/main.py`):
 
 The UI hides its S3, streaming and catalog entries according to `GET /status/`.
 Settings are read when the container is created: after changing `.env`,
-recreate it with `EP_API_PORT=<port> docker compose up -d --force-recreate api`
+recreate it with `docker compose up -d --force-recreate api` (prefix
+`EP_API_PORT=<port>` on an Endpoint installed before 0.34.69, whose `.env`
+does not hold its port)
 (`docker compose restart` keeps the old environment).
 
 **401, 403 or 502 on authenticated routes.** Tokens are validated against
