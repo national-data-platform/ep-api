@@ -2026,7 +2026,17 @@ PY
     [[ -r "$key_file" ]] \
       || { netbird_stop "Cannot read the NetBird setup key file: $key_file" || return 1; }
     joined="yes"
-    "${netbird_sudo[@]}" netbird up --management-url "$netbird_url" \
+    # NetBird resolves the sudo invoking user (SUDO_USER) from local accounts
+    # only and refuses to go on when it cannot, so a directory (LDAP/SSSD)
+    # account could not join. Without the sudo user variables it joins as
+    # root, which is what the service runs as anyway (issue #369).
+    netbird_up_env=()
+    invoking_user="${SUDO_USER:-$(id -un)}"
+    if [[ ${#netbird_sudo[@]} -gt 0 || -n "${SUDO_USER:-}" ]] \
+       && ! grep -q "^${invoking_user}:" /etc/passwd 2>/dev/null; then
+      netbird_up_env=(env -u SUDO_USER -u SUDO_UID -u SUDO_GID)
+    fi
+    "${netbird_sudo[@]}" "${netbird_up_env[@]}" netbird up --management-url "$netbird_url" \
       --setup-key-file "$key_file" || joined="no"
     [[ -n "$temp_key" ]] && rm -f "$temp_key"
     [[ "$joined" == "yes" ]] \

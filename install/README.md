@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v0.34.70   # the release to install
+V=v0.34.71   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]
@@ -217,7 +217,10 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
   to a newer client, replace both lines of that file with the new release's
   checksums. If the machine is
   not connected yet, it runs `netbird up --management-url <url>
-  --setup-key-file <file>` (`sudo`). The key comes from the Federation (1.12.10
+  --setup-key-file <file>` (`sudo`; for an account that is not in
+  `/etc/passwd`, such as an LDAP/SSSD directory account, without the sudo user
+  variables, which NetBird cannot resolve for such accounts). The key comes
+  from the Federation (1.12.10
   or later), which hands it only to the owner of the configuration: the
   installer asks for your NDP access token (hidden; `--ndp-token-file <path>`
   for unattended runs) and fetches it, so you never need to know the key
