@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.71] - 2026-11-03
+
+### Fixed
+- **NetBird joins when the person installing has a directory account.** NetBird's CLI resolves the sudo invoking user (`SUDO_USER`) from local accounts only and refuses to go on when it cannot, so on a host whose users come from LDAP/SSSD (not in `/etc/passwd`), as on CHPC machines, `sudo netbird up` failed with "resolve sudo invoking user …: refusing to fall back to root": the installer stopped with `--netbird`, or carried on without NetBird by default. For such an account the installer now runs `netbird up` without the sudo user variables (`env -u SUDO_USER -u SUDO_UID -u SUDO_GID`), the command that joined by hand on ndp-prod-248; local accounts are unchanged. New tests in `install/tests/test_netbird_directory_account.py`, with a `netbird` stub that fails the way the real client does. Not run against a real directory account here: that needs a host like ndp-prod-248 (#369).
+
 ## [0.34.70] - 2026-11-03
 
 ### Fixed
