@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.70] - 2026-11-03
+
+### Fixed
+- **In a terminal, the catalog question keeps what `--backend` chose.** "Which local catalog should this Endpoint use?" always offered 1 (None), so `install.sh --backend mongodb` (or `ckan`) run interactively switched to no catalog when the operator pressed Enter. The default now follows `--backend`, and `--mongodb-url` / `--ckan-url` for an existing one, as well as the remembered settings; for an existing MongoDB or CKAN the URL and CKAN username given on the command line are offered as defaults, and a key given with `--ckan-api-key` is no longer asked for again (and so no longer replaced by an empty answer). New tests in `install/tests/test_backend_flag_interactive.py`, which drive the installer on a pseudo-terminal. Verified with a real interactive install on this machine (`--instance t366 --backend mongodb`, Enter at every question): the question offered `[2]` and the Endpoint came up with `LOCAL_CATALOG_BACKEND=mongodb` and its MongoDB container; v0.34.69 offered `[1]` for the same command (#366).
+
 ## [0.34.69] - 2026-11-03
 
 ### Fixed
