@@ -323,8 +323,11 @@ the install state, writes it to `.env` and restarts the Endpoint with it.
   `minioadmin` / `minioadmin123` — and the installer warns about it on every
   run; see [Changing the bundled MongoDB password](#changing-the-bundled-mongodb-password).
   Started by hand from `docker-compose.yml` without those variables in `.env`,
-  the services still get the demo values. The JupyterLab token is
-  `testing_token`.
+  the services still get the demo values. The JupyterLab of the `jupyter`
+  profile takes its token from `JUPYTER_TOKEN` in `.env`; left empty, it
+  generates a random one at start (`docker compose logs jupyterlab | grep
+  token`). Before 0.34.68 it used the public `testing_token`; a JupyterLab
+  started earlier keeps it until its container is recreated.
 - **CORS** is fully open: `api/main.py` allows every origin, method and header,
   with credentials.
 - **Published ports.** `docker-compose.yml` publishes MongoDB (27018), MinIO
