@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.69] - 2026-11-03
+
+### Fixed
+- **A restarted Endpoint keeps its port.** The installer passed the Endpoint's host port (`EP_API_PORT`) only on the `docker compose` command line, so restarting or recreating the Endpoint by hand with `docker compose up` in its checkout published it on the default 8002: with two Endpoints on a host the second one failed with "port is already allocated", and a single Endpoint on another port would move silently. The installer now also writes `EP_API_PORT` to `.env` (documented in `example.env`), as it already did for the other host ports of a named instance. An Endpoint installed earlier gets it the next time the installer runs. New tests in `install/tests/test_ep_api_port_in_env.py`. Verified with a real install on this machine (`--instance t370 --ep-api-port 8170`, next to an Endpoint on 8002): `docker compose up -d --force-recreate api` without the port kept it on 8170; with `EP_API_PORT` removed from `.env`, as earlier versions left it, the same command failed with "Bind for :::8002 failed: port is already allocated" (#370).
+
 ## [0.34.68] - 2026-11-03
 
 ### Security
