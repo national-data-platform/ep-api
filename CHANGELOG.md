@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.68] - 2026-11-03
+
+### Security
+- **The bundled JupyterLab no longer uses a public token.** `docker-compose.yml` started the JupyterLab of the `jupyter` and `full` profiles with `JUPYTER_TOKEN: testing_token` and `--NotebookApp.token='testing_token'`, a value published in this repository, so anyone who could reach its port (8888, published on every interface) could run code in the container. The token now comes from `JUPYTER_TOKEN` in `.env` (new in `example.env`, empty); left empty, JupyterLab generates a random token at start and prints it in its log. The installer does not start JupyterLab, so it does not set one. A JupyterLab started earlier keeps `testing_token` until its container is recreated. New tests in `tests/test_compose_jupyter_token.py`. Verified with the real image: with `JUPYTER_TOKEN` empty, `testing_token` was refused (403) and the token from the log accepted; with `JUPYTER_TOKEN` set, only that value was accepted; the previous compose file accepted `testing_token` (#388).
+
 ## [0.34.67] - 2026-11-03
 
 ### Fixed

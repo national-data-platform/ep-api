@@ -108,6 +108,13 @@ also mounts `GET /status/jupyter` and adds the URL to `/status/` and the metrics
 report; the API never calls it. **Where:** set `USE_JUPYTERLAB=True`
 and `JUPYTER_URL` to your JupyterLab instance if you offer one.
 
+#### `JUPYTER_TOKEN`
+*Optional · default: empty.*
+Token of the JupyterLab that `docker-compose.yml` starts with the `jupyter` or
+`full` profile; the API does not read it. Left empty, JupyterLab generates a
+random token at start (`docker compose logs jupyterlab | grep token`).
+**Where:** set it only if you want a fixed token, and never a published value.
+
 #### `SWAGGER_TITLE` / `SWAGGER_DESCRIPTION` / `SWAGGER_VERSION`
 *Advanced · usually leave default.*
 Metadata shown on the `/docs` (Swagger) page. `SWAGGER_VERSION` tracks the release
