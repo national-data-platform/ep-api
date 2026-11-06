@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Keycloak decides every permission.** Each guarded route asks Keycloak, with the caller's own token, whether they pass a gate of the Endpoint's client (`AUTHZ_CLIENT_ID`, `ep-<config-id>`): `admin-area`, `editor-area` or `viewer-area`, which follow the user's level (`admins`, `editors`, `viewers`) in the Endpoint's group `ndp_ep/ep-<config-id>`. It is the same decision call the Federation makes. The `roles` and `groups` the AAI API reports no longer count. The route dependencies are the gates themselves, `ep_admin_gate`, `ep_editor_gate` and `ep_viewer_gate` in `api/services/auth_services/ep_access_gate.py`; `authorization_service.py` and its role-name matchers are removed. `/user/info` reports `effective_role` from the gates and, when `AUTHZ_CLIENT_ID` is set, lets in only users with a level.
+- **One identity-provider setting, `KEYCLOAK_URL`.** The AAI API (`<KEYCLOAK_URL>/api`) and the realm (`<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`) are derived from it. `AUTH_API_URL` is still read when it is not set, keeping only its host. This also fixes username/password login and access-request approval, which were sent to paths that answer 404.
+- **Approving an access request** adds the user to `ndp_ep/<AUTHZ_CLIENT_ID>` at the tier's level (`viewer`, `editor` for writer, `admin`) with one `/group/add-user` call.
+- **The installer** asks for the identity provider's host and writes `KEYCLOAK_URL`, and writes `AUTHZ_CLIENT_ID` and `AUTHZ_REALM` from the Federation registration when it names this Endpoint's own client.
+- **`GET /status/`** reports `keycloak_url` instead of `auth_api_url`, and no longer `group_based_access`.
+
+- **Writing to S3 needs the Endpoint's `admin-area` gate.** Creating and deleting buckets, uploading, presigned upload URLs and deleting objects were open to editors; the routes that read (listing, metadata, download, presigned download) keep `editor-area`. Tests in `tests/test_minio_routes_auth.py`.
+
+### Removed
+- `GROUP_NAMES` and `ENABLE_GROUP_BASED_ACCESS`: the group follows from `AUTHZ_CLIENT_ID`, and the entry check applies whenever it is set. `GROUP_NAMES` is still read when `AUTHZ_CLIENT_ID` is empty: an entry `ndp_ep/ep-<config-id>` gives `AUTHZ_CLIENT_ID=ep-<config-id>`, with a warning in the log, so an Endpoint installed before this release keeps its permissions after upgrading instead of answering 403 to everyone. New tests in `tests/test_authz_client_from_group_names.py`.
+
+**Breaking:** without `AUTHZ_CLIENT_ID` every guarded route answers 403 and approval answers 503; an Endpoint registered before the Federation linked clients to groups needs its client linked first (the AAI's `tools/adopt_client.py`). Users who could write only through a realm role (`ndp_writer`, `group:<g>:writer`) are refused until they hold the editor or admin level.
+
 ## [0.34.73] - 2026-11-06
 
 ### Fixed

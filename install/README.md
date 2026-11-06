@@ -54,8 +54,7 @@ Federation. A walk-through for operators is in
 
 Without a configuration id, an interactive run offers to register the Endpoint.
 Registration (`POST /ep/simple` on the Federation) creates this Endpoint's
-**Keycloak client and group**, which is what the group-based access control is
-keyed on. It also fetches a staging-catalog token and registers the Endpoint in
+**Keycloak client and group**, whose permission gates decide who may read, write and administer it. It also fetches a staging-catalog token and registers the Endpoint in
 Affinities.
 
 It needs your NDP access token, from your user panel on the platform. The user
@@ -78,7 +77,7 @@ From the registration the installer sets:
 | Registration field | `.env` |
 |---|---|
 | organization, endpoint name | `ORGANIZATION`, `EP_NAME` |
-| group | `ENABLE_GROUP_BASED_ACCESS=True`, `GROUP_NAMES=<group>` |
+| Keycloak client and realm | `AUTHZ_CLIENT_ID=ep-<config-id>`, `AUTHZ_REALM` (only when the client is this Endpoint's own) |
 | streaming | `KAFKA_CONNECTION=True` and the `kafka` compose profile |
 | JupyterHub | `USE_JUPYTERLAB=True`, `JUPYTER_URL` |
 | staging catalog URL and key | `PRE_CKAN_ENABLED=True`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY`, `PRE_CKAN_ORGANIZATION=ep-<config-id>` |
@@ -165,8 +164,8 @@ screen, and an administrator approves or rejects it from the UI. Requests are
 stored in MongoDB, read through `MONGODB_CONNECTION_STRING`, whatever the
 catalog is — so answering yes (or `--access-requests`) also starts the bundled
 MongoDB unless the catalog already provides one, and points the Endpoint at it.
-Approval grants membership of the first `GROUP_NAMES` entry, which for a
-registered Endpoint is the group the Federation created for it.
+Approval grants membership of the group the Federation created with the
+Endpoint's client, `ndp_ep/<AUTHZ_CLIENT_ID>`.
 
 The `mongo-express` administration console in the compose file has its own
 profile and is never started by the installer — it exposes the whole database
@@ -457,8 +456,8 @@ are what gets tested.
   started.
 - **Identity-provider sign-in is not offered**, and the installer leaves
   `OIDC_ENABLED=False`. The client a registration creates is confidential, so
-  the browser's code exchange is refused, and its tokens carry no `sub` claim,
-  which `AUTH_API_URL` looks the user up by. The installer reports the client
-  id and stops there. The `OIDC_*` settings are read by the API, so a
-  deployment with a working public client can switch it on by hand. See
+  the browser's code exchange (PKCE, which needs a public client) is refused.
+  The installer writes it to `AUTHZ_CLIENT_ID`, where it decides permissions,
+  and not to `OIDC_CLIENT_ID`. The `OIDC_*` settings are read by the API, so
+  a deployment with a working public client can switch it on by hand. See
   [docs/configuration.md](../docs/configuration.md).

@@ -1,20 +1,19 @@
 # api/services/auth_services/aai_client.py
 """
-Thin client for the NDP AAI API (``auth_api_url`` base).
+Thin client for the NDP AAI API (``aai_api_url``).
 
 The AAI API is authoritative for group and role writes in Keycloak. This
-module only exposes the few operations the access-request workflow needs:
-adding a user to a group, assigning a role and listing group members.
+module wraps two of its operations: adding a user to a group at a
+permission level, which access-request approval uses, and listing group
+members.
 
-Every call is made on behalf of an already-authenticated ep-api user — the
-caller provides the user's bearer token. The AAI API validates the token and
-checks the caller's roles (``ndp_admin`` or scoped ``group:<path>:admin``),
-so no service account lives on the ep-api side.
+Every call is made with the caller's own bearer token, and the AAI API
+decides by the caller's realm roles (``ndp_admin`` or
+``group:<path>:<level>``), so no service account lives on the ep-api side.
 """
 
 import logging
 from typing import Any, Dict, List
-from urllib.parse import urlparse
 
 import requests
 from fastapi import HTTPException, status
@@ -22,17 +21,6 @@ from fastapi import HTTPException, status
 from api.config.swagger_settings import swagger_settings
 
 logger = logging.getLogger(__name__)
-
-
-def _aai_base_url() -> str:
-    """Return the base URL of the AAI API (scheme + host + optional port)."""
-    parsed = urlparse(swagger_settings.auth_api_url)
-    if not parsed.scheme or not parsed.netloc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Authentication service URL is not configured correctly.",
-        )
-    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 def _forward_aai_error(response: requests.Response, fallback: str) -> None:
@@ -67,7 +55,7 @@ def _forward_aai_error(response: requests.Response, fallback: str) -> None:
 
 
 def _post(path: str, admin_token: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    url = f"{_aai_base_url()}{path}"
+    url = f"{swagger_settings.aai_api_url}{path}"
     try:
         response = requests.post(
             url,
@@ -93,7 +81,7 @@ def _post(path: str, admin_token: str, payload: Dict[str, Any]) -> Dict[str, Any
 
 
 def _get(path: str, admin_token: str, params: Dict[str, Any]) -> Any:
-    url = f"{_aai_base_url()}{path}"
+    url = f"{swagger_settings.aai_api_url}{path}"
     try:
         response = requests.get(
             url,
@@ -119,43 +107,22 @@ def _get(path: str, admin_token: str, params: Dict[str, Any]) -> Any:
 
 
 def add_user_to_group(
-    admin_token: str, group_name: str, username: str
+    admin_token: str, group_name: str, username: str, role: str = "viewer"
 ) -> Dict[str, Any]:
     """
-    Add ``username`` to the group identified by ``group_name``.
+    Add ``username`` to ``group_name`` at ``role``, one of the group's
+    permission levels (``admin``, ``editor`` or ``viewer``).
 
-    Uses the admin's own bearer token; the AAI API enforces that the caller
-    has ``ndp_admin`` or at least ``editor`` on the target group.
+    The AAI API also makes the user a member of the group and assigns the
+    realm role ``group:<group>:<role>``. It accepts the caller's own token
+    when they hold ``ndp_admin`` or the realm role ``group:<group or a
+    parent>:editor`` or ``:admin`` (``group:<group>:admin`` to grant
+    ``admin``); membership of ``<group>/admins`` alone is not enough.
     """
     return _post(
         "/group/add-user",
         admin_token,
-        {"group_name": group_name, "username": username},
-    )
-
-
-def assign_role(
-    admin_token: str,
-    role_level: str,
-    username: str,
-    group_name: str,
-) -> Dict[str, Any]:
-    """
-    Assign a per-group role to ``username`` on ``group_name``.
-
-    The AAI expects ``role_level`` to be the bare tier name (``"admin"``,
-    ``"writer"``, ``"viewer"``) — it concatenates ``group:{group_name}:``
-    on its own. Passing the fully-qualified ``group:UUID:writer`` form
-    causes the AAI to double-prefix and the call fails with HTTP 500.
-    """
-    return _post(
-        "/role/assign",
-        admin_token,
-        {
-            "role_name": role_level,
-            "username": username,
-            "group_name": group_name,
-        },
+        {"group_name": group_name, "username": username, "role": role},
     )
 
 

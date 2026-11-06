@@ -21,8 +21,8 @@ The unattended equivalent is:
 
 With `--yes` no prompt is shown at all, so organization and name are not
 asked: `.env` keeps `example.env`'s demo values `ORGANIZATION-DEMO` and
-`EP-DEMO`, and no `AUTH_API_URL` override is written (`example.env`'s value
-is the same NDP AAI URL). That run sets 15 values instead of 18; everything
+`EP-DEMO`, and no `KEYCLOAK_URL` override is written (`example.env`'s value
+is the same NDP host). That run sets 16 values instead of 19; everything
 else below is the same.
 
 ## The sequence
@@ -84,7 +84,7 @@ sequenceDiagram
     end
 
     Installer->>Render: example.env + the answers
-    Render-->>Installer: .env (18 values set)
+    Render-->>Installer: .env (19 values set)
     Note over Render: Every variable comes from example.env,<br/>so nothing new is missed
 
     Installer->>AAI: POST with an invalid token
@@ -124,8 +124,9 @@ METRICS_ENDPOINT=https://federation.ndp.utah.edu/metrics/
 NETBIRD_ENABLED=False
 NETBIRD_IP=
 NETBIRD_GROUP=
-ENABLE_GROUP_BASED_ACCESS=False
-GROUP_NAMES=
+KEYCLOAK_URL=https://idp.nationaldataplatform.org
+AUTHZ_CLIENT_ID=
+AUTHZ_REALM=NDP
 ENABLE_ACCESS_REQUESTS=False
 ACCESS_REQUESTS_COLLECTION=access_requests
 LOCAL_CATALOG_BACKEND=none
@@ -144,8 +145,7 @@ KAFKA_CONNECTION=False
 KAFKA_HOST=kafka
 KAFKA_PORT=9093
 MAX_STREAMS=10
-TEST_TOKEN=testing_token
-AUTH_API_URL=https://idp.nationaldataplatform.org/temp/information
+TEST_TOKEN=
 OIDC_ENABLED=False
 USE_JUPYTERLAB=False
 JUPYTER_URL=http://jupyterlab:8888
@@ -173,23 +173,21 @@ AFFINITIES_EP_UUID=
 AFFINITIES_TIMEOUT=30
 ```
 
-The 18 values the installer set:
+The 19 values the installer set:
 
 | Variable | Value | Why |
 |---|---|---|
 | `ORGANIZATION`, `EP_NAME` | `My-Organization`, `my_endpoint` | The answers given at the prompt |
-| `AUTH_API_URL` | NDP AAI | The answer given at the prompt: where login tokens are validated |
+| `KEYCLOAK_URL` | NDP identity provider | The answer given at the prompt: where tokens are validated and permissions asked |
 | `METRICS_ENDPOINT` | `<federation-url>/metrics/` | Written on every install for the Federation the run was pointed at (production by default) |
 | `LOCAL_CATALOG_BACKEND` | `none` | No local catalog |
 | `CKAN_LOCAL_ENABLED` | `False` | Leaves the routes that write to a local catalog unmounted |
 | `CKAN_URL`, `CKAN_API_KEY`, `MONGODB_CONNECTION_STRING` | empty | Nothing must point at a service that was not installed |
 | `IS_PUBLIC` | `False` | No registration, so nothing is reported to the Federation |
 | `KAFKA_CONNECTION`, `S3_ENABLED`, `USE_JUPYTERLAB`, `PELICAN_ENABLED`, `AFFINITIES_ENABLED`, `REXEC_CONNECTION`, `PRE_CKAN_ENABLED`, `OIDC_ENABLED` | `False` | `example.env` is a demo with several integrations on; a fresh install provisions none of them |
+| `TEST_TOKEN` | empty | Keeps the development bypass token off, whatever `example.env` says |
 
-Everything else is `example.env`'s documented default, untouched. One of those
-defaults is worth knowing: **`TEST_TOKEN=testing_token`** is a development
-convenience that is accepted as a token with the `ndp_admin` role. Change it,
-or clear it, on anything reachable by others.
+Everything else is `example.env`'s documented default, untouched.
 
 The port is not in `.env`: it is passed to Docker Compose as `EP_API_PORT`
 when the stack is started.
@@ -225,7 +223,6 @@ staging catalog is off too, since it travels through the same routes. Nothing
 is posted to the Federation: the Endpoint never registered, so it is not
 public, and metrics stay local to its logs.
 
-Group-based access is off (`ENABLE_GROUP_BASED_ACCESS=False`), so any user the
-AAI accepts can enter; writing still needs a writer role, which on this
-Endpoint can only come from a platform-wide role (`ndp_writer`, `ndp_editor`
-or `ndp_admin`), because no Endpoint group is configured.
+With no Keycloak client (`AUTHZ_CLIENT_ID` is empty), any user the AAI
+accepts can enter, but nobody can write: every permission gate refuses
+without a client to ask about (`TEST_TOKEN` aside).

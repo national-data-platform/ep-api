@@ -263,29 +263,31 @@ recreate it with `docker compose up -d --force-recreate api` (prefix
 does not hold its port)
 (`docker compose restart` keeps the old environment).
 
-**401, 403 or 502 on authenticated routes.** Tokens are validated against
-`AUTH_API_URL` (`api/services/auth_services/get_current_user.py`):
+**401, 403 or 502 on authenticated routes.** Who the user is comes from the
+AAI API on `KEYCLOAK_URL` (`api/services/auth_services/get_current_user.py`), and
+permissions are asked of Keycloak, for the gates of the Endpoint's client
+`AUTHZ_CLIENT_ID` (`api/services/auth_services/ep_access_gate.py`):
 
-- 401 — the authentication service rejected the token (invalid or expired):
-  it answered 400, 401, 403, or 200 with an `error`.
-- 502 — the authentication service could not be reached, failed (5xx) or
-  answered something unexpected. Check `AUTH_API_URL` and outbound access from
-  the host.
-- 403 on a write — the user is not allowed to write on this Endpoint. With
-  `ENABLE_GROUP_BASED_ACCESS=True` the user must hold `ndp_admin`, belong to
-  the group named by `AFFINITIES_EP_UUID`, or belong to one of `GROUP_NAMES`;
-  in every case a write also needs the writer tier or above. Admin-only routes
-  need the admin tier (`ndp_admin`, `group:<AFFINITIES_EP_UUID>:admin` or
-  `<AFFINITIES_EP_UUID>_admin`). The application log records what was
-  required. See [roles-and-permissions.md](roles-and-permissions.md).
+- 401 — the authentication service or Keycloak rejected the token (invalid or
+  expired, or issued by another realm than `AUTHZ_REALM`); the authentication
+  service answered 400, 401, 403, or 200 with an `error`.
+- 502 — the authentication service or Keycloak could not be reached, failed
+  (5xx) or answered something unexpected. Check `KEYCLOAK_URL` and outbound
+  access from the host.
+- 403 — Keycloak did not let the user through the route's gate, named in the
+  response: a write needs `editor-area` (editor or admin of the Endpoint's
+  group), admin-only routes `admin-area`. If **every** user is refused, check
+  that `AUTHZ_CLIENT_ID` is set to this Endpoint's own client and that the
+  client has gates (the decision `curl` in
+  [roles-and-permissions.md](roles-and-permissions.md#check-what-keycloak-decides-for-a-user)
+  answers `400` when it has none).
 
 **Access requests answer 503.** "Access-request workflow is disabled on this
 deployment" means `ENABLE_ACCESS_REQUESTS` is not true. Requests are stored in
 MongoDB through `MONGODB_CONNECTION_STRING`, so that MongoDB must be reachable
 whatever the catalog backend is. Approving a request adds the user to the
-Endpoint's group — the first entry of `GROUP_NAMES`, or `AFFINITIES_EP_UUID`
-when `GROUP_NAMES` is empty — and answers 503 "No endpoint group is configured
-(GROUP_NAMES or AFFINITIES_EP_UUID)" when both are empty.
+Endpoint's group, `ndp_ep/<AUTHZ_CLIENT_ID>`, and answers 503
+"AUTHZ_CLIENT_ID is not set; cannot grant access." without a client.
 
 **Metrics do not reach the Federation.** The report is posted only when
 `IS_PUBLIC=True`; with `False` it is collected and logged and nothing leaves
@@ -313,12 +315,13 @@ the install state, writes it to `.env` and restarts the Endpoint with it.
 
 ## Security checklist for production
 
-- **`TEST_TOKEN`.** Any request carrying it as a bearer token is accepted as a
-  user with the `ndp_admin` role, without contacting the authentication
-  service. Since 0.34.65 it is empty by default and in `example.env`, and the
-  installer always writes it empty. An Endpoint installed earlier has
-  `TEST_TOKEN=testing_token` in its `.env` until the installer is run again;
-  set it to empty (`TEST_TOKEN=`) and recreate the `api` container.
+- **`TEST_TOKEN`.** Any request carrying it as a bearer token is accepted as
+  an administrator that passes every permission gate, without contacting the
+  authentication service or Keycloak. Since 0.34.65 it is empty by default and
+  in `example.env`, and the installer always writes it empty. An Endpoint
+  installed earlier has `TEST_TOKEN=testing_token` in its `.env` until the
+  installer is run again; set it to empty (`TEST_TOKEN=`) and recreate the
+  `api` container.
 - **Bundled credentials.** Since 0.34.62 the installer generates the bundled
   MongoDB's root password (`MONGODB_ROOT_PASSWORD`, also mongo-express's) and
   MinIO's keys (`S3_ACCESS_KEY` / `S3_SECRET_KEY`) per installation and keeps

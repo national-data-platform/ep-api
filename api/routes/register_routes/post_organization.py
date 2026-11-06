@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.models import OrganizationRequest
 from api.services import organization_services
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -69,7 +69,7 @@ async def create_organization_endpoint(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Endpoint to create a new organization in CKAN.

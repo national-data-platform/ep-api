@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from api.config.swagger_settings import swagger_settings
 from api.services.pelican_services.event_protocol import (
     Frame,
     escape_header,
@@ -580,23 +579,21 @@ class TestSubscribeRoute:
     """GET /pelican/subscribe and /pelican/subscriptions."""
 
     @pytest.fixture(autouse=True)
-    def _group_based_access_off(self):
-        """
-        Pin group-based access off rather than inherit it from ``.env``;
-        the simulated users belong to no group (issue #268).
-        """
-        with patch.object(swagger_settings, "enable_group_based_access", False):
-            yield
+    def _keycloak(self, keycloak):
+        """Keycloak grants the simulated user viewer-area, the read gate."""
+        keycloak.grant("viewer")
+        self.keycloak = keycloak
 
     @staticmethod
-    def _client():
+    def _client(token="user-token"):
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
         from api.routes.pelican_routes import router
 
         app = FastAPI()
         app.include_router(router)
-        return app, TestClient(app)
+        headers = {"Authorization": f"Bearer {token}"} if token else None
+        return app, TestClient(app, headers=headers)
 
     @staticmethod
     def _as(roles):
@@ -609,7 +606,7 @@ class TestSubscribeRoute:
 
     def test_requires_authentication(self):
         """The stream inherits the router gate added for issue #261."""
-        _app, client = self._client()
+        _app, client = self._client(token=None)
 
         response = client.get("/pelican/subscribe", params={"event_source": "osdf/pub"})
 

@@ -75,14 +75,14 @@ sequenceDiagram
     Fed-->>Installer: 201, configuration id
     Installer->>Operator: Keep this id — --config-id reproduces this Endpoint
 
-    Installer->>Operator: Port? [8002] AAI URL? Enable access requests? [y/N]
+    Installer->>Operator: Port? [8002] Identity provider URL? Enable access requests? [y/N]
 
     Installer->>Fed: GET /ep/<config-id>
     Fed-->>Installer: the configuration just created
-    Note over Installer: Applied: organization, name, group-based access<br/>with that group, listed-on-the-platform, staging<br/>catalog and PRE_CKAN_ORGANIZATION=ep-<config-id>.<br/>Streaming and JupyterHub stay off.
+    Note over Installer: Applied: organization, name, the Keycloak client<br/>(AUTHZ_CLIENT_ID), listed-on-the-platform, staging<br/>catalog and PRE_CKAN_ORGANIZATION=ep-<config-id>.<br/>Streaming and JupyterHub stay off.
 
     Installer->>Operator: Existing .env backed up — overwrite?
-    Installer->>Installer: Render .env from example.env (23 values set),<br/>METRICS_ENDPOINT = <federation-url>/metrics/
+    Installer->>Installer: Render .env from example.env (24 values set),<br/>METRICS_ENDPOINT = <federation-url>/metrics/
     Installer->>Pre: Which organizations may this token write to?
     Pre-->>Installer: ep-<config-id> — or a warning, and the install continues
     Installer->>EP: EP_API_PORT=8002 docker compose up -d --build
@@ -115,24 +115,24 @@ install:
 | What | Where | The Endpoint uses it |
 |---|---|---|
 | A configuration record, keyed by the configuration id | Federation | Yes — re-runs read it with `--config-id` |
-| A Keycloak client `ep-<config-id>`, **confidential** | Identity provider | **No.** Sign-in through it does not work; see [configuration.md](../configuration.md) |
-| A group `ndp_ep/ep-<config-id>`, with you as administrator | Identity provider | Yes — it lands in `GROUP_NAMES`, decides who may enter, and is the group an approved access request grants (since 0.34.46) |
+| A Keycloak client `ep-<config-id>`, **confidential** | Identity provider | Yes — `AUTHZ_CLIENT_ID`: its gates decide who may enter and what they may do. Sign-in through it does not work; see [configuration.md](../configuration.md) |
+| A group `ndp_ep/ep-<config-id>`, with you as administrator | Identity provider | Yes — its levels are what the client's gates read, and it is the group an approved access request grants |
 | An API token for the staging catalog, for organization `ep-<config-id>` | Staging CKAN | Yes — `PRE_CKAN_API_KEY`, with `PRE_CKAN_ORGANIZATION=ep-<config-id>` |
 | An entry describing this Endpoint | Affinities | No — the uid is not read and `AFFINITIES_EP_UUID` stays empty |
 
 ## The `.env` it produces
 
 Only the values that differ from the [standalone install](installing-standalone-no-catalog.md)
-are listed; everything else is identical. The 23 values set are the 18
-variables the standalone install sets plus `ENABLE_GROUP_BASED_ACCESS`,
-`GROUP_NAMES`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` and
+are listed; everything else is identical. The 24 values set are the 19
+variables the standalone install sets plus `AUTHZ_CLIENT_ID`,
+`AUTHZ_REALM`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` and
 `PRE_CKAN_ORGANIZATION`.
 
 | Variable | Value | Where it comes from |
 |---|---|---|
 | `ORGANIZATION`, `EP_NAME` | `my-org`, `my-ep` | The answers, stored in the registration |
-| `ENABLE_GROUP_BASED_ACCESS` | `True` | Set because the registration produced a group |
-| `GROUP_NAMES` | `ndp_ep/ep-<config-id>` | The group created for this Endpoint |
+| `AUTHZ_CLIENT_ID` | `ep-<config-id>` | The client created for this Endpoint, when the registration names it |
+| `AUTHZ_REALM` | `NDP` | The registration's realm |
 | `IS_PUBLIC` | `True` | "List this Endpoint on the platform" — this is what lets the metrics be posted |
 | `PRE_CKAN_ENABLED` | `True` | Set because the registration returned a staging URL and token |
 | `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` | the platform's staging catalog, and the minted token | The registration |
@@ -140,9 +140,9 @@ variables the standalone install sets plus `ENABLE_GROUP_BASED_ACCESS`,
 | `METRICS_ENDPOINT` | `<federation-url>/metrics/` | The Federation this run registered with (the same line as in a standalone install) |
 
 `OIDC_ENABLED` stays `False` even though a client was created for this
-Endpoint: its tokens carry no `sub` claim, which is what the authentication
-service looks the user up by, so sign-in through it fails after a successful
-login. The installer does not offer it.
+Endpoint: the client is confidential, so the UI's browser sign-in (PKCE,
+which needs a public client) cannot use it. The installer does not offer it;
+the client serves as `AUTHZ_CLIENT_ID` instead.
 
 ## What this Endpoint does
 
@@ -152,12 +152,12 @@ global catalog, serve its UI, answer `/health` and `/ready` — plus:
 - **It is listed on the platform.** The first report goes out when the
   Endpoint starts and then one every 3300 seconds; the Federation records
   them, so the Endpoint shows as active.
-- **Entry is gated by the group.** With `ENABLE_GROUP_BASED_ACCESS=True`, a
-  user must be in `ndp_ep/ep-<config-id>` (or hold the platform-wide
-  `ndp_admin` role) to enter the Endpoint at all; the UI refuses anyone else
-  at sign-in. **Writes** also need a writer or admin role. You are the group's
-  administrator, but a token minted **before** the group existed does not
-  carry it — copy a fresh one from your user panel after registering.
+- **Entry is gated by the group.** With `AUTHZ_CLIENT_ID` set, a user needs a
+  level in `ndp_ep/ep-<config-id>` (or the platform-wide `ndp_admin` role) to
+  enter the Endpoint at all; the UI refuses anyone else at sign-in and offers
+  the access-request form. **Writes** need the editor or admin level. You are
+  the group's administrator from the start: Keycloak reads membership live, so
+  the token you already have works.
 
 It still stores nothing: with no local catalog, the registration, update,
 delete and resource routes are not mounted, so there is nothing to write to

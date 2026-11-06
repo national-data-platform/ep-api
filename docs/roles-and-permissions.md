@@ -1,106 +1,115 @@
 # Roles and permissions
 
-This document explains the role model the Endpoint (EP) enforces, how a
-user's roles travel from Keycloak into the token, and the exact steps to
-grant access or introduce a new role. It is aimed at deployment
-operators and at NDP support.
+This document explains who may do what on an Endpoint (EP), how the EP
+finds out, and the exact steps to grant access or introduce a new
+permission level. It is aimed at deployment operators and at NDP support.
 
 > TL;DR
 > - The EP understands three tiers: **viewer** (read), **writer**
->   (modify catalog content and use S3) and **admin** (everything).
->   The identity provider's **editor** role counts as writer.
-> - Roles are Keycloak **realm roles** named either `ndp_{tier}`
->   (platform-wide) or `group:{group}:{tier}` (per-Endpoint), where
->   `{group}` is one of the Endpoint's `GROUP_NAMES` entries or a form of
->   `AFFINITIES_EP_UUID`.
-> - Assigning an existing tier to a user is **configuration only** (AAI
->   API or the Access Requests screen). A genuinely new permission level
->   requires an **Endpoint code change** (see
->   [Scenario B](#scenario-b-a-brand-new-permission-level)).
+>   (modify catalog content, read S3) and **admin** (everything,
+>   including writing to S3).
+>   The identity provider calls the writer tier **editor**.
+> - **Keycloak decides.** For every guarded route the EP asks Keycloak,
+>   with the caller's own token, whether they pass a gate of the
+>   Endpoint's client (`ep-<config-id>`): `admin-area`, `editor-area` or
+>   `viewer-area`. The roles and groups the AAI API reports are not
+>   used for permissions.
+> - A user's tier is their **level in the Endpoint's group**
+>   (`ndp_ep/ep-<config-id>`): its `admins`, `editors` or `viewers`.
+>   `ndp_admin` passes every gate of a client the AAI created.
+> - Granting a tier is **configuration only** (Access Requests screen or
+>   AAI API). A genuinely new permission level needs an **Endpoint code
+>   change** (see [Scenario B](#scenario-b-a-brand-new-permission-level)).
 
-All of the matching logic is in
-[`api/services/auth_services/authorization_service.py`](../api/services/auth_services/authorization_service.py).
-How a request reaches it is described in
+Everything is in
+[`ep_access_gate.py`](../api/services/auth_services/ep_access_gate.py):
+`ep_access_gate`, the decision call, with the same name and the same
+raise-unless-granted behaviour as the Federation's
+`app/services/ep_access_gate.py`, and the three route dependencies built on
+it, `ep_admin_gate`, `ep_editor_gate` and `ep_viewer_gate`. How a request
+reaches them is described in
 [architecture/overview.md](architecture/overview.md#4-how-a-request-flows).
 
 ---
 
 ## 1. The three tiers
 
-| Tier   | Can do | Implied lower tiers |
-| ------ | ------ | ------------------- |
-| viewer | Use the `/pelican/*` read routes. (Catalog search and resource reads need no role at all.) | — |
-| writer | Everything a viewer can, plus every create / update / delete / publish route of the catalog, all `/s3/*` routes, `/status/rexec` and `/pelican/import-metadata`. | viewer |
-| admin  | Everything a writer can, plus listing, approving and rejecting access requests. | writer, viewer |
+| Tier   | Gate          | Passed by the group's | Can do |
+| ------ | ------------- | --------------------- | ------ |
+| viewer | `viewer-area` | admins, editors, viewers | Use the `/pelican/*` read routes. (Catalog search and resource reads need no tier at all.) |
+| writer | `editor-area` | admins, editors | Everything a viewer can, plus every create / update / delete / publish route of the catalog, the `/s3/*` routes that read (list buckets and objects, metadata, download, presigned download), `/status/rexec` and `/pelican/import-metadata`. |
+| admin  | `admin-area`  | admins | Everything a writer can, plus the `/s3/*` routes that write (create and delete buckets, upload, presigned upload, delete objects) and listing, approving and rejecting access requests. |
 
-The tiers are hierarchical: an **admin** does not also need the writer
-and viewer roles, and a **writer** does not also need viewer. The
-Endpoint resolves the highest tier the user holds.
+The tiers nest: an admin passes `editor-area` and `viewer-area` too, so
+nobody needs more than one level. A level on a **parent group** counts
+too, if that level's subgroup existed when the client's gates were set up
+(the gates list the subgroups by id). The realm role `ndp_admin` passes all
+three gates of a client the AAI created with `/client/create`; a client linked later with the AAI's `tools/adopt_client.py` has no `ndp_admin` policy.
 
-**Strict default:** an authenticated user who holds **no** recognised
-role resolves to `none`. They can sign in to the UI (when they pass the
-group gate below), search the catalogs and read resources, and nothing
-else: every route guarded by a tier answers `403`.
+**Strict default:** an authenticated user Keycloak grants no gate resolves
+to `none`. Every route guarded by a tier answers them `403`; catalog
+searches and resource reads stay public.
 
-### The group gate
+### The entry check
 
-With `ENABLE_GROUP_BASED_ACCESS=True` an extra check runs **before** the
-tier check on `/user/info` (which the UI uses to let a user in), on every
-writer route, on every `/s3/*` route and on every `/pelican/*` route. The
-user passes it when any of these holds:
-
-1. they hold `ndp_admin`;
-2. they are a member of the group named `AFFINITIES_EP_UUID`;
-3. they are a member of one of the `GROUP_NAMES` groups.
-
-Group names are compared case-insensitively, ignoring leading and
-trailing slashes. With the gate on and `GROUP_NAMES` empty, only the first
-two pass. The admin-only access-request routes check the admin tier only,
-not the gate.
+On an Endpoint with a client (`AUTHZ_CLIENT_ID`), `GET /user/info` (which
+the UI uses to let a user in) also requires a tier, i.e. `viewer-area`, so
+a user with no level on the Endpoint cannot enter the UI and is offered the
+access-request form instead. Without a client, any authenticated user
+enters.
 
 ---
 
-## 2. Role naming convention
+## 2. How the Endpoint asks
 
-Every recognised role is a Keycloak **realm role**. Role names are
-compared case-insensitively, with surrounding whitespace ignored and the
-group path normalised (`group:/ndp_ep/ep-1:admin` equals
-`group:ndp_ep/ep-1:admin`).
+Registering through the Federation creates the Endpoint's Keycloak client
+`ep-<config-id>` linked to its group `ndp_ep/ep-<config-id>`; the AAI API
+turns the group's levels into the three gates (resources with policies on
+that client). The installer writes the client to `AUTHZ_CLIENT_ID`.
 
-| Tier   | Platform-wide (any EP)        | Per-endpoint                                  |
-| ------ | ----------------------------- | --------------------------------------------- |
-| admin  | `ndp_admin`                   | `group:{G}:admin`                             |
-| writer | `ndp_writer`, `ndp_editor`    | `group:{G}:writer`, `group:{G}:editor`        |
-| viewer | `ndp_viewer`                  | `group:{G}:viewer`                            |
+For each guarded request the EP sends, with the caller's bearer token:
 
-`{G}` is any of:
+```http
+POST <realm>/protocol/openid-connect/token
+Authorization: Bearer <caller's token>
+Content-Type: application/x-www-form-urlencoded
 
-- each entry of `GROUP_NAMES` — on an Endpoint registered through the
-  Federation this is `ndp_ep/ep-<config-id>`, so its roles look like
-  `group:ndp_ep/ep-<config-id>:writer`;
-- when `AFFINITIES_EP_UUID` is set to `<uuid>`: `<uuid>`,
-  `ndp_ep/<uuid>` and `ndp_ep/ep-<uuid>` (the last two only when the
-  value contains no `/`, and the `ep-` form only when it does not already
-  start with `ep-`).
+grant_type=urn:ietf:params:oauth:grant-type:uma-ticket
+&audience=<AUTHZ_CLIENT_ID>
+&permission=editor-area
+&response_mode=decision
+```
 
-The legacy per-EP admin form `{AFFINITIES_EP_UUID}_admin` (no `group:`
-prefix, underscore before `admin`) is **also** still accepted for admin.
+`<realm>` is `<KEYCLOAK_URL>/realms/<AUTHZ_REALM>` (default
+`https://idp.nationaldataplatform.org/realms/NDP`). This is the same request the Federation makes
+to protect `GET /ep/{config_id}`. No client secret is involved.
 
-> **"editor" and "writer".** The identity provider names the write tier
-> `editor` (its default group roles are `admin` / `editor` / `viewer`);
-> the Endpoint names it `writer`. Both are accepted for the writer tier,
-> so assigning the AAI's `editor` role grants write access on the EP.
+| Keycloak answers | The EP answers |
+| ---------------- | -------------- |
+| `200 {"result": true}` | the request goes through |
+| `403` (denied), `400` (no such client or gate), anything else | `403` |
+| `401` (token not accepted) | `401` |
+| `5xx` or unreachable | `502` |
 
-Any realm role that does not match one of the names above is carried in
-the token but **ignored** by the EP for permission purposes.
+Without `AUTHZ_CLIENT_ID` nothing is asked: guarded routes answer `403`
+and `effective_role` is `none`.
+
+Keycloak reads group membership live, so a grant takes effect on the
+user's next request; they do not have to sign in again. A removal can lag
+until the user's token expires, as long as the client's role-based
+policies read roles from the token rather than from the user.
 
 ---
 
-## 3. How the Endpoint sees roles
+## 3. What the Endpoint reports
 
-On every authenticated request the EP sends the bearer token to
-`AUTH_API_URL` and receives the user's `roles` and `groups` (see
+Identity still comes from the AAI API: on every authenticated request
+the EP sends the bearer token to `<KEYCLOAK_URL>/api/information` and
+receives `sub`, `username` and, informationally, `roles`, `groups` and
+`clientRoles` (see
 [`get_current_user.py`](../api/services/auth_services/get_current_user.py)).
+On every route that needs a tier, Keycloak's decision call checks the token
+as well.
 `GET /user/info` returns that payload plus two derived fields:
 
 ```jsonc
@@ -108,161 +117,155 @@ GET /user/info
 {
   "username": "raul",
   "sub": "6bfaa6c3-…",
-  "roles": ["group:ndp_ep/ep-123:admin", "default-roles-ndp"],
-  "groups": ["/ndp_ep/ep-123"],
+  "roles": ["group:ndp_ep/ep-123:admin", "default-roles-ndp"],  // not used for permissions
+  "groups": [{"id": "…", "path": "/ndp_ep/ep-123/admins", "name": "admins"}],  // not used
+  "clientRoles": {},                                            // not used for permissions
   "ndp_user_id": "<16 hex chars>",     // first 16 hex chars of SHA-256(sub)
-  "effective_role": "admin"            // admin | writer | viewer | none
+  "effective_role": "admin"            // admin | writer | viewer | none, from the gates
 }
 ```
 
-The functions and dependencies in
-[`authorization_service.py`](../api/services/auth_services/authorization_service.py):
+`effective_role` asks `admin-area`, `editor-area`, `viewer-area` in that
+order and reports the first tier that passes; the UI uses it to decide
+which actions to show. With the entry check on, `/user/info` refuses a
+caller whose `effective_role` is `none`.
 
-- `is_admin`, `is_writer`, `is_viewer` — tier checks (each implies the
-  lower tiers).
-- `effective_role` — returns the highest tier as a string; the UI uses it
-  to decide which actions to show.
-- `check_group_membership` — the group gate.
-- `get_user_for_endpoint_access` — group gate only; guards `/user/info`.
-- `get_user_for_read_operation` — group gate plus viewer tier; guards
-  every `/pelican/*` route (declared on the Pelican router).
-- `get_user_for_write_operation` — group gate plus writer tier; guards
-  every catalog `POST`/`PUT`/`PATCH`/`DELETE`, `POST /dataset/{id}/publish`,
-  all `/s3/*` routes (including the `GET`s), `GET /status/rexec` and
-  `POST /pelican/import-metadata`.
-- `require_admin` — admin tier only; guards
-  `GET /user/access-requests` and the approve and reject routes.
+The route dependencies, each returning the user:
 
-The token `TEST_TOKEN` (default `testing_token`) bypasses the AAI and is
-treated as a user holding `ndp_admin`. Set it blank on any Endpoint others
-can reach; see [configuration.md](configuration.md#test_token).
+- `ep_viewer_gate` (`viewer-area`) — every `/pelican/*` route (declared on
+  the Pelican router).
+- `ep_editor_gate` (`editor-area`) — every catalog
+  `POST`/`PUT`/`PATCH`/`DELETE`, `POST /dataset/{id}/publish`, the
+  `/s3/*` routes that read (`GET`s and `POST …/presigned-download`),
+  `GET /status/rexec` and `POST /pelican/import-metadata`.
+- `ep_admin_gate` (`admin-area`) — the `/s3/*` routes that write
+  (`POST /s3/buckets/`, `DELETE /s3/buckets/{bucket}`,
+  `POST /s3/objects/{bucket}`, `POST …/presigned-upload`,
+  `DELETE /s3/objects/{bucket}/{key}`), `GET /user/access-requests` and the
+  approve and reject routes.
 
----
-
-## 4. How roles reach the token
-
-> This section describes Keycloak and the AAI, which live outside this
-> repository. It is kept from the previous revision of this document and
-> was not re-verified against their code for this one.
-
-Roles are emitted into the token by a **protocol mapper** on the
-Keycloak client (`oidc-usermodel-realm-role-mapper`, claim name
-`roles`), configured when the client is created by the AAI.
-
-Because the mapper emits the user's realm roles wholesale, a newly
-created `group:{G}:…` role appears in the token as soon as it is assigned
-— no per-role client change, no client-scope edit. Assigning a role to a
-user does not change a token that was already issued: the user must sign
-in again to get one that carries it.
-
-The only situation where the client *would* matter is a deployment whose
-client was created **without** the realm-roles mapper, or one relying on
-client-specific roles (`resource_access.{client}.roles`) instead of
-realm roles.
+`TEST_TOKEN`, when set, is a token that bypasses the AAI and Keycloak and
+passes every gate. It is empty (off) by default; set it only for local
+development, never on an Endpoint others can reach; see
+[configuration.md](configuration.md#test_token).
 
 ---
 
-## 5. AAI API for role and group management
+## 4. AAI API for group management
 
-The AAI API (base URL = scheme and host of `AUTH_API_URL`) is
-authoritative for group and role writes. The Endpoint uses three of its
-operations, always with the calling administrator's own bearer token
+The AAI API (`<KEYCLOAK_URL>/api`) is
+authoritative for group writes. Approving an access request makes one
+call, with the approving administrator's own bearer token
 ([`aai_client.py`](../api/services/auth_services/aai_client.py)):
 
 | Action | Endpoint | Body the Endpoint sends |
 | ------ | -------- | ----------------------- |
-| Add user to a group | `POST /group/add-user` | `{"group_name": "<group>", "username": "<user>"}` |
-| Assign a role to a user | `POST /role/assign` | `{"role_name": "<tier>", "username": "<user>", "group_name": "<group>"}` |
-| List group members | `GET /group/members?group_name=<group>` | — |
+| Add user to a group at a level | `POST /group/add-user` | `{"group_name": "<group>", "username": "<user>", "role": "viewer\|editor\|admin"}` |
 
-`role_name` is the **bare** tier (`writer`, `admin`); the AAI builds
-`group:{group}:{tier}` itself, and passing the fully qualified name makes
-it double-prefix. AAI answers 400/401 become 401, 403 stays 403, 404
-stays 404, anything else and an unreachable AAI become 502.
+`/group/add-user` makes the user a member of the group, assigns the realm
+role `group:<group>:<level>` and puts the user in the level's subgroup
+(`<group>/viewers`, `/editors`, `/admins`), which is what the gates are
+decided on. The subgroup step is best effort: if it fails the AAI still
+answers 200 and only logs it. `/role/assign` sets only the realm role, so
+on its own it grants nothing on the Endpoint.
 
-The AAI offers more operations (creating and deleting custom roles,
-removing a role from a user) that the Endpoint does not call; their
-request formats are defined by the AAI, not by this repository.
+The AAI decides who may call it by the caller's own **realm roles**, not by
+their level subgroups: `group:<group or a parent>:editor` or `:admin`, or
+`ndp_admin`; granting `admin` needs `group:<group>:admin` or `ndp_admin`.
+An administrator added to `<group>/admins` by hand in the Keycloak console
+passes `admin-area` on the Endpoint but is refused by the AAI ("Forbidden:
+insufficient group privileges") until they also hold that realm role;
+`/group/add-user` with `role` `admin` gives both. AAI answers 400/401
+become 401, 403 stays 403, 404 stays 404, anything else and an unreachable
+AAI become 502.
 
 ---
 
-## 6. Common tasks
+## 5. Common tasks
 
 ### Grant an existing tier to a user
 
 **Via the UI (preferred).** With `ENABLE_ACCESS_REQUESTS=True`, a user
 without access requests it from the login screen, and an admin approves
 it on the **Access Requests** page, picking the tier (Viewer / Writer /
-Admin). The Endpoint then calls the AAI with the admin's token:
+Admin). The Endpoint then calls `POST /group/add-user` with the admin's
+token at the matching level: `viewer`, `editor` for writer, or `admin`.
 
-- **viewer** — `POST /group/add-user` only (the AAI assigns viewer on
-  join, according to the approve route's documentation);
-- **writer** / **admin** — `POST /group/add-user`, then
-  `POST /role/assign` with the bare tier.
+The group used is the one the client is linked to,
+`ndp_ep/<AUTHZ_CLIENT_ID>`; without `AUTHZ_CLIENT_ID`, approval answers
+503. `member` is accepted as a deprecated alias for `viewer`.
 
-The group used is the **first `GROUP_NAMES` entry**, or
-`AFFINITIES_EP_UUID` when `GROUP_NAMES` is empty; with neither, approval
-answers 503 (since 0.34.46 — up to 0.34.45 it always used
-`AFFINITIES_EP_UUID` and answered 503 when that was empty, which is how
-the installer leaves it). `member` is accepted as a deprecated alias for
-`viewer`.
-
-**Via the AAI API.** Add the user to the group, then assign a higher tier
-if needed. The bodies below are the ones the Endpoint itself sends:
+**Via the AAI API.** The body below is the one the Endpoint itself sends:
 
 ```bash
+AAI=https://idp.nationaldataplatform.org/api   # <KEYCLOAK_URL>/api
 TOKEN=$(curl -s -X POST "$AAI/user/login" \
   -H 'Content-Type: application/json' \
   -d '{"username":"<admin>","password":"<pass>"}' | jq -r .access_token)
 
-# join the group
+# make <user> an editor (the writer tier) of the Endpoint's group
 curl -s -X POST "$AAI/group/add-user" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"group_name":"<GROUP>","username":"<user>"}'
-
-# give the writer tier on that group (bare tier name)
-curl -s -X POST "$AAI/role/assign" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"role_name":"writer","username":"<user>","group_name":"<GROUP>"}'
+  -d '{"group_name":"ndp_ep/ep-<config-id>","username":"<user>","role":"editor"}'
 ```
 
-`<GROUP>` is the Endpoint's group as configured in `GROUP_NAMES` (for a
-registered Endpoint, `ndp_ep/ep-<config-id>`). The user must **sign in
-again** afterwards: their old token was issued before the grant.
+The grant applies from the user's next request.
+
+### Check what Keycloak decides for a user
+
+With the user's token in `$USER_TOKEN`:
+
+```bash
+curl -s -X POST "https://<idp>/realms/NDP/protocol/openid-connect/token" \
+  -H "Authorization: Bearer $USER_TOKEN" \
+  -d grant_type=urn:ietf:params:oauth:grant-type:uma-ticket \
+  -d audience=ep-<config-id> -d permission=editor-area -d response_mode=decision
+# {"result":true} — or a 403 with "not_authorized"
+```
+
+A `400` instead means the client does not exist or has no such gate: an
+Endpoint registered before the Federation linked clients to groups has a
+client without gates, and every user is refused until NDP support links
+it (the AAI's `tools/adopt_client.py`, which also moves holders of the old
+`group:<group>:<level>` realm roles into the level subgroups). A client
+linked that way gets no `ndp_admin` policy.
 
 ### Scenario A: reuse an existing tier in another group
 
-Nothing in the Endpoint changes. Assign the
-`group:{OTHER}:viewer|writer|admin` roles for that group. An Endpoint
-only evaluates per-Endpoint roles for its own `GROUP_NAMES` entries and
-`AFFINITIES_EP_UUID` forms, so roles on other groups grant nothing there
-(the platform-wide `ndp_*` roles apply everywhere).
+Nothing in the Endpoint changes. Add the user at a level of a **parent**
+group of `ndp_ep/ep-<config-id>` (e.g. `ndp_ep`) and Keycloak counts it on
+every Endpoint below whose gates were set up after that level's subgroup
+existed; for older clients the gates have to be set up again (NDP support).
+A level on an unrelated group grants nothing here.
 
 ### Scenario B: a brand-new permission level
 
 If you need a tier that is **not** viewer/writer/admin (say, a
 `publisher` that can publish but not delete), two things are required:
 
-1. **Create the role** in Keycloak / via the AAI as usual
-   (`group:{G}:publisher`). It will appear in the token automatically
-   (Section 4).
-2. **Teach the Endpoint about it** — a code change in
-   [`authorization_service.py`](../api/services/auth_services/authorization_service.py):
-   add a matcher (e.g. `is_publisher`, built like `is_writer` on
-   `endpoint_group_role_names("publisher")`), fold it into
-   `effective_role`, and use it in a dependency on the relevant routes.
-   Without this step the role rides in the token but grants nothing.
+1. **Create the level** on the Endpoint's group through the AAI API
+   (`customPermissions` on `/client/create`; for a client that already
+   exists, ask NDP support). The AAI adds a `publisher-area` gate to the
+   client, passed by the level's members and by the group's admins.
+2. **Teach the Endpoint about it** — a code change: add
+   `ep_publisher_gate`, built like `ep_editor_gate` but asking
+   `ep_access_gate(token, "publisher-area")`, to
+   [`ep_access_gate.py`](../api/services/auth_services/ep_access_gate.py),
+   use it on the relevant routes and, if the UI should know, fold it into
+   `_effective_role` in
+   [`user_info.py`](../api/routes/user_routes/user_info.py). Without this step the gate exists and nothing asks
+   for it.
 
 ---
 
-## 7. When to request NDP support
+## 6. When to request NDP support
 
 Open a request with NDP support when you need something that is not a
-plain assignment of an existing tier:
+plain grant of an existing tier:
 
 - A new permission level that the Endpoint must enforce (Scenario B).
-- Changes to the Keycloak client itself (new protocol mappers, switching
-  to client roles) — only relevant for non-standard clients (Section 4).
+- An Endpoint whose client has no gates, or whose `AUTHZ_CLIENT_ID` is
+  not its own client (the installer warns about both).
 - Realm-level changes you do not have admin rights for.
 
 For everything else — granting viewer/writer/admin to a user, listing

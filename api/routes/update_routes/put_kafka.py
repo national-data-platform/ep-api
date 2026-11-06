@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import ckan_settings
 from api.models.update_kafka_model import KafkaDataSourceUpdateRequest
 from api.services import kafka_services
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -93,7 +93,7 @@ async def update_kafka_datasource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    _: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Update a Kafka dataset by dataset_id. If ?server=pre_ckan is used,

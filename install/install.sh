@@ -1494,7 +1494,7 @@ save_remembered_settings() {
     "s3_endpoint=$s3_endpoint" \
     "s3_secure=$s3_secure" \
     "ep_api_port=$ep_api_port" \
-    "auth_api_url=$auth_api_url" \
+    "idp_url=$idp_url" \
     "want_access_requests=$want_access_requests" \
     "mongodb_url=$mongodb_url" \
     "ckan_url=$ckan_url")"
@@ -1520,7 +1520,7 @@ save_remembered_settings() {
 # terminal, ask rather than silently installing a demo nobody asked for.
 organization=""
 ep_name=""
-auth_api_url=""
+idp_url=""
 
 # Asked whether or not there is a configuration id. A registration answers
 # eleven things; none of them is the catalog, object storage, access requests
@@ -1633,9 +1633,11 @@ if interactive; then
   if [[ -z "$config_id" ]]; then
     section "Federation registration" \
       "Registering creates the configuration in the Federation and, with it," \
-      "this Endpoint's Keycloak client and group — which is what makes" \
-      "identity-provider sign-in possible without an administrator." \
-      "Answer no to run a standalone Endpoint not listed in the Federation."
+      "this Endpoint's Keycloak client and group — which is what decides who" \
+      "may read, write and administer it, and what makes identity-provider" \
+      "sign-in possible without an administrator." \
+      "Answer no to run a standalone Endpoint not listed in the Federation;" \
+      "nobody can write to it until AUTHZ_CLIENT_ID names a client."
     ask_yes_no want_register "Register this Endpoint with the Federation now?" "yes"
 
     if [[ "$want_register" == "yes" ]]; then
@@ -1674,11 +1676,10 @@ if interactive; then
     ask ckan_sysadmin  "CKAN sysadmin to create" "ckan_admin"
   fi
 
-  section "Authentication service" \
-    "The AAI endpoint the Endpoint validates login tokens against. Keep the" \
-    "default to authenticate against the National Data Platform."
-  ask auth_api_url "Authentication service (AAI) URL" \
-    "https://idp.nationaldataplatform.org/temp/information"
+  section "Identity provider" \
+    "The host of the Keycloak and AAI API the Endpoint signs users in and" \
+    "asks permissions of. Keep the default for the National Data Platform."
+  ask idp_url "Identity provider URL" "https://idp.nationaldataplatform.org"
 
   section "Access requests" \
     "A self-service workflow: someone without access to this Endpoint asks" \
@@ -1782,7 +1783,6 @@ def emit(name, value):
 
 emit("fed_org", cfg.get("organization") or "")
 emit("fed_ep_name", cfg.get("ep_name") or "")
-emit("fed_group", cfg.get("group_name") or "")
 emit("fed_streaming", "true" if truthy(cfg.get("streaming")) else "false")
 emit("fed_jhub", "true" if truthy(cfg.get("jhub")) else "false")
 emit("fed_jupyter_url", cfg.get("jupyter_url") or "")
@@ -1803,11 +1803,6 @@ PY
 
   [[ -n "$fed_org" ]]      && put ORGANIZATION "$fed_org"
   [[ -n "$fed_ep_name" ]]  && put EP_NAME "$fed_ep_name"
-
-  if [[ -n "$fed_group" ]]; then
-    put ENABLE_GROUP_BASED_ACCESS "True"
-    put GROUP_NAMES "$fed_group"
-  fi
 
   if [[ "$fed_streaming" == "true" ]]; then
     put KAFKA_CONNECTION "True"
@@ -1847,16 +1842,24 @@ PY
 
   put IS_PUBLIC "$([[ "$fed_public" == "true" ]] && echo True || echo False)"
 
-  # The client the registration creates is confidential and its tokens carry no
-  # `sub`, which AUTH_API_URL looks the user up by — so it cannot be used for
-  # sign-in as it stands. The installer says it exists and stops there; see
-  # docs/configuration.md.
-  if [[ -n "$fed_client_id" ]]; then
-    info "Registration includes client id '$fed_client_id' for realm '$fed_realm'."
+  # The client the registration creates is confidential, so the UI's browser
+  # sign-in (PKCE, which needs a public client) cannot use it; see
+  # docs/configuration.md. It is what decides every permission, though:
+  # Keycloak answers for its gates. Only this Endpoint's
+  # own client is used. A registration whose Keycloak step failed stores a
+  # placeholder id, and a client that does not exist would refuse everyone.
+  if [[ "$fed_client_id" == "ep-${config_id}" ]]; then
+    put AUTHZ_CLIENT_ID "$fed_client_id"
+    put AUTHZ_REALM "$fed_realm"
+    ok "Permissions are decided by Keycloak client '$fed_client_id' (realm '$fed_realm')."
+  else
+    warn "The registration has no Keycloak client of this Endpoint's own (${fed_client_id:-none})."
+    warn "Without AUTHZ_CLIENT_ID no user can write to this Endpoint; see docs/roles-and-permissions.md."
   fi
 elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."
   warn "The Endpoint will not be listed in the Federation."
+  warn "Nor will it have a Keycloak client to decide permissions: set AUTHZ_CLIENT_ID in .env to let users write."
 fi
 
 # Metrics go to the Federation this run was pointed at. Left to example.env,
@@ -2143,7 +2146,10 @@ step "Selecting the local catalog backend"
 # has already set organization and name, so these only fill in what it did not.
 [[ -n "$organization" ]]  && put ORGANIZATION "$organization"
 [[ -n "$ep_name" ]]       && put EP_NAME "$ep_name"
-[[ -n "$auth_api_url" ]]  && put AUTH_API_URL "$auth_api_url"
+# Only the host: the AAI API (/api) and the realm (/realms/...) are paths on it,
+# and a remembered value may still be the old /temp/information URL.
+idp_url="$(printf '%s' "$idp_url" | sed -E 's#^([A-Za-z]+://[^/]+).*#\1#')"
+[[ -n "$idp_url" ]]       && put KEYCLOAK_URL "$idp_url"
 
 put LOCAL_CATALOG_BACKEND "$backend"
 
@@ -2455,7 +2461,8 @@ step "Checking the configuration before starting anything"
 # --------------------------------------------------------------
 # Reading back what was written, rather than what was intended, so a rendering
 # mistake surfaces here instead of at runtime.
-auth_url="$(grep -E '^AUTH_API_URL=' "$target" | head -1 | cut -d= -f2- | tr -d '"')"
+written_idp="$(grep -E '^KEYCLOAK_URL=' "$target" | head -1 | cut -d= -f2- | tr -d '"')"
+auth_url="${written_idp:+$written_idp/api/information}"
 
 if [[ -n "$auth_url" ]]; then
   code="$(curl -s -o /dev/null -w '%{http_code}' -m 20 -X POST "$auth_url" \
