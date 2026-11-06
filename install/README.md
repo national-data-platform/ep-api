@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v0.34.72   # the release to install
+V=v0.34.73   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]
@@ -129,6 +129,13 @@ question is preceded by a short explanation, omitted here):
 - With a configuration id (typed, or passed with `--config-id`), the
   registration question is skipped and the installer first offers to use
   remembered settings (below).
+- Federation 2.0.0 gives a configuration only to an admin of that Endpoint,
+  from your NDP access token; older Federations give it without one. The
+  installer asks for the token (hidden) only when the Federation turns the
+  request down, and asks once: the same token serves the remembered settings
+  and the NetBird key. With `--login-client-id` it opens a sign-in instead
+  (a link and a code to enter there). Without prompts, pass
+  `--ndp-token-file <path>`.
 - Catalog choices 3 and 5 ask for the existing MongoDB connection string, or
   the CKAN URL, API key and the username the key belongs to. Choice 4 asks,
   after the port, for CKAN's https, http and application ports and the
@@ -262,7 +269,9 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
 | `--no-netbird` | do not join NetBird; remembered |
 | `--netbird-setup-key-file <path>` | file with the NetBird setup key; implies `--netbird` |
 | `--netbird-management-url <url>` | override the management URL the Federation gives |
-| `--ndp-token-file <path>` | file with your NDP access token, so `--netbird` fetches the key from the Federation without a prompt |
+| `--ndp-token-file <path>` | file with your NDP access token, for runs without prompts: used to read the configuration from a Federation that requires it, for the remembered settings, and so `--netbird` fetches the key from the Federation |
+| `--login-client-id <id>` | get the token by signing in through the browser (OAuth device flow) instead of pasting it; needs a public client of the identity provider with the device flow enabled. Default `$NDP_LOGIN_CLIENT_ID`, else off |
+| `--login-issuer <url>` | the realm to sign in to; default `$NDP_LOGIN_ISSUER`, else `https://idp.nationaldataplatform.org/realms/NDP` |
 | `--affinities` | turn the Affinities integration on from the Federation configuration |
 | `--no-start` | write everything, bring nothing up; prints the command to start it |
 | `--yes` | no prompts at all (see [Without prompts](#without-prompts)), and overwrite an existing `.env` without asking |

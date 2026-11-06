@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.73] - 2026-11-06
+
+### Fixed
+- **The installer reads a configuration from Federation 2.0.0.** That release gives `GET /ep/{config_id}` only to an admin of the Endpoint, decided from the caller's Bearer token (sci-ndp/ndp-federation#130), and `install.sh --config-id` sent none, so every installation stopped with `Federation returned HTTP 401` (#397). The installer now sends the user's NDP access token when it has one, and otherwise asks for it only when the Federation turns the request down, so Federations that answer without a token are read as before. The token is got once and reused for the remembered settings and the NetBird setup key instead of being asked for again; it is still never written anywhere. A rejected token and an account that is not the Endpoint's admin now say so instead of printing the HTTP code. A Federation that cannot be reached is reported as such again; the code read `HTTP 000000` because `000` was appended to curl's own `000`.
+  - New tests in `install/tests/test_config_token.py` and `install/tests/test_device_login.py`.
+  - Verified against a local Federation built from sci-ndp/ndp-federation#130 (using the production identity provider) and against Federation 1.14.0:
+    - 1.14.0 without a token: the registration was read and written to `.env`, as before;
+    - 2.0.0 without a token: the installer stopped and named `--ndp-token-file`;
+    - 2.0.0 with a token the identity provider rejects: it said the token was not accepted;
+    - an unreachable Federation: "Could not reach the Federation".
+  - The device-flow sign-in was checked against idp-test with its test client up to the link and code; idp has no client for it yet.
+
+### Added
+- **Signing in from the installer with the OAuth device flow** (#397). With `--login-client-id <id>` (or `NDP_LOGIN_CLIENT_ID`) the installer shows a link and a code, waits while the user signs in there, and uses the token it gets instead of asking for one to be pasted. The client must be a public client with the device flow enabled; `--login-issuer` (or `NDP_LOGIN_ISSUER`) names its realm, `https://idp.nationaldataplatform.org/realms/NDP` by default. It is off by default because the production identity provider has no such client yet. The sign-in is `install/device_login.py`.
+
 ## [0.34.72] - 2026-11-06
 
 ### Added
