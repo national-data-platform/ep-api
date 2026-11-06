@@ -18,6 +18,8 @@ import {
   MinusCircle
 } from 'lucide-react';
 import { statusAPI, userAPI, getApiBaseUrl } from '../services/api';
+import { isAccessRequestAdmin } from '../services/roles';
+import UpdateNotice from '../components/UpdateNotice';
 
 /**
  * Redesigned Dashboard component with user info and improved metrics display
@@ -29,6 +31,7 @@ const Dashboard = () => {
   const [kafkaDetails, setKafkaDetails] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [apiVersion, setApiVersion] = useState(null);
+  const [versionInfo, setVersionInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -87,6 +90,19 @@ const Dashboard = () => {
 
     fetchDashboardData();
   }, []);
+
+  /**
+   * Admins are told when a newer ep-api release exists (issue #395).
+   * Nobody else asks; a failed check just shows no notice.
+   */
+  const isAdmin = isAccessRequestAdmin(userInfo);
+  useEffect(() => {
+    if (!isAdmin) return;
+    statusAPI
+      .getVersionInfo()
+      .then((response) => setVersionInfo(response.data))
+      .catch(() => setVersionInfo(null));
+  }, [isAdmin]);
 
   /**
    * Format percentage values for display
@@ -288,6 +304,8 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {isAdmin && <UpdateNotice info={versionInfo} />}
 
       {/* User Information Card */}
       {userInfo && (

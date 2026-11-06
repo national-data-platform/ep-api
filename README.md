@@ -264,7 +264,7 @@ group the Federation created for the Endpoint.
 | Routes | Requirement |
 |---|---|
 | `GET`/`POST /search`, `GET /organization`, `GET /resource/{id}`, `GET /resources/search`, `/services/redirect/...`, `/health`, `/ready`, `POST /user/login`, `POST /token`, `/docs` | none |
-| `/status/`, `/status/metrics`, `/status/jupyter`, `/status/kafka-details`, `POST /user/access-requests` | any valid token |
+| `/status/`, `/status/metrics`, `/status/version`, `/status/jupyter`, `/status/kafka-details`, `POST /user/access-requests` | any valid token |
 | `GET /user/info` | valid token, plus the group gate when enabled |
 | `GET /pelican/*` | viewer |
 | every other `POST`, `PUT`, `PATCH`, `DELETE`; all `/s3/*` routes, including `GET`; `GET /status/rexec`; `POST /pelican/import-metadata` | writer |

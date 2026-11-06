@@ -281,6 +281,8 @@ export const statusAPI = {
   getMetrics: () => apiClient.get('/status/metrics'),
   getKafkaDetails: () => apiClient.get('/status/kafka-details'),
   getJupyterDetails: () => apiClient.get('/status/jupyter'),
+  // Installed and latest ep-api release (issue #395)
+  getVersionInfo: () => apiClient.get('/status/version'),
 };
 
 // API Version Detection

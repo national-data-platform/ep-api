@@ -323,7 +323,7 @@ read at import time. Changing a switch needs a restart.
 | `delete_routes` | `local_catalog_enabled` | `DELETE /resource?resource_id=`, `/resource/{name}`, `/organization/{name}`, `/dataset/{id}/resource/{rid}` |
 | `resource_routes` | `local_catalog_enabled` | `GET`/`PATCH /resource/{id}`, `GET /resources/search` |
 | `redirect_routes` | always | `/services/redirect/{name}[/{path}]` — reverse proxy to a registered service; methods GET/POST/PUT/PATCH/DELETE |
-| `status_routes` (prefix `/status`) | always | `GET /status/`, `/status/metrics`, `/status/kafka-details`; plus `/status/jupyter` if `USE_JUPYTERLAB`, `/status/rexec` if `REXEC_CONNECTION` |
+| `status_routes` (prefix `/status`) | always | `GET /status/`, `/status/metrics`, `/status/version`, `/status/kafka-details`; plus `/status/jupyter` if `USE_JUPYTERLAB`, `/status/rexec` if `REXEC_CONNECTION` |
 | `user_routes` | always | `GET /user/info`, `POST /user/login`, `POST /token`, `/user/access-requests[...]` |
 | `minio_routes` | `S3_ENABLED` | `/s3/buckets/…`, `/s3/objects/…` |
 | `pelican_routes` (prefix `/pelican`) | `PELICAN_ENABLED` (read with `os.getenv`) | `federations`, `browse`, `info`, `download`, `read`, `subscribe`, `subscriptions`, `import-metadata` |

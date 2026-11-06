@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     swagger_title: str = "API Documentation"
     swagger_description: str = "This is the API documentation."
-    swagger_version: str = "0.34.71"
+    swagger_version: str = "0.34.72"
     root_path: str = ""  # API root path prefix (e.g., "/test" or "")
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"
@@ -34,6 +34,16 @@ class Settings(BaseSettings):
     # so existing deployments without MongoDB keep booting as before.
     enable_access_requests: bool = False
     access_requests_collection: str = "access_requests"
+
+    # Tell admins when a newer ep-api release exists (issue #395). The latest
+    # release is read from this URL (GitHub releases API format: tag_name,
+    # html_url) and kept for the interval. Turn it off on Endpoints without
+    # internet access or that should not contact GitHub.
+    release_check_enabled: bool = True
+    release_check_url: str = (
+        "https://api.github.com/repos/national-data-platform/ep-api/releases/latest"
+    )
+    release_check_interval_seconds: int = 21600  # 6 hours
 
     model_config = {
         "env_file": ".env",
