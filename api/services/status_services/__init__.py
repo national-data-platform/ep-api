@@ -9,3 +9,4 @@ from .system_metrics import (  # noqa: F401
     get_services_titles,
     get_system_metrics,
 )
+from .release_check import get_version_info  # noqa: F401

@@ -191,6 +191,10 @@ netbird_setup_key_file=""
 # The owner's NDP access token, read from a file for unattended runs; with it
 # the NetBird setup key comes from the Federation (issue #361).
 ndp_token_file=""
+# Signing in with the device flow instead of pasting the token (issue #397):
+# a public client of the identity provider that allows it, and its realm.
+login_client_id="${NDP_LOGIN_CLIENT_ID:-}"
+login_issuer="${NDP_LOGIN_ISSUER:-https://idp.nationaldataplatform.org/realms/NDP}"
 want_affinities=""
 # S3 object storage. want_s3 turns it on; with no s3_endpoint the bundled MinIO
 # is installed (compose profile 's3'), otherwise the Endpoint points at the
@@ -327,8 +331,16 @@ Options:
                           --ndp-token-file), or asked for, hidden. Never
                           written anywhere. Not needed once connected.
   --ndp-token-file <path> File holding your NDP access token, for unattended
-                          runs; otherwise it is asked for, hidden. Never
-                          written anywhere.
+                          runs; otherwise it is asked for, hidden, once, and
+                          used for every Federation call that needs it
+                          (reading the configuration, remembered settings,
+                          the NetBird key). Never written anywhere.
+  --login-client-id <id>  Sign in through the browser (OAuth device flow) to
+                          get the token instead of pasting it. Needs a public
+                          client of the identity provider with the device flow
+                          enabled. Default: \$NDP_LOGIN_CLIENT_ID, else off.
+  --login-issuer <url>    The realm to sign in to. Default: \$NDP_LOGIN_ISSUER,
+                          else https://idp.nationaldataplatform.org/realms/NDP
   --netbird-management-url <url>
                           Override the management URL the Federation gives.
   --affinities            Turn on the Affinities integration, with the
@@ -419,6 +431,8 @@ while [[ $# -gt 0 ]]; do
     --netbird-setup-key-file) netbird_setup_key_file="${2:-}"; want_netbird="yes"; shift 2 ;;
     --netbird-management-url) netbird_management_url="${2:-}"; shift 2 ;;
     --ndp-token-file)  ndp_token_file="${2:-}"; shift 2 ;;
+    --login-client-id) login_client_id="${2:-}"; shift 2 ;;
+    --login-issuer)    login_issuer="${2:-}"; shift 2 ;;
     --affinities)      want_affinities="yes"; shift ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
@@ -829,6 +843,32 @@ ask_secret() {
   printf -v "$__var" '%s' "$__reply"
 }
 
+# The installing user's NDP access token, got at most once and kept only in
+# this variable (issue #397): from --ndp-token-file, else by signing in with
+# the device flow when a login client is set, else asked for, hidden. Empty
+# when none can be had (an unattended run without a token file).
+ndp_token=""
+get_ndp_token() {
+  local prompt="${1:-Your NDP access token (not shown)}"
+  [[ -z "$ndp_token" ]] || return 0
+  if [[ -n "$ndp_token_file" ]]; then
+    [[ -r "$ndp_token_file" ]] || fail "Cannot read the NDP token file: $ndp_token_file"
+    ndp_token="$(tr -d '[:space:]' < "$ndp_token_file")"
+    [[ -z "$ndp_token" ]] || return 0
+  fi
+  interactive || return 0
+  if [[ -n "$login_client_id" ]]; then
+    if ndp_token="$(python3 "$REPO_ROOT/install/device_login.py" \
+        "$login_issuer" "$login_client_id")" && [[ -n "$ndp_token" ]]; then
+      ok "Signed in."
+      return 0
+    fi
+    ndp_token=""
+    warn "Signing in did not work; paste the token instead."
+  fi
+  ask_secret ndp_token "$prompt"
+}
+
 ask_yes_no() {
   # ask_yes_no VARIABLE "Question" yes|no
   local __var="$1" __question="$2" __default="$3" __reply=""
@@ -1113,7 +1153,8 @@ register_with_federation() {
     "https://nationaldataplatform.org/ (sign in, then open your user panel)." \
     "It authorizes the registration and identifies you as the Endpoint's" \
     "administrator. It is sent only to the Federation, never stored."
-  ask_secret token "Your NDP access token (not shown)"
+  get_ndp_token
+  token="$ndp_token"
   [[ -n "$token" ]] || fail "A token is required to register. Get one from your NDP user panel."
 
   # The Federation assigns the group's admin from this id, and it is the
@@ -1386,7 +1427,8 @@ offer_remembered_settings() {
 
   [[ "$answer" == "yes" ]] || return 0
 
-  ask_secret remember_token "Your NDP access token (not shown)"
+  get_ndp_token
+  remember_token="$ndp_token"
   if [[ -z "$remember_token" ]]; then
     warn "No token given — the answers will only be kept on this machine."
     return 0
@@ -1522,7 +1564,14 @@ if interactive; then
     "authenticates users, searches the platform's global catalog and is" \
     "listed in the Federation. It is the quickest one to stand up, and a" \
     "catalog can be added later by running this again."
-  choose backend_choice "Which local catalog should this Endpoint use?" 1 \
+  # Offer what --backend (or the remembered settings) already chose, so
+  # pressing Enter keeps it instead of switching to None (issue #366).
+  case "$backend" in
+    mongodb) if [[ -n "$mongodb_url" ]]; then backend_default=3; else backend_default=2; fi ;;
+    ckan)    if [[ -n "$ckan_url" ]]; then backend_default=5; else backend_default=4; fi ;;
+    *)       backend_default=1 ;;
+  esac
+  choose backend_choice "Which local catalog should this Endpoint use?" "$backend_default" \
     "None — nothing is stored locally (quickest)" \
     "MongoDB, installed alongside the Endpoint" \
     "MongoDB, one I already have" \
@@ -1536,16 +1585,18 @@ if interactive; then
          "Connect to a MongoDB you already run, instead of installing one." \
          "Give its connection string, reachable from the Endpoint container."
        ask mongodb_url "MongoDB connection string" \
-         "mongodb://host.docker.internal:27017"
+         "${mongodb_url:-mongodb://host.docker.internal:27017}"
        ;;
     4) backend="ckan"; ckan_url="" ;;
     5) backend="ckan"
        section "Existing CKAN" \
          "Connect to a CKAN you already run. The key is verified before" \
          "anything is written."
-       ask ckan_url       "CKAN URL" ""
-       ask_secret ckan_api_key "CKAN API key (not shown)"
-       ask ckan_sysadmin  "CKAN username that key belongs to (blank to skip verifying it)" ""
+       ask ckan_url       "CKAN URL" "$ckan_url"
+       # A key given with --ckan-api-key is kept; asking would replace it
+       # with whatever is typed, or nothing.
+       [[ -n "$ckan_api_key" ]] || ask_secret ckan_api_key "CKAN API key (not shown)"
+       ask ckan_sysadmin  "CKAN username that key belongs to (blank to skip verifying it)" "$ckan_sysadmin"
        ;;
   esac
 
@@ -1672,19 +1723,40 @@ put TEST_TOKEN ""
 if [[ -n "$config_id" ]]; then
   step "Fetching the Federation registration"
   config_file="$(mktemp)"
-  # Sent without a token, which the Federation accepts today. Its
-  # GET /ep/{config_id} is changing to require the token of an admin of this
-  # Endpoint, decided by Keycloak's admin-area gate on client ep-<config-id>
-  # (ndp-federation #99, branch feature/client-create-with-group). Once that
-  # ships, this request answers 401 or 403 without one and the installer stops
-  # here, so it will need -H "Authorization: Bearer <token>": the operator's
-  # NDP token, from --ndp-token-file or asked for. remember_token, set by
-  # offer_remembered_settings above, is there only if they opted in.
-  http_code="$(curl -s -o "$config_file" -w '%{http_code}' -m 30 \
-    "${federation_url%/}/ep/${config_id}" || echo 000)"
+  # Federation 2.0.0 answers this only to an admin of the Endpoint, from the
+  # Bearer token; older ones answer without it (issue #397). So a token
+  # already in hand is sent, and otherwise one is asked for only when the
+  # Federation turns the request down.
+  fetch_registration() {
+    local headers code
+    if [[ -n "$ndp_token" ]]; then
+      headers="$(mktemp)"; chmod 600 "$headers"
+      printf 'Authorization: Bearer %s\n' "$ndp_token" > "$headers"
+      code="$(curl -s -o "$config_file" -w '%{http_code}' -m 30 -H @"$headers" \
+        "${federation_url%/}/ep/${config_id}" || true)"
+      rm -f "$headers"
+    else
+      code="$(curl -s -o "$config_file" -w '%{http_code}' -m 30 \
+        "${federation_url%/}/ep/${config_id}" || true)"
+    fi
+    # curl already writes 000 when it gets no answer; adding another made
+    # "HTTP 000000" instead of "Could not reach".
+    echo "${code:-000}"
+  }
+  [[ -n "$ndp_token" || -z "$ndp_token_file" ]] || get_ndp_token
+  http_code="$(fetch_registration)"
+  if [[ ( "$http_code" == "401" || "$http_code" == "403" ) && -z "$ndp_token" ]]; then
+    info "This Federation gives the configuration only to the Endpoint's admin."
+    get_ndp_token
+    [[ -n "$ndp_token" ]] \
+      || fail "Reading configuration $config_id needs your NDP access token: pass --ndp-token-file <path>${login_client_id:+ or run interactively to sign in}."
+    http_code="$(fetch_registration)"
+  fi
 
   case "$http_code" in
     200) ;;
+    401) fail "The Federation did not accept your NDP access token. Get a fresh one and try again." ;;
+    403) fail "Your NDP account is not an admin of configuration $config_id at ${federation_url%/}." ;;
     404) fail "Configuration $config_id not found at ${federation_url%/}. Check the id and --federation-url." ;;
     000) fail "Could not reach the Federation at ${federation_url%/}." ;;
     *)   fail "Federation returned HTTP $http_code for $config_id." ;;
@@ -1957,7 +2029,7 @@ join_netbird() {
       # this configuration, so the person installing never needs to know it
       # (issue #361). Neither the token nor the key is written anywhere but
       # these private temporary files, removed as soon as they are used.
-      token="${remember_token:-}"
+      token="${ndp_token:-${remember_token:-}}"
       if [[ -z "$token" && -n "$ndp_token_file" ]]; then
         [[ -r "$ndp_token_file" ]] \
           || { netbird_stop "Cannot read the NDP token file: $ndp_token_file" || return 1; }
@@ -2028,7 +2100,17 @@ PY
     [[ -r "$key_file" ]] \
       || { netbird_stop "Cannot read the NetBird setup key file: $key_file" || return 1; }
     joined="yes"
-    "${netbird_sudo[@]}" netbird up --management-url "$netbird_url" \
+    # NetBird resolves the sudo invoking user (SUDO_USER) from local accounts
+    # only and refuses to go on when it cannot, so a directory (LDAP/SSSD)
+    # account could not join. Without the sudo user variables it joins as
+    # root, which is what the service runs as anyway (issue #369).
+    netbird_up_env=()
+    invoking_user="${SUDO_USER:-$(id -un)}"
+    if [[ ${#netbird_sudo[@]} -gt 0 || -n "${SUDO_USER:-}" ]] \
+       && ! grep -q "^${invoking_user}:" /etc/passwd 2>/dev/null; then
+      netbird_up_env=(env -u SUDO_USER -u SUDO_UID -u SUDO_GID)
+    fi
+    "${netbird_sudo[@]}" "${netbird_up_env[@]}" netbird up --management-url "$netbird_url" \
       --setup-key-file "$key_file" || joined="no"
     [[ -n "$temp_key" ]] && rm -f "$temp_key"
     [[ "$joined" == "yes" ]] \
@@ -2338,6 +2420,9 @@ installer_version="$(git -C "$REPO_ROOT" describe --tags --always 2>/dev/null ||
 [[ "$dry_run" == "true" ]] || state_set INSTALLER_SHA256 "$(sha256sum "$REPO_ROOT/install/install.sh" | cut -d' ' -f1)"
 # The published port, which status and start report (issue #372).
 [[ "$dry_run" == "true" ]] || state_set EP_API_PORT "$ep_api_port"
+# And in .env, so a plain `docker compose up` in the checkout publishes the
+# same port instead of the default 8002 (issue #370).
+put EP_API_PORT "$ep_api_port"
 
 # --------------------------------------------------------------
 step "Rendering .env from example.env"

@@ -63,11 +63,12 @@ Host port the `api` service publishes the container's port 80 on
 (`"${EP_API_PORT:-8002}:80"` in `docker-compose.yml`). It is read by Docker
 Compose, not by the API, so it must be in the shell environment or in the
 `.env` next to `docker-compose.yml` when you run `docker compose`. The installer
-takes it from its "Port to publish the Endpoint on" prompt (or `--ep-api-port`)
-and passes it on the `docker compose` command line only; it does not write it to
-`.env`. A later `docker compose up` run by hand therefore publishes on 8002
-unless `EP_API_PORT` is set again (with `--no-start` the installer prints the
-full command instead of running it).
+takes it from its "Port to publish the Endpoint on" prompt (or `--ep-api-port`),
+passes it on the `docker compose` command line and, since 0.34.69, writes it to
+`.env`, so a later `docker compose up` run by hand publishes on the same port.
+An Endpoint installed earlier has no `EP_API_PORT` in `.env` and moves to 8002
+on such a restart unless it is set again or the installer is run again (with
+`--no-start` the installer prints the full command instead of running it).
 
 ---
 
@@ -109,6 +110,13 @@ Show a "JupyterLab" link in the UI and where it points. `USE_JUPYTERLAB=True`
 also mounts `GET /status/jupyter` and adds the URL to `/status/` and the metrics
 report; the API never calls it. **Where:** set `USE_JUPYTERLAB=True`
 and `JUPYTER_URL` to your JupyterLab instance if you offer one.
+
+#### `JUPYTER_TOKEN`
+*Optional · default: empty.*
+Token of the JupyterLab that `docker-compose.yml` starts with the `jupyter` or
+`full` profile; the API does not read it. Left empty, JupyterLab generates a
+random token at start (`docker compose logs jupyterlab | grep token`).
+**Where:** set it only if you want a fixed token, and never a published value.
 
 #### `SWAGGER_TITLE` / `SWAGGER_DESCRIPTION` / `SWAGGER_VERSION`
 *Advanced · usually leave default.*
@@ -602,6 +610,33 @@ installs MongoDB for it when the catalog does not provide one.
 #### `ACCESS_REQUESTS_COLLECTION`
 *Optional · default: `access_requests`.*
 MongoDB collection used to store access requests.
+
+---
+
+## New-release notice
+
+`GET /status/version` reports the installed ep-api version and the latest
+published release. The Dashboard shows admins a notice, with links to the
+release notes and the CHANGELOG, when a newer release exists (since 0.34.72).
+
+#### `RELEASE_CHECK_ENABLED`
+*Optional · default: `True`.*
+With `False` the Endpoint never asks for the latest release: the route answers
+with `latest_version` and `update_available` set to `null`, and no notice is
+shown.
+**Where:** turn it off on Endpoints without internet access, or that must not
+contact GitHub.
+
+#### `RELEASE_CHECK_URL`
+*Optional · default: `https://api.github.com/repos/national-data-platform/ep-api/releases/latest`.*
+Where the latest release is read from. Anything that answers like the GitHub
+releases API (`tag_name`, `html_url`) works.
+
+#### `RELEASE_CHECK_INTERVAL_SECONDS`
+*Optional · default: `21600` (6 hours).*
+How long the latest release is kept before it is read again. A failed lookup
+is retried after 15 minutes; until then the route answers with the latest
+version unknown.
 
 ---
 

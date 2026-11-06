@@ -216,13 +216,15 @@ services:
       - "${JUPYTER_HOST_PORT:-8888}:8888"
     environment:
       JUPYTER_ENABLE_LAB: 'yes'
-      JUPYTER_TOKEN: testing_token
+      # Set JUPYTER_TOKEN in .env. Left empty, JupyterLab generates a random
+      # token at start and prints it in its log (issue #388).
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-}
     volumes:
       - jupyterlab_data:/home/jovyan/work
     networks:
       - ndp-network
     restart: unless-stopped
-    command: start-notebook.sh --NotebookApp.token='testing_token' --NotebookApp.password=''
+    command: start-notebook.sh --NotebookApp.password=''
 
   # ==============================================
   # Pelican Registry - Namespace Management

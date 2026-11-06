@@ -35,7 +35,9 @@ choices are:
 
 1. **Configuration id** — leave blank the first time and it offers to register.
    With an id, it offers to keep your answers in the Federation registration
-   (this needs your token) so a later run can reuse them.
+   (this needs your token) so a later run can reuse them. From Federation
+   2.0.0 on, reading the registration also needs your token, since only the
+   Endpoint's admin may; it is asked for once and used for all of these.
 2. **Local catalog** — where this Endpoint stores its datasets, or whether it
    stores any at all (see below).
 3. **S3 object storage** — off by default. Answer yes and choose between a

@@ -14,10 +14,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The installer** asks for the identity provider's host and writes `KEYCLOAK_URL`, and writes `AUTHZ_CLIENT_ID` and `AUTHZ_REALM` from the Federation registration when it names this Endpoint's own client.
 - **`GET /status/`** reports `keycloak_url` instead of `auth_api_url`, and no longer `group_based_access`.
 
+- **Writing to S3 needs the Endpoint's `admin-area` gate.** Creating and deleting buckets, uploading, presigned upload URLs and deleting objects were open to editors; the routes that read (listing, metadata, download, presigned download) keep `editor-area`. Tests in `tests/test_minio_routes_auth.py`.
+
 ### Removed
-- `GROUP_NAMES` and `ENABLE_GROUP_BASED_ACCESS`: the group follows from `AUTHZ_CLIENT_ID`, and the entry check applies whenever it is set.
+- `GROUP_NAMES` and `ENABLE_GROUP_BASED_ACCESS`: the group follows from `AUTHZ_CLIENT_ID`, and the entry check applies whenever it is set. `GROUP_NAMES` is still read when `AUTHZ_CLIENT_ID` is empty: an entry `ndp_ep/ep-<config-id>` gives `AUTHZ_CLIENT_ID=ep-<config-id>`, with a warning in the log, so an Endpoint installed before this release keeps its permissions after upgrading instead of answering 403 to everyone. New tests in `tests/test_authz_client_from_group_names.py`.
 
 **Breaking:** without `AUTHZ_CLIENT_ID` every guarded route answers 403 and approval answers 503; an Endpoint registered before the Federation linked clients to groups needs its client linked first (the AAI's `tools/adopt_client.py`). Users who could write only through a realm role (`ndp_writer`, `group:<g>:writer`) are refused until they hold the editor or admin level.
+
+## [0.34.73] - 2026-11-06
+
+### Fixed
+- **The installer reads a configuration from Federation 2.0.0.** That release gives `GET /ep/{config_id}` only to an admin of the Endpoint, decided from the caller's Bearer token (sci-ndp/ndp-federation#130), and `install.sh --config-id` sent none, so every installation stopped with `Federation returned HTTP 401` (#397). The installer now sends the user's NDP access token when it has one, and otherwise asks for it only when the Federation turns the request down, so Federations that answer without a token are read as before. The token is got once and reused for the remembered settings and the NetBird setup key instead of being asked for again; it is still never written anywhere. A rejected token and an account that is not the Endpoint's admin now say so instead of printing the HTTP code. A Federation that cannot be reached is reported as such again; the code read `HTTP 000000` because `000` was appended to curl's own `000`.
+  - New tests in `install/tests/test_config_token.py` and `install/tests/test_device_login.py`.
+  - Verified against a local Federation built from sci-ndp/ndp-federation#130 (using the production identity provider) and against Federation 1.14.0:
+    - 1.14.0 without a token: the registration was read and written to `.env`, as before;
+    - 2.0.0 without a token: the installer stopped and named `--ndp-token-file`;
+    - 2.0.0 with a token the identity provider rejects: it said the token was not accepted;
+    - an unreachable Federation: "Could not reach the Federation".
+  - The device-flow sign-in was checked against idp-test with its test client up to the link and code; idp has no client for it yet.
+
+### Added
+- **Signing in from the installer with the OAuth device flow** (#397). With `--login-client-id <id>` (or `NDP_LOGIN_CLIENT_ID`) the installer shows a link and a code, waits while the user signs in there, and uses the token it gets instead of asking for one to be pasted. The client must be a public client with the device flow enabled; `--login-issuer` (or `NDP_LOGIN_ISSUER`) names its realm, `https://idp.nationaldataplatform.org/realms/NDP` by default. It is off by default because the production identity provider has no such client yet. The sign-in is `install/device_login.py`.
+
+## [0.34.72] - 2026-11-06
+
+### Added
+- **Admins are told when a newer ep-api release exists.** An Endpoint had no way to say it was out of date, so admins only learned about new releases, security fixes included, by checking GitHub themselves.
+  - The new route `GET /status/version` (same authentication as `/status/`) returns the installed version, the latest published release, `update_available`, and links to that release's notes and its CHANGELOG.
+  - The latest release is read from the GitHub releases API and kept for 6 hours (`RELEASE_CHECK_INTERVAL_SECONDS`). A failed lookup is retried after 15 minutes, and until then the route answers with the latest version unknown.
+  - `RELEASE_CHECK_ENABLED=False` turns the check off for Endpoints without internet access. `RELEASE_CHECK_URL` points it elsewhere.
+  - The Dashboard shows admins a notice with both links when an update is available. Nobody else sees it, and nobody else asks for it.
+  - New tests in `tests/test_release_check.py` and `ui/src/components/UpdateNotice.test.js`.
+  - Verified with the image against GitHub:
+    - with the version set to 0.34.70, the route reported 0.34.71 as available, with working links, and the Dashboard showed the notice to an admin;
+    - with `RELEASE_CHECK_ENABLED=False`, GitHub was not asked and no update was reported;
+    - without a token, the route answered 401 (#395).
+
+## [0.34.71] - 2026-11-03
+
+### Fixed
+- **NetBird joins when the person installing has a directory account.** NetBird's CLI resolves the sudo invoking user (`SUDO_USER`) from local accounts only and refuses to go on when it cannot, so on a host whose users come from LDAP/SSSD (not in `/etc/passwd`), as on CHPC machines, `sudo netbird up` failed with "resolve sudo invoking user …: refusing to fall back to root": the installer stopped with `--netbird`, or carried on without NetBird by default. For such an account the installer now runs `netbird up` without the sudo user variables (`env -u SUDO_USER -u SUDO_UID -u SUDO_GID`), the command that joined by hand on ndp-prod-248; local accounts are unchanged. New tests in `install/tests/test_netbird_directory_account.py`, with a `netbird` stub that fails the way the real client does. Not run against a real directory account here: that needs a host like ndp-prod-248 (#369).
+
+## [0.34.70] - 2026-11-03
+
+### Fixed
+- **In a terminal, the catalog question keeps what `--backend` chose.** "Which local catalog should this Endpoint use?" always offered 1 (None), so `install.sh --backend mongodb` (or `ckan`) run interactively switched to no catalog when the operator pressed Enter. The default now follows `--backend`, and `--mongodb-url` / `--ckan-url` for an existing one, as well as the remembered settings; for an existing MongoDB or CKAN the URL and CKAN username given on the command line are offered as defaults, and a key given with `--ckan-api-key` is no longer asked for again (and so no longer replaced by an empty answer). New tests in `install/tests/test_backend_flag_interactive.py`, which drive the installer on a pseudo-terminal. Verified with a real interactive install on this machine (`--instance t366 --backend mongodb`, Enter at every question): the question offered `[2]` and the Endpoint came up with `LOCAL_CATALOG_BACKEND=mongodb` and its MongoDB container; v0.34.69 offered `[1]` for the same command (#366).
+
+## [0.34.69] - 2026-11-03
+
+### Fixed
+- **A restarted Endpoint keeps its port.** The installer passed the Endpoint's host port (`EP_API_PORT`) only on the `docker compose` command line, so restarting or recreating the Endpoint by hand with `docker compose up` in its checkout published it on the default 8002: with two Endpoints on a host the second one failed with "port is already allocated", and a single Endpoint on another port would move silently. The installer now also writes `EP_API_PORT` to `.env` (documented in `example.env`), as it already did for the other host ports of a named instance. An Endpoint installed earlier gets it the next time the installer runs. New tests in `install/tests/test_ep_api_port_in_env.py`. Verified with a real install on this machine (`--instance t370 --ep-api-port 8170`, next to an Endpoint on 8002): `docker compose up -d --force-recreate api` without the port kept it on 8170; with `EP_API_PORT` removed from `.env`, as earlier versions left it, the same command failed with "Bind for :::8002 failed: port is already allocated" (#370).
+
+## [0.34.68] - 2026-11-03
+
+### Security
+- **The bundled JupyterLab no longer uses a public token.** `docker-compose.yml` started the JupyterLab of the `jupyter` and `full` profiles with `JUPYTER_TOKEN: testing_token` and `--NotebookApp.token='testing_token'`, a value published in this repository, so anyone who could reach its port (8888, published on every interface) could run code in the container. The token now comes from `JUPYTER_TOKEN` in `.env` (new in `example.env`, empty); left empty, JupyterLab generates a random token at start and prints it in its log. The installer does not start JupyterLab, so it does not set one. A JupyterLab started earlier keeps `testing_token` until its container is recreated. New tests in `tests/test_compose_jupyter_token.py`. Verified with the real image: with `JUPYTER_TOKEN` empty, `testing_token` was refused (403) and the token from the log accepted; with `JUPYTER_TOKEN` set, only that value was accepted; the previous compose file accepted `testing_token` (#388).
+
+## [0.34.67] - 2026-11-03
+
+### Fixed
+- **Error responses keep their headers.** The `HTTPException` handler rebuilt every error as a new JSON response from the status and detail only, so headers set on the exception were dropped. The visible one was `WWW-Authenticate: Bearer`, which `get_current_user` sets on every 401 and which never reached the client, so a 401 did not say which scheme to use (RFC 6750). The handler now passes the exception's headers through. New tests in `tests/test_exception_headers.py`. Verified against the production identity API: a rejected token got `401` without the header on 0.34.66 and `401` with `WWW-Authenticate: Bearer` with this version (#387).
 
 ## [0.34.66] - 2026-11-02
 
