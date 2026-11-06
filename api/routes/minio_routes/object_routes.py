@@ -21,7 +21,7 @@ from api.models.minio_models import (
 )
 from api.services.minio_services import object_service
 from api.services.minio_services.minio_client import minio_client
-from api.services.auth_services import ep_editor_gate
+from api.services.auth_services import ep_admin_gate, ep_editor_gate
 from api.config.minio_settings import s3_settings
 import io
 
@@ -33,7 +33,7 @@ async def upload_object(
     bucket_name: str,
     file: UploadFile = File(...),
     object_key: Optional[str] = Form(None),
-    current_user=Depends(ep_editor_gate),
+    current_user=Depends(ep_admin_gate),
 ):
     """Upload an object to a bucket."""
     if not s3_settings.is_configured:
@@ -148,7 +148,7 @@ async def generate_presigned_upload_url(
     bucket_name: str,
     object_key: str,
     request: PresignedUrlRequest,
-    current_user=Depends(ep_editor_gate),
+    current_user=Depends(ep_admin_gate),
 ):
     """Generate a presigned URL for uploading an object."""
     if not s3_settings.is_configured:
@@ -275,7 +275,7 @@ async def download_object(
 async def delete_object(
     bucket_name: str,
     object_key: str,
-    current_user=Depends(ep_editor_gate),
+    current_user=Depends(ep_admin_gate),
 ):
     """Delete an object from a bucket."""
     if not s3_settings.is_configured:

@@ -1,9 +1,23 @@
 # api/config/swagger_settings.py
 
+import logging
+import re
 from urllib.parse import urlparse
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
+
+
+_ENDPOINT_GROUP = re.compile(r"^ndp_ep/(ep-[A-Za-z0-9_-]+)$")
+
+
+def client_id_from_group_names(group_names: str) -> str:
+    """The client of the first ndp_ep/ep-<config-id> group listed, or ""."""
+    for name in (group_names or "").split(","):
+        match = _ENDPOINT_GROUP.match(name.strip().strip("/"))
+        if match:
+            return match.group(1)
+    return ""
 
 
 class Settings(BaseSettings):
@@ -39,6 +53,10 @@ class Settings(BaseSettings):
     # every permission, and the realm it is in.
     authz_client_id: str = ""
     authz_realm: str = "NDP"
+    # Read only to derive AUTHZ_CLIENT_ID for an Endpoint installed before it
+    # existed: its .env names the group, ndp_ep/ep-<config-id>, and not the
+    # client. Without this, upgrading such an Endpoint refused every request.
+    group_names: str = ""
 
     # Access-request workflow (user requests entry → admin approves/rejects).
     # Requires a MongoDB instance reachable via MONGODB_CONNECTION_STRING
@@ -58,6 +76,21 @@ class Settings(BaseSettings):
         """Drop a path, such as the /temp/information AUTH_API_URL carried."""
         parsed = urlparse(value)
         return f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else value
+
+    @model_validator(mode="after")
+    def client_from_the_old_group_setting(self):
+        """Take AUTHZ_CLIENT_ID from GROUP_NAMES when only that is set."""
+        if not self.authz_client_id:
+            client = client_id_from_group_names(self.group_names)
+            if client:
+                self.authz_client_id = client
+                logging.getLogger(__name__).warning(
+                    "AUTHZ_CLIENT_ID is not set; using %s from GROUP_NAMES. "
+                    "Set AUTHZ_CLIENT_ID in .env (re-running the installer "
+                    "does it).",
+                    client,
+                )
+        return self
 
     @property
     def aai_api_url(self) -> str:

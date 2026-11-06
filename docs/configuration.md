@@ -176,8 +176,11 @@ earlier accepts it until its `.env` is changed (see the security checklist in
 `TEST_TOKEN=testing_token`. **Never set it on an Endpoint others can reach.**
 
 `ENABLE_GROUP_BASED_ACCESS` and `GROUP_NAMES` are gone: the entry check
-follows `AUTHZ_CLIENT_ID`, and the Endpoint's group is derived from it. Both
-are ignored if still set.
+follows `AUTHZ_CLIENT_ID`, and the Endpoint's group is derived from it.
+`ENABLE_GROUP_BASED_ACCESS` is ignored if still set. `GROUP_NAMES` is read
+only when `AUTHZ_CLIENT_ID` is empty, so an Endpoint installed before the
+client setting existed keeps its permissions: an entry `ndp_ep/ep-<config-id>`
+gives `AUTHZ_CLIENT_ID=ep-<config-id>`, and the log asks to set it.
 
 > **Tiers** (`viewer` / `writer` / `admin`) are **not** set here — they are the
 > user's level in the Endpoint's group, and Keycloak decides on them. See

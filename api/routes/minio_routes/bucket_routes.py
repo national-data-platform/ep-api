@@ -7,7 +7,7 @@ from api.models.minio_models import (
     ErrorResponse,
 )
 from api.services.minio_services import bucket_service
-from api.services.auth_services import ep_editor_gate
+from api.services.auth_services import ep_admin_gate, ep_editor_gate
 from api.config.minio_settings import s3_settings
 
 router = APIRouter(prefix="/s3/buckets", tags=["S3"])
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/s3/buckets", tags=["S3"])
 
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_bucket(
-    request: BucketCreateRequest, current_user=Depends(ep_editor_gate)
+    request: BucketCreateRequest, current_user=Depends(ep_admin_gate)
 ):
     """Create a new bucket."""
     if not s3_settings.is_configured:
@@ -90,7 +90,7 @@ async def get_bucket_info(bucket_name: str, current_user=Depends(ep_editor_gate)
 
 
 @router.delete("/{bucket_name}", response_model=dict)
-async def delete_bucket(bucket_name: str, current_user=Depends(ep_editor_gate)):
+async def delete_bucket(bucket_name: str, current_user=Depends(ep_admin_gate)):
     """Delete a bucket (must be empty)."""
     if not s3_settings.is_configured:
         raise HTTPException(

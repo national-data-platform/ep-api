@@ -6,7 +6,8 @@ permission level. It is aimed at deployment operators and at NDP support.
 
 > TL;DR
 > - The EP understands three tiers: **viewer** (read), **writer**
->   (modify catalog content and use S3) and **admin** (everything).
+>   (modify catalog content, read S3) and **admin** (everything,
+>   including writing to S3).
 >   The identity provider calls the writer tier **editor**.
 > - **Keycloak decides.** For every guarded route the EP asks Keycloak,
 >   with the caller's own token, whether they pass a gate of the
@@ -36,8 +37,8 @@ reaches them is described in
 | Tier   | Gate          | Passed by the group's | Can do |
 | ------ | ------------- | --------------------- | ------ |
 | viewer | `viewer-area` | admins, editors, viewers | Use the `/pelican/*` read routes. (Catalog search and resource reads need no tier at all.) |
-| writer | `editor-area` | admins, editors | Everything a viewer can, plus every create / update / delete / publish route of the catalog, all `/s3/*` routes, `/status/rexec` and `/pelican/import-metadata`. |
-| admin  | `admin-area`  | admins | Everything a writer can, plus listing, approving and rejecting access requests. |
+| writer | `editor-area` | admins, editors | Everything a viewer can, plus every create / update / delete / publish route of the catalog, the `/s3/*` routes that read (list buckets and objects, metadata, download, presigned download), `/status/rexec` and `/pelican/import-metadata`. |
+| admin  | `admin-area`  | admins | Everything a writer can, plus the `/s3/*` routes that write (create and delete buckets, upload, presigned upload, delete objects) and listing, approving and rejecting access requests. |
 
 The tiers nest: an admin passes `editor-area` and `viewer-area` too, so
 nobody needs more than one level. A level on a **parent group** counts
@@ -134,10 +135,13 @@ The route dependencies, each returning the user:
 - `ep_viewer_gate` (`viewer-area`) — every `/pelican/*` route (declared on
   the Pelican router).
 - `ep_editor_gate` (`editor-area`) — every catalog
-  `POST`/`PUT`/`PATCH`/`DELETE`, `POST /dataset/{id}/publish`, all
-  `/s3/*` routes (including the `GET`s), `GET /status/rexec` and
-  `POST /pelican/import-metadata`.
-- `ep_admin_gate` (`admin-area`) — `GET /user/access-requests` and the
+  `POST`/`PUT`/`PATCH`/`DELETE`, `POST /dataset/{id}/publish`, the
+  `/s3/*` routes that read (`GET`s and `POST …/presigned-download`),
+  `GET /status/rexec` and `POST /pelican/import-metadata`.
+- `ep_admin_gate` (`admin-area`) — the `/s3/*` routes that write
+  (`POST /s3/buckets/`, `DELETE /s3/buckets/{bucket}`,
+  `POST /s3/objects/{bucket}`, `POST …/presigned-upload`,
+  `DELETE /s3/objects/{bucket}/{key}`), `GET /user/access-requests` and the
   approve and reject routes.
 
 `TEST_TOKEN`, when set, is a token that bypasses the AAI and Keycloak and
