@@ -188,7 +188,10 @@ It answers 503 when any enabled check other than `affinities` is `down`.
 corresponding feature is on.
 
 Other status routes (token required): `GET /status/metrics` (system metrics
-and service status), `GET /status/kafka-details` (`kafka_host`, `kafka_port`,
+and service status), `GET /status/version` (`current_version`,
+`latest_version`, `update_available`, `release_url`, `changelog_url`,
+`check_enabled`; the latest release is `null` when it cannot be read),
+`GET /status/kafka-details` (`kafka_host`, `kafka_port`,
 `kafka_connection`, `kafka_prefix`, `max_streams`), `GET /status/jupyter`
 (`jupyter_url`), `GET /status/rexec` (`deployment_api_url`, writer role).
 

@@ -602,6 +602,33 @@ MongoDB collection used to store access requests.
 
 ---
 
+## New-release notice
+
+`GET /status/version` reports the installed ep-api version and the latest
+published release. The Dashboard shows admins a notice, with links to the
+release notes and the CHANGELOG, when a newer release exists (since 0.34.72).
+
+#### `RELEASE_CHECK_ENABLED`
+*Optional · default: `True`.*
+With `False` the Endpoint never asks for the latest release: the route answers
+with `latest_version` and `update_available` set to `null`, and no notice is
+shown.
+**Where:** turn it off on Endpoints without internet access, or that must not
+contact GitHub.
+
+#### `RELEASE_CHECK_URL`
+*Optional · default: `https://api.github.com/repos/national-data-platform/ep-api/releases/latest`.*
+Where the latest release is read from. Anything that answers like the GitHub
+releases API (`tag_name`, `html_url`) works.
+
+#### `RELEASE_CHECK_INTERVAL_SECONDS`
+*Optional · default: `21600` (6 hours).*
+How long the latest release is kept before it is read again. A failed lookup
+is retried after 15 minutes; until then the route answers with the latest
+version unknown.
+
+---
+
 ## Telemetry — OpenTelemetry (advanced)
 
 Read from the process environment only: the settings class for these does not

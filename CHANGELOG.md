@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.72] - 2026-11-06
+
+### Added
+- **Admins are told when a newer ep-api release exists.** An Endpoint had no way to say it was out of date, so admins only learned about new releases, security fixes included, by checking GitHub themselves.
+  - The new route `GET /status/version` (same authentication as `/status/`) returns the installed version, the latest published release, `update_available`, and links to that release's notes and its CHANGELOG.
+  - The latest release is read from the GitHub releases API and kept for 6 hours (`RELEASE_CHECK_INTERVAL_SECONDS`). A failed lookup is retried after 15 minutes, and until then the route answers with the latest version unknown.
+  - `RELEASE_CHECK_ENABLED=False` turns the check off for Endpoints without internet access. `RELEASE_CHECK_URL` points it elsewhere.
+  - The Dashboard shows admins a notice with both links when an update is available. Nobody else sees it, and nobody else asks for it.
+  - New tests in `tests/test_release_check.py` and `ui/src/components/UpdateNotice.test.js`.
+  - Verified with the image against GitHub:
+    - with the version set to 0.34.70, the route reported 0.34.71 as available, with working links, and the Dashboard showed the notice to an admin;
+    - with `RELEASE_CHECK_ENABLED=False`, GitHub was not asked and no update was reported;
+    - without a token, the route answered 401 (#395).
+
 ## [0.34.71] - 2026-11-03
 
 ### Fixed
