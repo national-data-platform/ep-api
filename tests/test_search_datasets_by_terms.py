@@ -164,7 +164,7 @@ class TestSearchDatasetsByTerms:
 
         mock_repo.package_search.assert_called_once()
         call_args = mock_repo.package_search.call_args
-        assert "title:test" in call_args[1]["q"]
+        assert 'title:"test"' in call_args[1]["q"]
 
     @pytest.mark.asyncio
     @patch("api.services.datasource_services.search_datasets_by_terms.catalog_settings")
