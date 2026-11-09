@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.77] - 2026-11-09
+
+### Added
+- **A summary of STAC collection resources in the dataset view** (#405). A resource that is a STAC collection showed only a link to its `collection.json`: for the GLSR Endpoint, 146 KB of JSON listing 1313 item paths, which browser STAC viewers cannot read either because the file server sends no CORS headers. Such resources now have a **Collection summary** button that shows the collection's title, description, license, period, item count and summaries (e.g. 27 models, 6 scenarios), its extent on the map, and its items, filtered by name and opened one at a time to get their download links. Every other resource looks as before.
+  - The Endpoint reads the collection: new routes `GET /stac/collection` and `GET /stac/item`, public like `GET /search`. They only read the URL of a resource of a public dataset in the local or global catalog, and items that collection links to; http(s) only, no loopback, link-local, multicast or reserved addresses, at most three redirects, `STAC_MAX_BYTES` (5 MB) and `STAC_FETCH_TIMEOUT_SECONDS` (10 s), cached for `STAC_CACHE_SECONDS` (10 min). `STAC_SUMMARY_ENABLED=False` turns it off. See `docs/configuration.md`.
+  - New tests in `tests/test_stac_summary.py` and `ui/src/components/StacCollectionSummary.test.js`.
+  - Verified with the image of this release and a local MongoDB catalog holding a dataset whose resource is the GLSR collection (`utah-cmip6.ndp.utah.edu/files/stac/collection.json`): the summary showed 1313 items, 1979–2099, 27 models and 6 scenarios with the Great Salt Lake Basin on the map; filtering by `MIROC6 ssp370` left 13 items; opening one showed its period and the link to its NetCDF file. The file-server resource of the same dataset shows no button and answers 422; an item URL that is not in the collection answers 404 without being read.
+
 ## [0.34.76] - 2026-11-09
 
 ### Fixed

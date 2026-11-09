@@ -629,6 +629,43 @@ version unknown.
 
 ---
 
+## STAC collection summaries
+
+A dataset resource that is a STAC collection (a `collection.json`, or a
+resource whose format says STAC) gets a **Collection summary** button in the
+dataset view (since 0.34.77). The Endpoint reads the collection and returns,
+from `GET /stac/collection`, its title, description, license, spatial and
+temporal extent, summaries and items; `GET /stac/item` returns one item's
+properties and download links. The browser never reads the collection itself,
+so the file server needs no CORS headers.
+
+The Endpoint only reads the URL of a resource of a public dataset in the local
+or global catalog, and the items that collection links to. It reads http(s)
+only, refuses loopback, link-local, multicast and reserved addresses (cloud
+metadata services among them), and follows at most three redirects under the
+same rules. Private network addresses are allowed, for Endpoints that keep
+their files on an internal network.
+
+#### `STAC_SUMMARY_ENABLED`
+*Optional · default: `True`.*
+With `False` the routes answer 404 and nothing is read.
+**Where:** turn it off on Endpoints that must not make outbound requests.
+
+#### `STAC_FETCH_TIMEOUT_SECONDS`
+*Optional · default: `10`.*
+How long one read of a collection or item may take.
+
+#### `STAC_MAX_BYTES`
+*Optional · default: `5000000`.*
+Larger documents are not read; the route answers 502.
+
+#### `STAC_CACHE_SECONDS`
+*Optional · default: `600`.*
+How long a collection or item is kept before it is read again (each API
+worker keeps its own copy).
+
+---
+
 ## Telemetry — OpenTelemetry (advanced)
 
 Read from the process environment only: the settings class for these does not

@@ -256,6 +256,19 @@ export const searchAPI = {
   },
 };
 
+// Summaries of STAC collection resources (issue #405). The Endpoint reads
+// the collection itself, so the file server needs no CORS headers.
+export const stacAPI = {
+  collection: (server, datasetId, resourceId) =>
+    apiClient.get('/stac/collection', {
+      params: { server, dataset_id: datasetId, resource_id: resourceId }
+    }),
+  item: (server, datasetId, resourceId, href) =>
+    apiClient.get('/stac/item', {
+      params: { server, dataset_id: datasetId, resource_id: resourceId, href }
+    })
+};
+
 // Resources management API
 export const resourcesAPI = {
   getById: (resourceId) =>

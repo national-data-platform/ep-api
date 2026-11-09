@@ -21,6 +21,9 @@ import {
   BASE_URL
 } from '../services/api';
 import DatasetMetadata from '../components/DatasetMetadata';
+import StacCollectionSummary, {
+  looksLikeStacCollection
+} from '../components/StacCollectionSummary';
 
 const MODES = [
   { id: 'both', label: 'All' },
@@ -560,6 +563,7 @@ const Search = () => {
           items={datasetResults}
           emptyMessage="No datasets matched your search."
           isService={false}
+          server={server}
           myUserHash={myUserHash}
           canDelete={server === 'local' && canWrite}
           onDelete={handleDeleteDataset}
@@ -831,6 +835,7 @@ const ResultsSection = ({
   items,
   emptyMessage,
   isService,
+  server,
   myUserHash,
   canDelete,
   onDelete,
@@ -889,6 +894,7 @@ const ResultsSection = ({
             key={item.id || `${title}-${index}`}
             item={item}
             isService={isService}
+            server={server}
             myUserHash={myUserHash}
             canDelete={canDelete}
             onDelete={onDelete}
@@ -905,6 +911,7 @@ const ResultsSection = ({
 const ResultCard = ({
   item,
   isService,
+  server,
   myUserHash,
   canDelete,
   onDelete,
@@ -1134,7 +1141,13 @@ const ResultCard = ({
       {expanded && showResources && (
         <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {resources.map((resource, idx) => (
-            <ResourceRow key={resource.id || idx} resource={resource} isService={isService} />
+            <ResourceRow
+              key={resource.id || idx}
+              resource={resource}
+              isService={isService}
+              server={server}
+              datasetId={item.id}
+            />
           ))}
         </div>
       )}
@@ -1320,7 +1333,32 @@ const ActionConfirmPanel = ({
   );
 };
 
-const ResourceRow = ({ resource, isService }) => (
+// A resource that is a STAC collection gets a button that opens a summary
+// of it under the row (#405); every other resource looks as before.
+const ResourceRow = ({ resource, isService, server, datasetId }) => {
+  const [showStac, setShowStac] = useState(false);
+  const stac =
+    !isService &&
+    (server === 'local' || server === 'global') &&
+    Boolean(datasetId) &&
+    looksLikeStacCollection(resource);
+  return (
+    <div>
+      <ResourceLine
+        resource={resource}
+        isService={isService}
+        stac={stac}
+        showStac={showStac}
+        onToggleStac={() => setShowStac((v) => !v)}
+      />
+      {stac && showStac && (
+        <StacCollectionSummary server={server} datasetId={datasetId} resourceId={resource.id} />
+      )}
+    </div>
+  );
+};
+
+const ResourceLine = ({ resource, isService, stac, showStac, onToggleStac }) => (
   <div
     style={{
       background: '#f8fafc',
@@ -1344,6 +1382,25 @@ const ResourceRow = ({ resource, isService }) => (
       )}
     </div>
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      {stac && (
+        <button
+          type="button"
+          onClick={onToggleStac}
+          aria-expanded={showStac}
+          style={{
+            background: showStac ? '#dbeafe' : '#eff6ff',
+            color: '#1d4ed8',
+            border: '1px solid #bfdbfe',
+            borderRadius: '6px',
+            padding: '0.2rem 0.6rem',
+            fontSize: '0.8rem',
+            fontWeight: 500,
+            cursor: 'pointer'
+          }}
+        >
+          {showStac ? 'Hide collection summary' : 'Collection summary'}
+        </button>
+      )}
       {resource.format && (
         <Badge color="#475569" background="#e2e8f0">
           {resource.format}
