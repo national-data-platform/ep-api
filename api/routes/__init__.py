@@ -8,6 +8,7 @@ from .resource_routes.search_resources import (  # noqa: F401
     router as resource_search_router,
 )
 from .search_routes import router as search_router  # noqa: F401
+from .stac_routes import router as stac_router  # noqa: F401
 from .status_routes import router as status_router  # noqa: F401
 from .update_routes import router as update_router  # noqa: F401
 from .user_routes import router as user_router  # noqa: F401

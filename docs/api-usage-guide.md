@@ -98,7 +98,7 @@ here.
 
 | Requirement | Routes |
 |---|---|
-| No token | `GET /`, `/health`, `/ready`, `GET /search`, `POST /search`, `GET /organization` (except `mine=true`), `GET /resource/{id}`, `GET /resources/search`, `POST /user/login`, `POST /token`, the service proxy unless the service sets `requires_auth` |
+| No token | `GET /`, `/health`, `/ready`, `GET /search`, `POST /search`, `GET /stac/collection`, `GET /stac/item`, `GET /organization` (except `mine=true`), `GET /resource/{id}`, `GET /resources/search`, `POST /user/login`, `POST /token`, the service proxy unless the service sets `requires_auth` |
 | Any valid token | `/status/*` (except `/status/rexec`), `POST /user/access-requests`, `GET /organization?mine=true` |
 | Group gate only | `GET /user/info` |
 | viewer | `/pelican/*` |

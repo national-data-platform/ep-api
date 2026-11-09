@@ -164,6 +164,7 @@ app.include_router(routes.health_router, tags=["Health"])
 if local_catalog_enabled:
     app.include_router(routes.register_router, tags=["Registration"])
 app.include_router(routes.search_router, tags=["Search"])
+app.include_router(routes.stac_router, tags=["STAC"])
 if local_catalog_enabled:
     app.include_router(routes.update_router, tags=["Update"])
 if local_catalog_enabled:
