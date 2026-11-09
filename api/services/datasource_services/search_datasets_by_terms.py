@@ -11,6 +11,35 @@ from fastapi import HTTPException
 from api.config.catalog_settings import catalog_settings
 from api.models import DataSourceResponse, Resource
 
+# Results are asked for a page at a time, never more than the catalog can
+# serve before its gateway gives up (issue #402), and no more datasets are
+# looked at than the single 1000-row request used to return.
+PAGE_SIZE = 100
+MAX_DATASETS = 1000
+
+
+def solr_phrase(value: str) -> str:
+    """
+    Quote a search term as a Solr phrase.
+
+    CKAN's text field splits words at letter/digit boundaries, so an unquoted
+    ``macav2`` matches every dataset containing ``macav`` or ``2`` (4224 on the
+    global catalog). As a phrase it matches only those parts next to each
+    other, which is what the search is for.
+
+    Parameters
+    ----------
+    value : str
+        The search term.
+
+    Returns
+    -------
+    str
+        The term between double quotes, with inner quotes and backslashes
+        escaped.
+    """
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
 
 def escape_solr_special_chars(value: str) -> str:
     """
@@ -77,7 +106,7 @@ async def search_datasets_by_terms(
     elif server == "pre_ckan":
         repository = catalog_settings.pre_catalog
 
-    escaped_terms = [escape_solr_special_chars(term) for term in terms_list]
+    escaped_terms = [solr_phrase(term) for term in terms_list]
 
     query_parts = []
 
@@ -98,11 +127,9 @@ async def search_datasets_by_terms(
     query_string = " AND ".join(query_parts)
 
     try:
-        datasets = repository.package_search(q=query_string, rows=1000)
         results_list = []
 
-        for dataset in datasets["results"]:
-            print(dataset)
+        for dataset in _search_pages(repository, query_string):
             dataset_str = json.dumps(dataset).lower()
 
             if all(term.lower() in dataset_str for term in terms_list):
@@ -157,13 +184,15 @@ async def search_datasets_by_terms(
         return []
 
     except CKANAPIError as _:  # noqa: F841
-        # Handle errors when CKAN is unreachable
-        if server == "global":
-            raise HTTPException(
-                status_code=503, detail="Global catalog is not reachable."
-            )
+        # The catalog answered, with an error: a gateway timeout from its
+        # proxy arrives here too. It is not unreachable (issue #402).
+        name = "Global" if server == "global" else server.title()
         raise HTTPException(
-            status_code=503, detail=f"{server.title()} catalog is not reachable."
+            status_code=503,
+            detail=(
+                f"{name} catalog could not answer this search: it returned an "
+                "error or timed out. Try again, or with more specific terms."
+            ),
         )
 
     except requests.exceptions.ConnectionError:
@@ -250,3 +279,31 @@ async def search_datasets_by_terms(
         raise HTTPException(
             status_code=400, detail="Error searching for datasets. Please try again."
         )
+
+
+def _search_pages(repository, query_string: str):
+    """
+    Yield the datasets matching a query, one page of results at a time.
+
+    Parameters
+    ----------
+    repository : DataCatalogRepository
+        The catalog to search.
+    query_string : str
+        The query for ``package_search``.
+
+    Yields
+    ------
+    dict
+        Each dataset, until the catalog has no more or ``MAX_DATASETS`` have
+        been returned.
+    """
+    start = 0
+    while start < MAX_DATASETS:
+        page = repository.package_search(q=query_string, rows=PAGE_SIZE, start=start)
+        results = page.get("results", [])
+        yield from results
+        start += len(results)
+        count = page.get("count")
+        if len(results) < PAGE_SIZE or (count is not None and start >= count):
+            return

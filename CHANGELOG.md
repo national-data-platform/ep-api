@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.75] - 2026-11-09
+
+### Fixed
+- **Searching the global catalog no longer fails with "Global catalog is not reachable" while it is up** (#402). The search asked CKAN for 1000 full datasets in one request, with each term unquoted. CKAN splits a term like `macav2` into `macav` and `2`, so on the global catalog it matched 4224 datasets, the request ran into the catalog's 15-second gateway timeout, and the 504 was reported as the catalog being unreachable. The Search page uses the global catalog by default, so this reached users of every Endpoint.
+  - Each term is now searched as a phrase (`"macav2"`, `title:"macav2"`), so CKAN returns only datasets with those parts together.
+  - Results are asked for 100 at a time, looking at no more than the 1000 datasets the single request used to return.
+  - An error from the catalog, a timeout included, now says the catalog could not answer the search, not that it is unreachable.
+  - A leftover `print` no longer writes every dataset found to the logs.
+  - New tests in `tests/test_search_pages_and_phrases.py`.
+  - Verified against the global catalog, before and after: `macav2` went from a 503 after 15.6 s to an empty result in 0.7 s; `water` (370 datasets), `climate` + `utah` (51) and `water-bodies` (1) return the same datasets as before.
+
 ## [0.34.74] - 2026-11-09
 
 ### Added
