@@ -257,6 +257,24 @@ section() {
   done
 }
 
+# read_reply VARIABLE "prompt" [-s]
+# With the install log active, stdout and stderr reach the terminal through
+# two separate tee processes, so a prompt printed by `read -p` (stderr) could
+# overtake the explanation echoed just before it (stdout) and land above it
+# (issue #404). The prompt is then printed on stdout, the same path as that
+# explanation, as long as the terminal is where stdout ends up (fd 5 is the
+# original stdout while the log is active). Otherwise `read -p` as before.
+read_reply() {
+  local __rr_var="$1" __rr_prompt="$2" __rr_silent="${3:-}" __rr_line=""
+  if [[ -n "${log_active:-}" && -t 5 ]]; then
+    printf '%s' "$__rr_prompt"
+    read -r $__rr_silent __rr_line
+  else
+    read -r $__rr_silent -p "$__rr_prompt" __rr_line
+  fi
+  printf -v "$__rr_var" '%s' "$__rr_line"
+}
+
 usage() {
   cat <<USAGE
 NDP Endpoint installer
@@ -662,7 +680,7 @@ lc_uninstall() {
   fi
   if [[ "$assume_yes" != "true" ]]; then
     [[ -t 0 ]] || fail "uninstall asks for confirmation; run it with --yes where nobody can answer."
-    read -r -p "Remove it? [y/N] " reply
+    read_reply reply "Remove it? [y/N] "
     [[ "$reply" =~ ^[Yy]$ ]] || fail "Aborted; nothing was changed."
   fi
 
@@ -829,7 +847,7 @@ ask() {
   # ask VARIABLE "Question" "default"
   local __var="$1" __question="$2" __default="${3:-}" __reply=""
   if interactive; then
-    read -r -p "  $__question${__default:+ [$__default]}: " __reply
+    read_reply __reply "  $__question${__default:+ [$__default]}: "
   fi
   printf -v "$__var" '%s' "${__reply:-$__default}"
 }
@@ -837,7 +855,7 @@ ask() {
 ask_secret() {
   local __var="$1" __question="$2" __reply=""
   if interactive; then
-    read -r -s -p "  $__question: " __reply
+    read_reply __reply "  $__question: " -s
     echo
   fi
   printf -v "$__var" '%s' "$__reply"
@@ -875,7 +893,7 @@ ask_yes_no() {
   if interactive; then
     local hint="[y/N]"
     [[ "$__default" == "yes" ]] && hint="[Y/n]"
-    read -r -p "  $__question $hint: " __reply
+    read_reply __reply "  $__question $hint: "
   fi
   __reply="${__reply:-$__default}"
   case "$__reply" in
@@ -895,7 +913,7 @@ choose() {
       printf "    %d) %s\n" "$index" "$option"
       index=$((index + 1))
     done
-    read -r -p "  Choice [$__default]: " __reply
+    read_reply __reply "  Choice [$__default]: "
   fi
   __reply="${__reply:-$__default}"
   [[ "$__reply" =~ ^[0-9]+$ ]] && [[ "$__reply" -ge 1 ]] && [[ "$__reply" -le ${#__options[@]} ]] \
@@ -2433,7 +2451,7 @@ if [[ -f "$env_path" && "$dry_run" != "true" ]]; then
   warn "Existing .env saved to $(basename "$backup")"
 
   if [[ "$assume_yes" != "true" ]]; then
-    read -r -p "$env_path already exists. Overwrite? [y/N] " reply
+    read_reply reply "$env_path already exists. Overwrite? [y/N] "
     [[ "$reply" =~ ^[Yy]$ ]] || fail "Aborted; nothing was changed (backup kept at $backup)."
   fi
 fi

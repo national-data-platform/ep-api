@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.78] - 2026-11-09
+
+### Fixed
+- **The installer's questions no longer appear above their explanation** (#404). Since the install log (#374), stdout and stderr reach the terminal through two separate `tee` processes. Explanations are echoed on stdout and questions were printed by `read -p` on stderr, so on a busy machine a question could overtake the text before it ("Configuration id (blank to skip):   Identifies this Endpoint's registration…"). While the log is active and stdout goes to a terminal, questions are now printed on stdout, the same path as their explanation; otherwise they are asked as before. The same applies to the uninstall and `.env` overwrite confirmations.
+  - This is also why `install/tests/test_backend_flag_interactive.py` failed intermittently in CI: it answers a question when it is the last line, and the installer waited at a question that was not. Running those tests 20 in parallel failed 9 of 25 before and passes 35 of 35 now, twice.
+  - The pseudo-terminal tests now report where the installer stopped instead of only a timeout. New test with a deliberately slow `tee` that fails on 0.34.77.
+
 ## [0.34.77] - 2026-11-09
 
 ### Added

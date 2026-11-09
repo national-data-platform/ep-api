@@ -140,7 +140,16 @@ def _run_installer(checkout, federation, stubs):
                 pending = ""
         elif process.poll() is not None:
             break
-    process.wait(timeout=30)
+    try:
+        process.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        # Show where the installer stopped instead of only the timeout
+        # (issue #404).
+        process.kill()
+        os.close(main)
+        pytest.fail(
+            "install.sh did not finish; it was waiting after:\n" + output[-2000:]
+        )
     os.close(main)
     return process.returncode, output
 
