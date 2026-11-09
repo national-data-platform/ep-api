@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.74] - 2026-11-09
+
+### Added
+- **Each release opens the pull request that installs it from NDP-EP** (#400, sci-ndp/NDP-EP#16). New Endpoints install the release pinned in `setup.sh` of sci-ndp/NDP-EP, and that pin was raised by hand after every release, so new Endpoints kept installing an older one whenever nobody remembered. After publishing a release that is not a prerelease, `docker-publish.yml` now opens a one-line pull request there raising `EP_VERSION`; merging it makes new installations use the release, closing it holds the release back. A release not newer than the pinned one opens nothing, and re-running the workflow does not open a second pull request.
+  - The job needs the `NDP_EP_PR_TOKEN` secret (Contents and Pull requests, read and write, on sci-ndp/NDP-EP). Without it the job fails and says to raise the pin by hand.
+  - The pin is rewritten by `scripts/bump_ndp_ep.py`. New tests in `tests/test_bump_ndp_ep.py`.
+  - The job's script was run against a clone of sci-ndp/NDP-EP with the push and the pull request stubbed: v0.34.74 raised the pin and committed it, v0.34.73 and v0.35.0-rc1 changed nothing, and without the token it stopped with the message above.
+
 ## [0.34.73] - 2026-11-06
 
 ### Fixed

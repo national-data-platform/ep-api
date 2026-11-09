@@ -159,7 +159,7 @@ suites.
 |---|---|---|
 | `pr.yml` | Pull request to `main` | black, flake8, pytest with coverage; UI tests. |
 | `main.yml` | Push to `main`, manual | The same jobs as `pr.yml`. |
-| `docker-publish.yml` | Tag `v*`, manual (with a version) | Publishes the image and the GitHub release, in this order: resolve the version from the tag (a version with a hyphen is a prerelease and never moves `latest`); `scripts/check_release_version.py <version>` fails the run if it differs from `swagger_version` in `api/config/swagger_settings.py`; `scripts/extract_changelog.py <version>` takes that version's section of `CHANGELOG.md` as release notes; build `Dockerfile.allinone` for `linux/amd64` and push `rbardaji/ndp-ep-api:<version>` and `rbardaji/ndp-ep-api:latest`; create the GitHub release last (or update it, if it exists). |
+| `docker-publish.yml` | Tag `v*`, manual (with a version) | Publishes the image and the GitHub release, in this order: resolve the version from the tag (a version with a hyphen is a prerelease and never moves `latest`); `scripts/check_release_version.py <version>` fails the run if it differs from `swagger_version` in `api/config/swagger_settings.py`; `scripts/extract_changelog.py <version>` takes that version's section of `CHANGELOG.md` as release notes; build `Dockerfile.allinone` for `linux/amd64` and push `rbardaji/ndp-ep-api:<version>` and `rbardaji/ndp-ep-api:latest`; create the GitHub release last (or update it, if it exists). Then, for a release that is not a prerelease, the `propose-ndp-ep-bump` job opens a pull request in sci-ndp/NDP-EP raising `EP_VERSION` in its `setup.sh` (`scripts/bump_ndp_ep.py`; nothing is opened for a release not newer than the pinned one). |
 | `demo-deck.yml` | Push to `main` touching `docs/demo/**`, manual | Renders `docs/demo/NDP-demo-presentation.md` with Marp to HTML and PDF and publishes it to GitHub Pages. |
 
 Because the release is created only after the image is pushed, a failed push
@@ -174,6 +174,13 @@ leaves no release; re-running the workflow finishes a partial run.
 3. Open a pull request, wait for CI, merge.
 4. Tag the merge commit `vX.Y.Z` and push the tag. `docker-publish.yml` does the
    rest.
+5. New Endpoints install the release pinned in sci-ndp/NDP-EP's `setup.sh`.
+   The release workflow opens the pull request there that raises it (#400);
+   merge it to make new installations use the release, or close it to hold
+   the release back. That job needs the `NDP_EP_PR_TOKEN` secret: a
+   fine-grained token with Contents and Pull requests (read and write) on
+   sci-ndp/NDP-EP only. Without it the job fails and says to raise the pin by
+   hand.
 
 ## Change procedure
 

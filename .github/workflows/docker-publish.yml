@@ -30,6 +30,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
 
     steps:
       - uses: actions/checkout@v4
@@ -146,3 +149,62 @@ jobs:
             echo "${{ steps.meta.outputs.tags }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # New Endpoints install the release pinned in sci-ndp/NDP-EP's setup.sh
+  # (issue #400, sci-ndp/NDP-EP#16). This opens the one-line pull request there
+  # that raises the pin; merging it is what makes new installations use this
+  # release, and closing it holds the release back. It runs here rather than
+  # on the `release` event because a release created with the workflow's own
+  # token starts no other workflow.
+  #
+  # NDP_EP_PR_TOKEN: a token that can push a branch to sci-ndp/NDP-EP and open
+  # pull requests there (fine-grained: Contents and Pull requests, read and
+  # write, on that repository only).
+  propose-ndp-ep-bump:
+    needs: publish
+    if: needs.publish.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open the pull request that installs this release from NDP-EP
+        env:
+          GH_TOKEN: ${{ secrets.NDP_EP_PR_TOKEN }}
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::The NDP_EP_PR_TOKEN secret is not set, so no pull request was opened in sci-ndp/NDP-EP. Raise EP_VERSION in its setup.sh to $TAG by hand, or set the secret and re-run this job."
+            exit 1
+          fi
+          branch="ep-api-$TAG"
+          git clone --quiet --depth 1 \
+            "https://x-access-token:${GH_TOKEN}@github.com/sci-ndp/NDP-EP.git" ndp-ep
+          # Re-running the workflow must not open a second pull request.
+          if git -C ndp-ep ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "Branch $branch already exists in sci-ndp/NDP-EP; nothing to do."
+            exit 0
+          fi
+          status=0
+          python3 scripts/bump_ndp_ep.py "$TAG" ndp-ep/setup.sh || status=$?
+          if [ "$status" -eq 10 ]; then
+            exit 0
+          fi
+          [ "$status" -eq 0 ] || exit "$status"
+          cd ndp-ep
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --quiet -b "$branch"
+          git commit --quiet -am "Install ep-api $TAG"
+          git push --quiet origin "$branch"
+          notes="https://github.com/national-data-platform/ep-api/releases/tag/$TAG"
+          gh pr create --repo sci-ndp/NDP-EP --base main --head "$branch" \
+            --title "Install ep-api $TAG" \
+            --body "Raises \`EP_VERSION\` in \`setup.sh\` to $TAG, so new Endpoints install it once this is merged. Close it to keep new installations on the current release.
+
+          Release notes: $notes
+
+          Opened by the release workflow of national-data-platform/ep-api (#400)."
