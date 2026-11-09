@@ -9,6 +9,7 @@ from ckanapi import CKANAPIError, NotFound
 from fastapi import HTTPException
 
 from api.config.catalog_settings import catalog_settings
+from api.repositories.ckan_repository import CKANRepository
 from api.models import DataSourceResponse, Resource
 
 # Results are asked for a page at a time, never more than the catalog can
@@ -106,7 +107,14 @@ async def search_datasets_by_terms(
     elif server == "pre_ckan":
         repository = catalog_settings.pre_catalog
 
-    escaped_terms = [solr_phrase(term) for term in terms_list]
+    # Phrases are for CKAN, whose text field includes the dataset's name. The
+    # MongoDB catalog runs the query as a $text search over title, tags and
+    # notes, where a phrase must appear in those fields, so a name would no
+    # longer be found (issue #406); it keeps the unquoted terms.
+    quote = solr_phrase if isinstance(repository, CKANRepository) else None
+    escaped_terms = [
+        quote(term) if quote else escape_solr_special_chars(term) for term in terms_list
+    ]
 
     query_parts = []
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.76] - 2026-11-09
+
+### Fixed
+- **Endpoints with a MongoDB catalog find datasets by name again** (#406). 0.34.75 sent every search term as a phrase (#402). That suits CKAN, whose text field includes the dataset's name, but the MongoDB catalog searches only title, tags and notes, where a phrase like `"glsr-stac-test"` matched nothing, so a dataset could no longer be found by a name that is not in its title. Phrases are now used only with CKAN catalogs; MongoDB catalogs search as they did before 0.34.75.
+  - New tests in `tests/test_search_pages_and_phrases.py`.
+  - Verified on a local Endpoint with a MongoDB catalog: `glsr-stac-test` returned nothing with 0.34.75 and returns the dataset now; the global catalog still answers `macav2` with an empty result in 0.7 s and `water-bodies` with its dataset.
+
 ## [0.34.75] - 2026-11-09
 
 ### Fixed
