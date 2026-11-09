@@ -1189,6 +1189,7 @@ emit("fed_pre_ckan_url", cfg.get("pre_ckan_url") or "")
 emit("fed_pre_ckan_key", cfg.get("pre_ckan_key") or "")
 emit("fed_realm", cfg.get("realm_name") or "NDP")
 emit("fed_client_id", cfg.get("client_id") or "")
+emit("fed_client_secret", cfg.get("client_secret") or "")
 emit("fed_public", "true" if truthy(cfg.get("public")) else "false")
 # Platform URLs the Federation serves with each configuration (1.12.9) and the
 # id Affinities gave this Endpoint when it registered (issue #359).
@@ -1246,12 +1247,17 @@ PY
 
   put IS_PUBLIC "$([[ "$fed_public" == "true" ]] && echo True || echo False)"
 
-  # The client the registration creates is confidential and its tokens carry no
-  # `sub`, which AUTH_API_URL looks the user up by — so it cannot be used for
-  # sign-in as it stands. The installer says it exists and stops there; see
-  # docs/configuration.md.
+  # Keep identity-provider sign-in disabled until the Endpoint's OIDC flow is
+  # configured for the registered client, but preserve the registration's
+  # credentials in .env so the operator does not have to retrieve them again.
+  # Do not print the secret: it is a credential.
   if [[ -n "$fed_client_id" ]]; then
+    put OIDC_CLIENT_ID "$fed_client_id"
     info "Registration includes client id '$fed_client_id' for realm '$fed_realm'."
+  fi
+  if [[ -n "$fed_client_secret" ]]; then
+    put OIDC_CLIENT_SECRET "$fed_client_secret"
+    info "Saved the registered identity-provider client secret to .env."
   fi
 elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."

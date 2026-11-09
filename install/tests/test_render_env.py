@@ -345,3 +345,17 @@ def test_a_registration_supplies_the_staging_organization():
         "nothing checks that the staging catalog accepts that organization "
         "before the configuration is written"
     )
+
+
+def test_a_registration_preserves_oidc_credentials_without_logging_the_secret():
+    """Federation OIDC credentials are saved privately for later configuration."""
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'emit("fed_client_id", cfg.get("client_id") or "")' in install_sh
+    assert 'emit("fed_client_secret", cfg.get("client_secret") or "")' in install_sh
+    assert 'put OIDC_CLIENT_ID "$fed_client_id"' in install_sh
+    assert 'put OIDC_CLIENT_SECRET "$fed_client_secret"' in install_sh
+    assert 'info "Saved the registered identity-provider client secret to .env."' in install_sh
+    assert 'info "...$fed_client_secret' not in install_sh

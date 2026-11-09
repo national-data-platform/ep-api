@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Preserve the Federation-created OIDC client credentials during installation.** When a registration returns a client id and secret, the installer writes them to `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` in the generated `.env` without printing the secret. `OIDC_ENABLED` remains `False` until the OIDC flow is explicitly configured.
+
 ## [0.34.58] - 2026-10-20
 
 ### Fixed
