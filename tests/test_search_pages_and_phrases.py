@@ -12,6 +12,8 @@ import pytest
 from ckanapi import CKANAPIError
 from fastapi import HTTPException
 
+from api.repositories.ckan_repository import CKANRepository
+from api.repositories.mongodb_repository import MongoDBRepository
 from api.services.datasource_services.search_datasets_by_terms import (
     MAX_DATASETS,
     PAGE_SIZE,
@@ -33,8 +35,8 @@ def _dataset(i, text="water"):
     }
 
 
-class PagedCatalog:
-    """A stand-in catalog serving ``total`` matching datasets page by page."""
+class PagedCatalog(CKANRepository):
+    """A stand-in CKAN catalog serving ``total`` matching datasets page by page."""
 
     def __init__(self, total, text="water"):
         self.datasets = [_dataset(i, text) for i in range(total)]
@@ -140,3 +142,25 @@ async def test_the_datasets_are_not_printed(capsys):
     await _search(PagedCatalog(3), ["water"])
 
     assert capsys.readouterr().out == ""
+
+
+@pytest.mark.asyncio
+async def test_a_mongodb_catalog_keeps_unquoted_terms():
+    """Its text index has no name field, so a phrase would miss names (#406)."""
+    repo = MagicMock(spec=MongoDBRepository)
+    repo.package_search.return_value = {"count": 0, "results": []}
+
+    await _search(repo, ["glsr-stac-test", "water"], server="local")
+
+    assert repo.package_search.call_args.kwargs["q"] == "glsr\\-stac\\-test AND water"
+
+
+@pytest.mark.asyncio
+async def test_a_mongodb_catalog_finds_a_dataset_by_its_hyphenated_name():
+    repo = MagicMock(spec=MongoDBRepository)
+    dataset = dict(_dataset(1, "GLSR STAC collection"), name="glsr-stac-test")
+    repo.package_search.return_value = {"count": 1, "results": [dataset]}
+
+    results = await _search(repo, ["glsr-stac-test"], server="local")
+
+    assert [r.name for r in results] == ["glsr-stac-test"]
