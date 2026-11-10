@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.80] - 2026-11-10
+
+### Fixed
+- **Re-running the installer does what the command line says** (#415, reported by Saleem Alharir). Together, these made a real install of a test Endpoint take three runs.
+  - **Command-line options win over remembered settings.** The remembered settings replaced options already parsed, so with a remembered `backend=none`, `--backend ckan` installed no catalog. Now:
+    - `--backend`, `--ep-api-port`, `--mongodb-url`, `--ckan-url`, `--access-requests`, `--s3`, `--s3-endpoint` and `--s3-secure` are kept over what the Federation remembers, and the questions offer them by default;
+    - a remembered catalog URL is only reused with the backend it belongs to.
+  - **The port question no longer moves the Endpoint.** It re-negotiated `--ep-api-port`, and on a re-run it offered the next port because the Endpoint's own container held it. A port given with `--ep-api-port`, or held by this checkout's own container, is now offered as it is. The own-container check is shared with the one before `compose up` (#332).
+  - **`--dry-run` no longer writes the remembered settings to the Federation.** It says what it would save.
+- **The `.env` overwrite question comes before any work, and Enter means yes** (#416). On a re-run, `.env already exists. Overwrite? [y/N]` came after CKAN was built and NetBird joined, and Enter aborted the upgrade with nothing changed.
+  - It is now asked right after the questions, before the registration is fetched or anything is built, with **Yes** as the default; the previous file is always kept as `.env.backup.<date>`.
+  - Answering no stops the run with nothing changed.
+  - New `--overwrite-env` skips only this question; `--yes` still skips them all.
+  - New tests in `install/tests/test_reinstall_flags.py` (pseudo-terminal runs against a stand-in Federation); 10 of the 11 fail on 0.34.79.
+
 ## [0.34.79] - 2026-11-10
 
 ### Added
