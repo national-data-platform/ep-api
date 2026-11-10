@@ -196,6 +196,9 @@ ndp_token_file=""
 login_client_id="${NDP_LOGIN_CLIENT_ID:-}"
 login_issuer="${NDP_LOGIN_ISSUER:-https://idp.nationaldataplatform.org/realms/NDP}"
 want_affinities=""
+ckan_global_url=""
+bind_address=""
+use_remembered="yes"
 # S3 object storage. want_s3 turns it on; with no s3_endpoint the bundled MinIO
 # is installed (compose profile 's3'), otherwise the Endpoint points at the
 # S3-compatible service given here. s3_secure controls https to that service.
@@ -364,7 +367,22 @@ Options:
                           Override the management URL the Federation gives.
   --affinities            Turn on the Affinities integration, with the
                           Affinities URL and this Endpoint's Affinities id from
-                          the Federation configuration. Kept on re-runs.
+                          the Federation configuration, and stop if they are
+                          missing. The default when the configuration has both.
+  --no-affinities         Keep the Affinities integration off. Kept on re-runs.
+  --ckan-global-url <url> The platform's global catalog this Endpoint searches
+                          (CKAN_GLOBAL_URL). Default: the production catalog,
+                          https://nationaldataplatform.org/catalog. Kept on
+                          re-runs.
+  --bind <address>        Publish every port (the Endpoint's, the bundled
+                          services' and the bundled CKAN's) on this IP address
+                          only, e.g. 127.0.0.1 behind a reverse proxy or a
+                          tunnel. Needs Docker Compose 2.24 or later. Kept on
+                          re-runs; --bind all goes back to every interface.
+  --no-remembered-settings
+                          Do not read the answers the Federation remembers for
+                          this Endpoint (read on a terminal when you accept,
+                          and unattended when --ndp-token-file is given).
 
 With --backend none nothing is stored locally and no catalog is installed. The
 Endpoint authenticates users, searches the platform's global catalog and
@@ -459,6 +477,10 @@ while [[ $# -gt 0 ]]; do
     --login-client-id) login_client_id="${2:-}"; shift 2 ;;
     --login-issuer)    login_issuer="${2:-}"; shift 2 ;;
     --affinities)      want_affinities="yes"; shift ;;
+    --no-affinities)   want_affinities="no"; shift ;;
+    --ckan-global-url) ckan_global_url="${2:-}"; cli_given+="ckan_global_url "; shift 2 ;;
+    --bind)            bind_address="${2:-}"; shift 2 ;;
+    --no-remembered-settings) use_remembered="no"; shift ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
@@ -1557,7 +1579,8 @@ save_remembered_settings() {
     "auth_api_url=$auth_api_url" \
     "want_access_requests=$want_access_requests" \
     "mongodb_url=$mongodb_url" \
-    "ckan_url=$ckan_url")"
+    "ckan_url=$ckan_url" \
+    "ckan_global_url=$ckan_global_url")"
 
   http_code="$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
     -X PUT "${federation_url%/}/ep/${config_id}/settings" \
@@ -1609,7 +1632,7 @@ if interactive; then
   # With a configuration id in hand, offer to use the Federation as the memory
   # for everything it does not itself record. Opt-in on purpose: declining
   # asks for no token and leaves the run exactly as it was before.
-  if [[ -n "$config_id" ]]; then
+  if [[ -n "$config_id" && "$use_remembered" == "yes" ]]; then
     offer_remembered_settings
   fi
 
@@ -1760,6 +1783,21 @@ if interactive; then
   # the same whether or not the Federation accepted the answers.
   save_remembered_settings
 
+# Unattended, the remembered answers are read when the owner's token was given
+# with --ndp-token-file: there is nobody to ask whether to use them, and the
+# token says who may (issue #417). They are only read, never written: nothing
+# was answered. What the command line says still wins (issue #415).
+elif [[ -n "$config_id" && -n "$ndp_token_file" && "$use_remembered" == "yes" ]]; then
+  get_ndp_token
+  remember_token="$ndp_token"
+  if [[ -n "$remember_token" ]]; then
+    if stored="$(fetch_remembered_settings)"; then
+      apply_remembered_settings "$stored"
+    else
+      warn "Could not read the remembered settings. Carrying on without them."
+    fi
+  fi
+  remember_token=""
 fi
 
 # example.env is written as a demo that shows every setting, so its defaults
@@ -1972,6 +2010,14 @@ put METRICS_ENDPOINT "${federation_url%/}/metrics/"
 # that succeeded, makes it required. An Endpoint installed before, with
 # nothing recorded, only joins with --netbird.
 [[ -n "$want_affinities" ]] || want_affinities="$(state_get AFFINITIES)"
+# A configuration that names the Affinities service and holds this Endpoint's
+# Affinities id means the Endpoint is already registered there, so the
+# integration is on unless --no-affinities, now or on an earlier run, says
+# otherwise (issue #414, as NetBird in #363).
+if [[ -z "$want_affinities" && -n "${fed_affinities_url:-}" && -n "${fed_affinities_uid:-}" ]]; then
+  want_affinities="yes"
+  info "The Federation configuration has this Endpoint's Affinities id; Affinities is on (--no-affinities to opt out)."
+fi
 [[ -n "$want_netbird" ]]    || want_netbird="$(state_get NETBIRD)"
 if [[ -z "$want_netbird" && "$fresh_install" == "true" ]]; then
   want_netbird="default"
@@ -1991,6 +2037,8 @@ if [[ "$want_affinities" == "yes" ]]; then
   put AFFINITIES_EP_UUID "$fed_affinities_uid"
   ok "Affinities integration on ($fed_affinities_url, id $fed_affinities_uid)"
   [[ "$dry_run" == "true" ]] || state_set AFFINITIES yes
+elif [[ "$want_affinities" == "no" ]]; then
+  [[ "$dry_run" == "true" ]] || state_set AFFINITIES no
 fi
 
 netbird_status() {
@@ -2231,6 +2279,66 @@ case "$want_netbird" in
 esac
 
 # --------------------------------------------------------------
+step "Choosing where ports are published"
+# --------------------------------------------------------------
+# By default every port is published on every interface, as before. --bind
+# publishes them on one address only, e.g. 127.0.0.1 behind a reverse proxy or
+# a tunnel (issue #418). It is done with a docker-compose.override.yml next to
+# each Compose file (install/bind_ports.py), which Compose reads by itself, so
+# the start/stop/status commands and a plain `docker compose up` keep it.
+[[ -n "$bind_address" ]] || bind_address="$(state_get BIND_ADDRESS)"
+if [[ "$bind_address" == "all" ]]; then
+  bind_address=""
+  [[ "$dry_run" == "true" ]] || state_set BIND_ADDRESS ""
+fi
+if [[ -n "$bind_address" ]]; then
+  python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import bind_ports; sys.exit(0 if bind_ports.valid_address(sys.argv[2]) else 1)' \
+    "$REPO_ROOT/install" "$bind_address" \
+    || fail "--bind needs an IP address, e.g. 127.0.0.1 (got: $bind_address); --bind all publishes on every interface."
+  compose_version="$("${COMPOSE[@]}" version --short 2>/dev/null | sed 's/^v//' || true)"
+  python3 -c 'import sys; v=[int(p) for p in (sys.argv[1].split("-")[0].split(".")+["0","0"])[:2]]; sys.exit(0 if v >= [2, 24] else 1)' \
+    "${compose_version:-0}" 2>/dev/null \
+    || fail "--bind needs Docker Compose 2.24 or later (found: ${compose_version:-unknown})."
+  [[ "$dry_run" == "true" ]] || state_set BIND_ADDRESS "$bind_address"
+  ok "Ports will be published on $bind_address only"
+else
+  info "Ports are published on every interface (--bind <address> to choose one)"
+fi
+
+bind_override() {
+  # bind_override DIR — write DIR/docker-compose.override.yml for --bind, or
+  # remove the one an earlier --bind wrote. One the operator wrote is theirs:
+  # it is never replaced or removed.
+  local dir="$1" file="$1/docker-compose.override.yml" marker
+  marker="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import bind_ports; print(bind_ports.MARKER)' "$REPO_ROOT/install")"
+  if [[ -f "$file" ]] && [[ "$(head -n1 "$file")" != "$marker" ]]; then
+    [[ -z "$bind_address" ]] && return 0
+    fail "$file was not written by this installer, so --bind will not replace it.
+       Move it aside, or add the addresses to it yourself."
+  fi
+  if [[ -z "$bind_address" ]]; then
+    if [[ -f "$file" ]]; then
+      if [[ "$dry_run" == "true" ]]; then
+        info "--dry-run: would remove $file and publish on every interface"
+      else
+        rm -f "$file"
+        info "Removed $file: ports are published on every interface again"
+      fi
+    fi
+    return 0
+  fi
+  if [[ "$dry_run" == "true" ]]; then
+    info "--dry-run: would write $file to publish on $bind_address"
+    return 0
+  fi
+  python3 "$REPO_ROOT/install/bind_ports.py" "$dir/docker-compose.yml" "$bind_address" > "$file.tmp" \
+    && mv "$file.tmp" "$file" \
+    || fail "Could not write $file."
+  ok "Wrote $file: ports on $bind_address"
+}
+bind_override "$REPO_ROOT"
+
+# --------------------------------------------------------------
 step "Selecting the local catalog backend"
 # --------------------------------------------------------------
 # Answers given at the prompt. A Federation registration, where there is one,
@@ -2238,6 +2346,18 @@ step "Selecting the local catalog backend"
 [[ -n "$organization" ]]  && put ORGANIZATION "$organization"
 [[ -n "$ep_name" ]]       && put EP_NAME "$ep_name"
 [[ -n "$auth_api_url" ]]  && put AUTH_API_URL "$auth_api_url"
+
+# The platform's global catalog (issue #413). Kept in the install state, so a
+# re-run searches the same one; left out, the Endpoint's own default
+# (production) applies.
+[[ -n "$ckan_global_url" ]] || ckan_global_url="$(state_get CKAN_GLOBAL_URL)"
+if [[ -n "$ckan_global_url" ]]; then
+  [[ "$ckan_global_url" =~ ^https?://[^[:space:]]+$ ]] \
+    || fail "--ckan-global-url must be an http(s) URL (got: $ckan_global_url)"
+  put CKAN_GLOBAL_URL "${ckan_global_url%/}"
+  info "Global catalog: ${ckan_global_url%/}"
+  [[ "$dry_run" == "true" ]] || state_set CKAN_GLOBAL_URL "${ckan_global_url%/}"
+fi
 
 put LOCAL_CATALOG_BACKEND "$backend"
 
@@ -2367,6 +2487,7 @@ else
     done
     ok "Ports $ckan_ssl_port, $ckan_http_port and $ckan_app_port are free"
 
+    bind_override "$ckan_dir"
     info "Building and starting CKAN — this takes several minutes the first time"
     rc=0
     compose_up CKAN "$ckan_dir" "${COMPOSE[@]}" up -d --build || rc=$?
@@ -2467,6 +2588,19 @@ if [[ "$want_s3" == "yes" ]]; then
     put S3_REGION "us-east-1"
     ok "S3 enabled — installing MinIO (compose profile 's3')"
   fi
+fi
+
+# Credentials for a MongoDB or MinIO this Endpoint does not have stay empty,
+# rather than example.env's published demo values, which looked real and would
+# be used by a service later switched on by hand (issue #419). Installing one
+# generates its own (bundled_mongodb_password, bundled_minio_keys).
+if [[ " ${profiles[*]:-} " != *" mongodb "* ]]; then
+  put MONGODB_ROOT_PASSWORD ""
+  [[ "$backend" == "mongodb" && -n "$mongodb_url" ]] || put MONGODB_CONNECTION_STRING ""
+fi
+if [[ "$want_s3" != "yes" ]]; then
+  put S3_ACCESS_KEY ""
+  put S3_SECRET_KEY ""
 fi
 
 if [[ "${fed_streaming:-false}" == "true" ]]; then

@@ -36,6 +36,7 @@ REMEMBERED_KEYS = (
     "want_access_requests",
     "mongodb_url",
     "ckan_url",
+    "ckan_global_url",
 )
 
 

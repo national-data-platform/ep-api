@@ -19,7 +19,7 @@ conventions the code follows. For running an Endpoint in production, see
 | `api/tasks/` | Background work: `metrics_task.py` (the periodic metrics report) and `leader.py` (leader election between workers). |
 | `api/middleware/`, `api/exceptions/`, `api/telemetry/` | Correlation-id middleware, global exception handlers, OpenTelemetry setup. |
 | `ui/` | The React web UI (react-scripts), built into the image and served at `/ui/`. |
-| `install/` | The installer (`install.sh`), its Python helpers (`render_env.py`, `remembered_settings.py`) and its README. |
+| `install/` | The installer (`install.sh`), its Python helpers (`render_env.py`, `remembered_settings.py`, `bind_ports.py`, `device_login.py`) and its README. |
 | `install/tests/` | Tests for the installer and its helpers, plus `sandbox.sh`, which runs the installer inside a throwaway Docker-in-Docker container. |
 | `tests/` | Tests for the API. Files ending in `.py.disabled` are not collected. |
 | `scripts/` | Release helpers used by CI: `check_release_version.py` and `extract_changelog.py`. |
