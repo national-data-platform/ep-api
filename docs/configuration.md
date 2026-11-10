@@ -292,9 +292,7 @@ provider (issue #412).
 Approving an access request needs it: the AAI adds a user to the Endpoint's
 group, `ndp_ep/ep-<config-id>`, only when the call carries a token of that
 group's own client in `X-Client-Assertion`, unless the approving admin holds
-`ndp_admin`. Without the secret approval is attempted without the
-assertion, which an AAI that checks the calling app refuses for every other
-admin; with a wrong secret approval answers 503.
+`ndp_admin`. Without the secret, or with a wrong one, approval answers 503.
 
 It is a different client from the sign-in one above: `OIDC_CLIENT_ID` is a
 public client that the browser uses, and `OIDC_SERVICE_CLIENT_*` never reach
@@ -638,7 +636,8 @@ approves/rejects). While `False` every `/user/access-requests` route answers
 with the approving administrator's token and adds the user to the
 Endpoint's group, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`, at the level picked: `viewer`,
 `editor` (for writer) or `admin`, which is what the permission gates read;
-without `OIDC_SERVICE_CLIENT_ID` it answers 503.
+without `OIDC_SERVICE_CLIENT_ID` or `OIDC_SERVICE_CLIENT_SECRET` it answers
+503.
 **Where:** turn on if you want self-service access requests; the installer
 installs MongoDB for it when the catalog does not provide one.
 

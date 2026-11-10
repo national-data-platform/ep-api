@@ -287,7 +287,8 @@ deployment" means `ENABLE_ACCESS_REQUESTS` is not true. Requests are stored in
 MongoDB through `MONGODB_CONNECTION_STRING`, so that MongoDB must be reachable
 whatever the catalog backend is. Approving a request adds the user to the
 Endpoint's group, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`, and answers 503
-"OIDC_SERVICE_CLIENT_ID is not set; cannot grant access." without a client.
+"OIDC_SERVICE_CLIENT_ID is not set; cannot grant access." without a client,
+or "OIDC_SERVICE_CLIENT_SECRET is not set; …" without its secret.
 
 **Metrics do not reach the Federation.** The report is posted only when
 `IS_PUBLIC=True`; with `False` it is collected and logged and nothing leaves

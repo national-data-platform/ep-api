@@ -184,9 +184,9 @@ The AAI checks two things:
   none. The Endpoint gets the token with the same client whose gates it
   asks, `OIDC_SERVICE_CLIENT_ID`, and its `OIDC_SERVICE_CLIENT_SECRET`
   (the installer writes both from the registration), so the assertion
-  always names the group's own client. Without the secret it calls without
-  the header, which only an `ndp_admin`, or an AAI that does not check the
-  calling app yet, accepts.
+  always names the group's own client. Without the secret approval
+  answers 503 "OIDC_SERVICE_CLIENT_SECRET is not set; cannot grant
+  access."; re-running the installer adds it.
 
 The admin's token was already accepted by the Endpoint, so AAI answers
 400/401 (a bad request or client assertion) become 502 rather than a 401
@@ -209,8 +209,9 @@ token and its own client's assertion, at the matching level: `viewer`,
 `editor` for writer, or `admin`.
 
 The group used is the one the client is linked to,
-`ndp_ep/<OIDC_SERVICE_CLIENT_ID>`; without `OIDC_SERVICE_CLIENT_ID`, approval answers
-503. `member` is accepted as a deprecated alias for `viewer`.
+`ndp_ep/<OIDC_SERVICE_CLIENT_ID>`; without `OIDC_SERVICE_CLIENT_ID` or
+`OIDC_SERVICE_CLIENT_SECRET`, approval answers 503. `member` is accepted as
+a deprecated alias for `viewer`.
 
 **Via the AAI API.** These are the calls the Endpoint itself makes:
 

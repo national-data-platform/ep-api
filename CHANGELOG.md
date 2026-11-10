@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AUTHZ_CLIENT_ID`: replaced by `OIDC_SERVICE_CLIENT_ID`.
 - `GROUP_NAMES` and `ENABLE_GROUP_BASED_ACCESS`: the group follows from `OIDC_SERVICE_CLIENT_ID`, and the entry check applies whenever it is set. `GROUP_NAMES` is still read when `OIDC_SERVICE_CLIENT_ID` is empty: an entry `ndp_ep/ep-<config-id>` gives `OIDC_SERVICE_CLIENT_ID=ep-<config-id>`, with a warning in the log, so an Endpoint installed before this release keeps its permissions after upgrading instead of answering 403 to everyone. New tests in `tests/test_client_from_group_names.py`.
 
-**Breaking:** without `OIDC_SERVICE_CLIENT_ID` every guarded route answers 403 and approval answers 503; an Endpoint registered before the Federation linked clients to groups needs its client linked first (the AAI's `tools/adopt_client.py`). Users who could write only through a realm role (`ndp_writer`, `group:<g>:writer`) are refused until they hold the editor or admin level.
+**Breaking:** without `OIDC_SERVICE_CLIENT_ID` every guarded route answers 403 and approval answers 503, as it does without `OIDC_SERVICE_CLIENT_SECRET`; an Endpoint registered before the Federation linked clients to groups needs its client linked first (the AAI's `tools/adopt_client.py`). Users who could write only through a realm role (`ndp_writer`, `group:<g>:writer`) are refused until they hold the editor or admin level.
 
 ## [0.34.82] - 2026-11-10
 

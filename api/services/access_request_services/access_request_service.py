@@ -143,22 +143,28 @@ def _grant_via_aai(
     group calls the writer tier "editor").
 
     The Endpoint's own client vouches for the call as ``X-Client-Assertion``,
-    which the AAI needs to change a group under ``ndp_ep`` unless the admin
-    holds ``ndp_admin``. Without OIDC_SERVICE_CLIENT_SECRET it is left out.
+    which the AAI needs to change a group under ``ndp_ep``, so approval
+    answers 503 if OIDC_SERVICE_CLIENT_SECRET is not set.
     """
     group = _endpoint_group()
     secret = swagger_settings.oidc_service_client_secret.get_secret_value()
-    assertion = (
-        aai_client.client_login(swagger_settings.oidc_service_client_id, secret)
-        if secret
-        else None
-    )
+
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "OIDC_SERVICE_CLIENT_SECRET is not set; cannot grant access. "
+                "Re-running the installer adds it."
+            ),
+        )
     aai_client.add_user_to_group(
         admin_token,
         group,
         user_sub,
         _GROUP_LEVEL[grant_type],
-        client_assertion=assertion,
+        client_assertion=aai_client.client_login(
+            swagger_settings.oidc_service_client_id, secret
+        ),
     )
 
 
