@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.81] - 2026-11-10
+
+Installer options for unattended and self-hosted installs, all reported by Saleem Alharir.
+
+### Added
+- **`--ckan-global-url <url>`** (#413). The installer never wrote `CKAN_GLOBAL_URL`, so every Endpoint searched the production global catalog, including those of test, staging or self-hosted platforms.
+  - The URL is written to `.env`, kept in the install state for re-runs, and is one of the remembered settings.
+  - Without the option, the Endpoint's default (production) applies as before.
+  - `example.env` now documents the setting.
+- **`--bind <address>`** publishes every port on one IP address, e.g. `127.0.0.1` behind a reverse proxy or tunnel (#418).
+  - It covers the Endpoint's port, the bundled services' ports and the bundled CKAN's nginx.
+  - The installer writes a `docker-compose.override.yml` next to each Compose file (new `install/bind_ports.py`). The ports are read from the Compose files themselves, and `!override` replaces each service's port list.
+  - It needs Compose 2.24 or later.
+  - The address is kept on re-runs; `--bind all` removes the files.
+  - An override the installer did not write is never touched.
+  - Without `--bind` nothing changes: ports stay on every interface, IPv6 included.
+- **`--no-remembered-settings`** skips reading the remembered settings.
+
+### Changed
+- **Affinities is on by default when the configuration holds the Affinities URL and this Endpoint's Affinities id** (#414), as NetBird is since #363.
+  - `--no-affinities` turns it off and is remembered.
+  - `--affinities` still stops when either value is missing.
+  - Without the id it stays off.
+- **Unattended runs read the remembered settings when given the owner's token** (#417). Only a terminal read them, so `--ndp-token-file … --yes` fell back to defaults, including the production AAI URL.
+  - With `--config-id` and `--ndp-token-file`, they are now loaded and the run says so.
+  - They are only read, never written, and command-line options still win.
+
+### Fixed
+- **No demo credentials for services that are not installed** (#419). With no MongoDB or MinIO installed and none given, `.env` carried `example.env`'s published values (`admin123`, `minioadmin123`). They are now empty. Installing one still generates its own.
+  - Tests: new `install/tests/test_unattended_and_deployment_options.py` (20 tests, the real installer against a stand-in Federation); 14 fail on 0.34.80. `test_netbird_affinities.py` now expects Affinities on when the configuration has its id.
+  - Real check of `--bind 127.0.0.1` with Docker Compose 2.40:
+    - `docker compose config` on the generated overrides shows `host_ip: 127.0.0.1` on all 15 ports of `docker-compose.yml` (every profile) and on the CKAN project's nginx;
+    - a container started with an override listens only on `127.0.0.1`, and without one on `0.0.0.0` and `[::]`.
+
 ## [0.34.80] - 2026-11-10
 
 ### Fixed

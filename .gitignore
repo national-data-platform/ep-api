@@ -13,3 +13,5 @@ tests_backup/
 ui/node_modules/
 ui/build/
 /install.log
+# Written by install.sh --bind (install/bind_ports.py)
+docker-compose.override.yml

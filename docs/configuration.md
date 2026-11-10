@@ -335,7 +335,9 @@ turn verification on, give that CKAN a certificate the Endpoint trusts and set
 #### `CKAN_GLOBAL_URL`
 *Optional · default: `https://nationaldataplatform.org/catalog`.*
 Read-only global NDP catalog the EP can search alongside the local one.
-**Where:** usually leave the default.
+**Where:** leave the default for an Endpoint of the production platform. For
+a test, staging or self-hosted platform, its own portal's catalog
+(`<portal-url>/catalog`); the installer writes it with `--ckan-global-url`.
 
 ### MongoDB backend — only if `LOCAL_CATALOG_BACKEND=mongodb`
 
