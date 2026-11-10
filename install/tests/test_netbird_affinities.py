@@ -1,7 +1,7 @@
 """
 The installer joins NDP's NetBird network and turns Affinities on (issue #359).
 
-Affinities is opt-in (``--affinities``); NetBird is on by default for new
+Affinities is on when the configuration holds its id (issue #414); NetBird is on by default for new
 installations (issue #363) and opt-in (``--netbird``) for Endpoints installed
 before. Both are remembered, so a re-run keeps them. The URLs come from the
 Federation configuration (sci-ndp/ndp-federation#122), not from the installer. The NetBird setup key is
@@ -172,7 +172,8 @@ def _netbird_calls(host):
     return host["log"].read_text(encoding="utf-8") if host["log"].exists() else ""
 
 
-def test_without_the_flags_affinities_stays_off(host, federation):
+def test_without_the_flags_affinities_follows_the_configuration(host, federation):
+    """On when the configuration holds the Affinities URL and id (issue #414)."""
     federation["config"] = _configuration(
         netbird_management_url=MANAGEMENT_URL,
         affinities_url="https://affinities.example.org",
@@ -184,7 +185,7 @@ def test_without_the_flags_affinities_stays_off(host, federation):
     assert result.returncode == 0, result.stdout + result.stderr
     env = _env(host)
     assert env["NETBIRD_ENABLED"] == "False"
-    assert env["AFFINITIES_ENABLED"] == "False"
+    assert env["AFFINITIES_ENABLED"] == "True"
     assert _netbird_calls(host) == ""
 
 

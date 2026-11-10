@@ -4,7 +4,7 @@ import logging
 import re
 from urllib.parse import urlparse
 
-from pydantic import AliasChoices, Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 _ENDPOINT_GROUP = re.compile(r"^ndp_ep/(ep-[A-Za-z0-9_-]+)$")
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     swagger_title: str = "API Documentation"
     swagger_description: str = "This is the API documentation."
-    swagger_version: str = "0.34.73"
+    swagger_version: str = "0.34.82"
     root_path: str = ""  # API root path prefix (e.g., "/test" or "")
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"
@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     # existed: its .env names the group, ndp_ep/ep-<config-id>, and not the
     # client. Without this, upgrading such an Endpoint refused every request.
     group_names: str = ""
+
+    # The confidential Keycloak client the Federation created for this
+    # Endpoint (ep-<config-id>), for client-credentials tokens (issue #412).
+    # Not the browser sign-in client (OIDC_CLIENT_ID, read by the UI only).
+    oidc_service_client_id: str = ""
+    oidc_service_client_secret: SecretStr = SecretStr("")
 
     # Access-request workflow (user requests entry → admin approves/rejects).
     # Requires a MongoDB instance reachable via MONGODB_CONNECTION_STRING

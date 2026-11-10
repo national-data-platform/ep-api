@@ -2,14 +2,45 @@
 
 import json
 import re
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Tuple
 
 import requests.exceptions
 from ckanapi import CKANAPIError, NotFound
 from fastapi import HTTPException
 
 from api.config.catalog_settings import catalog_settings
+from api.repositories.ckan_repository import CKANRepository
 from api.models import DataSourceResponse, Resource
+
+# Results are asked for a page at a time, never more than the catalog can
+# serve before its gateway gives up (issue #402). One search looks at no more
+# than MAX_DATASETS datasets; those past them are reached with an offset
+# (issue #420).
+PAGE_SIZE = 100
+MAX_DATASETS = 1000
+
+
+def solr_phrase(value: str) -> str:
+    """
+    Quote a search term as a Solr phrase.
+
+    CKAN's text field splits words at letter/digit boundaries, so an unquoted
+    ``macav2`` matches every dataset containing ``macav`` or ``2`` (4224 on the
+    global catalog). As a phrase it matches only those parts next to each
+    other, which is what the search is for.
+
+    Parameters
+    ----------
+    value : str
+        The search term.
+
+    Returns
+    -------
+    str
+        The term between double quotes, with inner quotes and backslashes
+        escaped.
+    """
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def escape_solr_special_chars(value: str) -> str:
@@ -36,6 +67,23 @@ async def search_datasets_by_terms(
     server: Literal["local", "global", "pre_ckan"] = "global",
 ) -> List[DataSourceResponse]:
     """
+    Search datasets by terms: the first ``MAX_DATASETS`` matches.
+
+    See ``search_datasets_page`` for the parameters and errors; this is it
+    with ``offset=0`` and ``limit=MAX_DATASETS``, without the total.
+    """
+    results, _ = await search_datasets_page(terms_list, keys_list, server)
+    return results
+
+
+async def search_datasets_page(
+    terms_list: List[str],
+    keys_list: Optional[List[Optional[str]]] = None,
+    server: Literal["local", "global", "pre_ckan"] = "global",
+    offset: int = 0,
+    limit: int = MAX_DATASETS,
+) -> Tuple[List[DataSourceResponse], Optional[int]]:
+    """
     Search datasets by terms with improved error handling for service
     unavailability.
 
@@ -48,11 +96,16 @@ async def search_datasets_by_terms(
         Use None for global search of a term.
     server : Literal["local", "global", "pre_ckan"], optional
         The CKAN server to search on. Defaults to "global".
+    offset : int, optional
+        How many matches to skip, in the catalog's order. Defaults to 0.
+    limit : int, optional
+        How many matches to look at, at most ``MAX_DATASETS``.
 
     Returns
     -------
-    List[DataSourceResponse]
-        List of datasets that match the search criteria.
+    tuple of (List[DataSourceResponse], int or None)
+        The datasets that match, and the number of matches the catalog
+        reports for the whole search (None when it reports none).
 
     Raises
     ------
@@ -77,7 +130,14 @@ async def search_datasets_by_terms(
     elif server == "pre_ckan":
         repository = catalog_settings.pre_catalog
 
-    escaped_terms = [escape_solr_special_chars(term) for term in terms_list]
+    # Phrases are for CKAN, whose text field includes the dataset's name. The
+    # MongoDB catalog runs the query as a $text search over title, tags and
+    # notes, where a phrase must appear in those fields, so a name would no
+    # longer be found (issue #406); it keeps the unquoted terms.
+    quote = solr_phrase if isinstance(repository, CKANRepository) else None
+    escaped_terms = [
+        quote(term) if quote else escape_solr_special_chars(term) for term in terms_list
+    ]
 
     query_parts = []
 
@@ -97,12 +157,11 @@ async def search_datasets_by_terms(
 
     query_string = " AND ".join(query_parts)
 
+    found = {}
     try:
-        datasets = repository.package_search(q=query_string, rows=1000)
         results_list = []
 
-        for dataset in datasets["results"]:
-            print(dataset)
+        for dataset in _search_pages(repository, query_string, offset, limit, found):
             dataset_str = json.dumps(dataset).lower()
 
             if all(term.lower() in dataset_str for term in terms_list):
@@ -151,19 +210,21 @@ async def search_datasets_by_terms(
                     )
                 )
 
-        return results_list
+        return results_list, found.get("count")
 
     except NotFound:
-        return []
+        return [], 0
 
     except CKANAPIError as _:  # noqa: F841
-        # Handle errors when CKAN is unreachable
-        if server == "global":
-            raise HTTPException(
-                status_code=503, detail="Global catalog is not reachable."
-            )
+        # The catalog answered, with an error: a gateway timeout from its
+        # proxy arrives here too. It is not unreachable (issue #402).
+        name = "Global" if server == "global" else server.title()
         raise HTTPException(
-            status_code=503, detail=f"{server.title()} catalog is not reachable."
+            status_code=503,
+            detail=(
+                f"{name} catalog could not answer this search: it returned an "
+                "error or timed out. Try again, or with more specific terms."
+            ),
         )
 
     except requests.exceptions.ConnectionError:
@@ -250,3 +311,47 @@ async def search_datasets_by_terms(
         raise HTTPException(
             status_code=400, detail="Error searching for datasets. Please try again."
         )
+
+
+def _search_pages(
+    repository,
+    query_string: str,
+    offset: int = 0,
+    limit: int = MAX_DATASETS,
+    found: Optional[dict] = None,
+):
+    """
+    Yield the datasets matching a query, one page of results at a time.
+
+    Parameters
+    ----------
+    repository : DataCatalogRepository
+        The catalog to search.
+    query_string : str
+        The query for ``package_search``.
+    offset : int
+        The first match to return.
+    limit : int
+        How many matches to return at most.
+    found : dict, optional
+        Receives ``count``, the catalog's number of matches, when it says.
+
+    Yields
+    ------
+    dict
+        Each dataset, until the catalog has no more or ``limit`` have been
+        returned.
+    """
+    start = offset
+    end = offset + limit
+    while start < end:
+        rows = min(PAGE_SIZE, end - start)
+        page = repository.package_search(q=query_string, rows=rows, start=start)
+        results = page.get("results", [])
+        count = page.get("count")
+        if found is not None and count is not None:
+            found["count"] = count
+        yield from results
+        start += len(results)
+        if len(results) < rows or (count is not None and start >= count):
+            return

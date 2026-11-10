@@ -218,7 +218,9 @@ export const datasetAPI = {
 
 // Search API
 export const searchAPI = {
-  searchByTerms: (terms, keys = null, server = 'global') => {
+  // page: optional { offset, limit } (issue #420); the response's
+  // X-Total-Count header is the number of matches.
+  searchByTerms: (terms, keys = null, server = 'global', page = null) => {
     console.log('searchByTerms called with:', { terms, keys, server }); // Debug log
     
     // Build URL manually to ensure correct format
@@ -244,6 +246,10 @@ export const searchAPI = {
     
     // Add server
     url += `server=${encodeURIComponent(server)}`;
+
+    if (page) {
+      url += `&offset=${encodeURIComponent(page.offset)}&limit=${encodeURIComponent(page.limit)}`;
+    }
     
     console.log('Final URL:', url); // Debug log
     
@@ -254,6 +260,19 @@ export const searchAPI = {
     console.log('searchAdvanced called with:', searchData); // Debug log
     return apiClient.post('/search', searchData);
   },
+};
+
+// Summaries of STAC collection resources (issue #405). The Endpoint reads
+// the collection itself, so the file server needs no CORS headers.
+export const stacAPI = {
+  collection: (server, datasetId, resourceId) =>
+    apiClient.get('/stac/collection', {
+      params: { server, dataset_id: datasetId, resource_id: resourceId }
+    }),
+  item: (server, datasetId, resourceId, href) =>
+    apiClient.get('/stac/item', {
+      params: { server, dataset_id: datasetId, resource_id: resourceId, href }
+    })
 };
 
 // Resources management API

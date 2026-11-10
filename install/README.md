@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v0.34.73   # the release to install
+V=v0.34.82   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]
@@ -154,8 +154,16 @@ when `--yes` is given. Every answer then comes from a flag or its default, and
 no registration is attempted, so an unattended install that should belong to
 the Federation needs `--config-id`.
 
+With `--config-id` and the owner's token in `--ndp-token-file`, an unattended
+run reads the [remembered settings](#remembered-settings) too, and says so
+(`Loaded the settings remembered for this Endpoint`). It only reads them; and
+options on the command line still win. A remembered existing CKAN or S3 still
+needs its key on the command line, since keys are never remembered.
+`--no-remembered-settings` skips them.
+
 An existing `.env` is always copied to `.env.backup.<timestamp>` first.
-Without `--yes`, the installer then asks before overwriting it.
+Without `--yes` or `--overwrite-env`, the installer then asks before
+overwriting it.
 
 ## Access requests
 
@@ -192,6 +200,11 @@ asks for nothing and sends nothing.
 Only answers travel. Credentials — the CKAN and S3 keys, the token itself — are
 not remembered; `install/remembered_settings.py` lists what is.
 
+Options given on the command line win over remembered answers: with a
+remembered `backend=none`, `--backend ckan` installs CKAN, and `--ep-api-port`
+is offered as given. A remembered catalog URL is only reused with the backend
+it belongs to. `--dry-run` reads the remembered settings but never writes them.
+
 If the Federation cannot be reached, or does not offer remembered settings,
 the installer says so and carries on.
 
@@ -209,8 +222,12 @@ can type, or no terminal to ask in), says why and how to join later and
 carries on without it; the next run tries again. `--no-netbird` turns it off,
 and is remembered. With `--netbird` it stops instead when it cannot join. An
 Endpoint installed before 0.34.57 keeps what it had when the installer is
-re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
-(`--affinities`).
+re-run to upgrade it: it only joins with `--netbird`.
+
+**Affinities is on when the configuration holds its id** (since 0.34.81): a
+configuration with both the Affinities URL and this Endpoint's Affinities id
+means the Endpoint is already registered there. `--no-affinities` turns it
+off, and is remembered; without the id it stays off.
 
 - **`--netbird`** joins the machine to NDP's NetBird network, whose
   management URL the Federation gives (`netbird_management_url`;
@@ -241,7 +258,8 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
   URL the Federation gives (`affinities_url`) and the id Affinities gave this
   Endpoint when it registered (`affinities_uid`): `AFFINITIES_ENABLED=True`,
   `AFFINITIES_URL`, `AFFINITIES_EP_UUID`. The installer stops if the
-  configuration lacks either.
+  configuration lacks either. Without the flag, the same happens whenever the
+  configuration has both, except that nothing stops when it does not.
 
 ## Options
 
@@ -271,9 +289,14 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
 | `--ndp-token-file <path>` | file with your NDP access token, for runs without prompts: used to read the configuration from a Federation that requires it, for the remembered settings, and so `--netbird` fetches the key from the Federation |
 | `--login-client-id <id>` | get the token by signing in through the browser (OAuth device flow) instead of pasting it; needs a public client of the identity provider with the device flow enabled. Default `$NDP_LOGIN_CLIENT_ID`, else off |
 | `--login-issuer <url>` | the realm to sign in to; default `$NDP_LOGIN_ISSUER`, else `https://idp.nationaldataplatform.org/realms/NDP` |
-| `--affinities` | turn the Affinities integration on from the Federation configuration |
+| `--affinities` | turn the Affinities integration on from the Federation configuration, and stop if it lacks the URL or id; the default when it has both |
+| `--no-affinities` | keep the Affinities integration off; remembered |
+| `--ckan-global-url <url>` | the platform's global catalog the Endpoint searches (`CKAN_GLOBAL_URL`); default the production catalog; kept on re-runs and remembered |
+| `--bind <address>` | publish every port (the Endpoint's, the bundled services' and the bundled CKAN's) on this IP address only, e.g. `127.0.0.1` behind a reverse proxy or tunnel; see [Publishing on one address](#publishing-on-one-address); kept on re-runs, `--bind all` undoes it |
+| `--no-remembered-settings` | do not read the answers the Federation remembers for this Endpoint |
 | `--no-start` | write everything, bring nothing up; prints the command to start it |
 | `--yes` | no prompts at all (see [Without prompts](#without-prompts)), and overwrite an existing `.env` without asking |
+| `--overwrite-env` | overwrite an existing `.env` without asking, but still ask everything else |
 | `--ref <tag\|branch>` | from the web: install this version instead of the latest release (`main` for the development version) |
 | `--log-file <path>` | append the run to `<path>` instead of `install.log` in the checkout; `/dev/null` keeps no log (see [The install log](#the-install-log)) |
 | `--compose-timeout <n>` | give up when building and starting a stack takes more than `<n>` minutes (`<n>s` for seconds); default `30`, `0` for no limit |
@@ -283,7 +306,14 @@ The underscore spellings are the ones the platform's create-endpoint page
 sends; the hyphenated ones are the documented spellings.
 
 `--dry-run` is the quickest way to see what a registration would produce. It
-never installs anything, including CKAN.
+never installs anything, including CKAN, and writes nothing to the Federation.
+
+Re-running the installer in a checkout that already has a `.env` is how an
+Endpoint is upgraded or reconfigured. The installer asks once, before doing any
+work, whether to replace it: Enter means yes, and the current file is always
+kept as `.env.backup.<date>`. Answering no stops the run with nothing changed.
+On a re-run, the port the Endpoint's own container holds is offered again
+rather than the next free one.
 
 ### No local catalog
 
@@ -355,6 +385,29 @@ callers, so checking against one of those would pass with any string at all
 and prove nothing. Checking the key needs a username, so with `--ckan-url`
 pass `--ckan-sysadmin <name>` to enable it; without it the installer says the
 key went unverified rather than implying it passed.
+
+## Publishing on one address
+
+By default Docker publishes every port on all interfaces, IPv4 and IPv6. With
+`--bind 127.0.0.1` (or any IP address) the installer writes a
+`docker-compose.override.yml` next to the Endpoint's `docker-compose.yml`, and
+next to the bundled CKAN's, publishing each of their ports on that address
+only. Compose reads that file by itself, so `install.sh start`, `stop` and a
+plain `docker compose up` keep it. The ports are read from the Compose files
+(`install/bind_ports.py`), so nothing has to be kept in step by hand.
+
+- It needs Docker Compose 2.24 or later (for `!override`).
+- The address is kept in the install state; `--bind all` removes the files and
+  goes back to every interface.
+- A `docker-compose.override.yml` the installer did not write is never
+  replaced or removed: `--bind` stops and says so.
+
+## Credentials of services that are not installed
+
+`MONGODB_CONNECTION_STRING`, `MONGODB_ROOT_PASSWORD`, `S3_ACCESS_KEY` and
+`S3_SECRET_KEY` are left empty when the installer installs no MongoDB or MinIO
+and none is given, rather than carrying `example.env`'s demo values (since
+0.34.81). A later run that turns one on generates its own.
 
 ## Managing an installed Endpoint
 
@@ -456,8 +509,14 @@ are what gets tested.
   started.
 - **Identity-provider sign-in is not offered**, and the installer leaves
   `OIDC_ENABLED=False`. The client a registration creates is confidential, so
-  the browser's code exchange (PKCE, which needs a public client) is refused.
+  the browser's code exchange (PKCE, which needs a public client) is refused,
+  and its tokens carry no `sub` claim, which the AAI API looks the user up by.
   The installer writes it to `AUTHZ_CLIENT_ID`, where it decides permissions,
-  and not to `OIDC_CLIENT_ID`. The `OIDC_*` settings are read by the API, so
-  a deployment with a working public client can switch it on by hand. See
-  [docs/configuration.md](../docs/configuration.md).
+  and keeps it as the Endpoint's service client (`OIDC_SERVICE_CLIENT_ID` and
+  `OIDC_SERVICE_CLIENT_SECRET`, the secret never printed); it leaves
+  `OIDC_CLIENT_ID` alone. A deployment with a working public client can switch
+  sign-in on by hand. See [docs/configuration.md](../docs/configuration.md).
+- **The JupyterHub and Kafka installs of the old NDP-EP `setup.sh` are not
+  done.** That script started a JupyterHub (sci-ndp/jhub) with Keycloak login,
+  using the registration's client secret, and a Kafka broker. Neither came
+  over when NDP-EP switched to this installer (2026-10-02).

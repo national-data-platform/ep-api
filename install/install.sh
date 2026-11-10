@@ -196,6 +196,9 @@ ndp_token_file=""
 login_client_id="${NDP_LOGIN_CLIENT_ID:-}"
 login_issuer="${NDP_LOGIN_ISSUER:-https://idp.nationaldataplatform.org/realms/NDP}"
 want_affinities=""
+ckan_global_url=""
+bind_address=""
+use_remembered="yes"
 # S3 object storage. want_s3 turns it on; with no s3_endpoint the bundled MinIO
 # is installed (compose profile 's3'), otherwise the Endpoint points at the
 # S3-compatible service given here. s3_secure controls https to that service.
@@ -208,6 +211,7 @@ s3_secure="False"
 dry_run="false"
 start="true"
 assume_yes="false"
+overwrite_env="false"
 # The Federation has no field for a remote-execution URL, so when registration
 # captures one it is applied straight to the .env after the config is fetched.
 reg_rexec_url=""
@@ -255,6 +259,24 @@ section() {
   for line in "$@"; do
     echo "  ${line}"
   done
+}
+
+# read_reply VARIABLE "prompt" [-s]
+# With the install log active, stdout and stderr reach the terminal through
+# two separate tee processes, so a prompt printed by `read -p` (stderr) could
+# overtake the explanation echoed just before it (stdout) and land above it
+# (issue #404). The prompt is then printed on stdout, the same path as that
+# explanation, as long as the terminal is where stdout ends up (fd 5 is the
+# original stdout while the log is active). Otherwise `read -p` as before.
+read_reply() {
+  local __rr_var="$1" __rr_prompt="$2" __rr_silent="${3:-}" __rr_line=""
+  if [[ -n "${log_active:-}" && -t 5 ]]; then
+    printf '%s' "$__rr_prompt"
+    read -r $__rr_silent __rr_line
+  else
+    read -r $__rr_silent -p "$__rr_prompt" __rr_line
+  fi
+  printf -v "$__rr_var" '%s' "$__rr_line"
 }
 
 usage() {
@@ -345,7 +367,22 @@ Options:
                           Override the management URL the Federation gives.
   --affinities            Turn on the Affinities integration, with the
                           Affinities URL and this Endpoint's Affinities id from
-                          the Federation configuration. Kept on re-runs.
+                          the Federation configuration, and stop if they are
+                          missing. The default when the configuration has both.
+  --no-affinities         Keep the Affinities integration off. Kept on re-runs.
+  --ckan-global-url <url> The platform's global catalog this Endpoint searches
+                          (CKAN_GLOBAL_URL). Default: the production catalog,
+                          https://nationaldataplatform.org/catalog. Kept on
+                          re-runs.
+  --bind <address>        Publish every port (the Endpoint's, the bundled
+                          services' and the bundled CKAN's) on this IP address
+                          only, e.g. 127.0.0.1 behind a reverse proxy or a
+                          tunnel. Needs Docker Compose 2.24 or later. Kept on
+                          re-runs; --bind all goes back to every interface.
+  --no-remembered-settings
+                          Do not read the answers the Federation remembers for
+                          this Endpoint (read on a terminal when you accept,
+                          and unattended when --ndp-token-file is given).
 
 With --backend none nothing is stored locally and no catalog is installed. The
 Endpoint authenticates users, searches the platform's global catalog and
@@ -369,7 +406,10 @@ have:
   --ckan-app-port <port>  CKAN's application port on the host. Default: 5000
   --dry-run               Render .env and run the checks, start nothing
   --no-start              Write everything, do not bring the stack up
-  --yes                   Do not prompt before overwriting an existing .env
+  --yes                   Ask nothing: take every default, and overwrite an
+                          existing .env (a backup is always kept)
+  --overwrite-env         Overwrite an existing .env without asking, but still
+                          ask everything else
   --ref <tag|branch>      From the web: install this version instead of the
                           latest release (e.g. v0.34.61, or main for the
                           development version). EP_REPO_REF does the same.
@@ -388,6 +428,9 @@ USAGE
 
 # As given, for the install log; the secrets among them are masked there.
 cli_args=("$@")
+# The remembered answers given on this command line: they win over what the
+# Federation remembers (issue #415). Space-separated variable names.
+cli_given=" "
 
 case "${1:-}" in
   status|stop|start|uninstall) subcommand="$1"; shift ;;
@@ -405,9 +448,9 @@ while [[ $# -gt 0 ]]; do
                        federation_url="${2:-}"
                        federation_url_explicit="true"; shift 2 ;;
     --env)             federation_env="${2:-}"; shift 2 ;;
-    --backend)         backend="${2:-}"; shift 2 ;;
-    --mongodb-url)     mongodb_url="${2:-}"; shift 2 ;;
-    --ckan-url)        ckan_url="${2:-}"; shift 2 ;;
+    --backend)         backend="${2:-}"; cli_given+="backend "; shift 2 ;;
+    --mongodb-url)     mongodb_url="${2:-}"; cli_given+="mongodb_url "; shift 2 ;;
+    --ckan-url)        ckan_url="${2:-}"; cli_given+="ckan_url "; shift 2 ;;
     --ckan-api-key)    ckan_api_key="${2:-}"; shift 2 ;;
     --ckan-dir)        ckan_dir="${2:-}"; shift 2 ;;
     --ckan-repo)       ckan_repo="${2:-}"; shift 2 ;;
@@ -417,15 +460,15 @@ while [[ $# -gt 0 ]]; do
     --ckan-ssl-port)   ckan_ssl_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
     --ckan-http-port)  ckan_http_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
     --ckan-app-port)   ckan_app_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
-    --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
+    --ep-api-port)     ep_api_port="${2:-}"; cli_given+="ep_api_port "; shift 2 ;;
     --instance)        instance="${2:-}"; shift 2 ;;
-    --access-requests) want_access_requests="yes"; shift ;;
-    --s3)              want_s3="yes"; shift ;;
-    --s3-endpoint)     want_s3="yes"; s3_endpoint="${2:-}"; shift 2 ;;
+    --access-requests) want_access_requests="yes"; cli_given+="want_access_requests "; shift ;;
+    --s3)              want_s3="yes"; cli_given+="want_s3 "; shift ;;
+    --s3-endpoint)     want_s3="yes"; s3_endpoint="${2:-}"; cli_given+="want_s3 s3_endpoint "; shift 2 ;;
     --s3-access-key)   s3_access_key="${2:-}"; shift 2 ;;
     --s3-secret-key)   s3_secret_key="${2:-}"; shift 2 ;;
     --s3-region)       s3_region="${2:-}"; shift 2 ;;
-    --s3-secure)       s3_secure="True"; shift ;;
+    --s3-secure)       s3_secure="True"; cli_given+="s3_secure "; shift ;;
     --netbird)         want_netbird="yes"; shift ;;
     --no-netbird)      want_netbird="no"; shift ;;
     --netbird-setup-key-file) netbird_setup_key_file="${2:-}"; want_netbird="yes"; shift 2 ;;
@@ -434,9 +477,14 @@ while [[ $# -gt 0 ]]; do
     --login-client-id) login_client_id="${2:-}"; shift 2 ;;
     --login-issuer)    login_issuer="${2:-}"; shift 2 ;;
     --affinities)      want_affinities="yes"; shift ;;
+    --no-affinities)   want_affinities="no"; shift ;;
+    --ckan-global-url) ckan_global_url="${2:-}"; cli_given+="ckan_global_url "; shift 2 ;;
+    --bind)            bind_address="${2:-}"; shift 2 ;;
+    --no-remembered-settings) use_remembered="no"; shift ;;
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
+    --overwrite-env)   overwrite_env="true"; shift ;;
     --log-file)        log_file="${2:-}"; shift 2 ;;
     # Chooses the version when installing from the web; the bootstrap above
     # has already acted on it, and a checkout runs what it has.
@@ -662,7 +710,7 @@ lc_uninstall() {
   fi
   if [[ "$assume_yes" != "true" ]]; then
     [[ -t 0 ]] || fail "uninstall asks for confirmation; run it with --yes where nobody can answer."
-    read -r -p "Remove it? [y/N] " reply
+    read_reply reply "Remove it? [y/N] "
     [[ "$reply" =~ ^[Yy]$ ]] || fail "Aborted; nothing was changed."
   fi
 
@@ -829,7 +877,7 @@ ask() {
   # ask VARIABLE "Question" "default"
   local __var="$1" __question="$2" __default="${3:-}" __reply=""
   if interactive; then
-    read -r -p "  $__question${__default:+ [$__default]}: " __reply
+    read_reply __reply "  $__question${__default:+ [$__default]}: "
   fi
   printf -v "$__var" '%s' "${__reply:-$__default}"
 }
@@ -837,7 +885,7 @@ ask() {
 ask_secret() {
   local __var="$1" __question="$2" __reply=""
   if interactive; then
-    read -r -s -p "  $__question: " __reply
+    read_reply __reply "  $__question: " -s
     echo
   fi
   printf -v "$__var" '%s' "$__reply"
@@ -875,7 +923,7 @@ ask_yes_no() {
   if interactive; then
     local hint="[y/N]"
     [[ "$__default" == "yes" ]] && hint="[Y/n]"
-    read -r -p "  $__question $hint: " __reply
+    read_reply __reply "  $__question $hint: "
   fi
   __reply="${__reply:-$__default}"
   case "$__reply" in
@@ -895,7 +943,7 @@ choose() {
       printf "    %d) %s\n" "$index" "$option"
       index=$((index + 1))
     done
-    read -r -p "  Choice [$__default]: " __reply
+    read_reply __reply "  Choice [$__default]: "
   fi
   __reply="${__reply:-$__default}"
   [[ "$__reply" =~ ^[0-9]+$ ]] && [[ "$__reply" -ge 1 ]] && [[ "$__reply" -le ${#__options[@]} ]] \
@@ -913,6 +961,17 @@ port_free() {
     return 1
   fi
   return 0
+}
+
+port_is_this_endpoints() {
+  # port_is_this_endpoints PORT — true when PORT is held by this checkout's
+  # own Endpoint container, which a re-run replaces: not a conflict (#332).
+  local holder holder_dir
+  holder="$(docker ps --format '{{.Names}}\t{{.Ports}}' 2>/dev/null \
+    | awk -v p=":$1->" '$0 ~ p {print $1; exit}')"
+  [[ "$holder" == "${instance}-ep-api" ]] || return 1
+  holder_dir="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$holder" 2>/dev/null || true)"
+  [[ -n "$holder_dir" && "$(cd "$holder_dir" 2>/dev/null && pwd -P)" == "$(cd "$REPO_ROOT" && pwd -P)" ]]
 }
 
 first_free_port() {
@@ -1480,12 +1539,35 @@ apply_remembered_settings() {
     return 0
   fi
 
+  # What the command line said wins over what is remembered (issue #415):
+  # keep those values, apply the rest, then put them back.
+  local name kept=() cli_backend="$backend" before_mongodb_url="$mongodb_url" before_ckan_url="$ckan_url"
+  for name in $cli_given; do kept+=("$name=${!name}"); done
+
   eval "$assignments"
+
+  # A remembered catalog URL belongs to the remembered backend. With another
+  # backend on the command line, it would turn "install CKAN" into "use the
+  # CKAN at this URL" (or a MongoDB URL into nothing).
+  if [[ "$cli_given" == *" backend "* && "$backend" != "$cli_backend" ]]; then
+    mongodb_url="$before_mongodb_url"
+    ckan_url="$before_ckan_url"
+  fi
+  local kv
+  for kv in "${kept[@]}"; do printf -v "${kv%%=*}" '%s' "${kv#*=}"; done
+
   ok "Loaded the settings remembered for this Endpoint."
+  [[ "$cli_given" == " " ]] || info "Options given on the command line were kept over the remembered ones."
 }
 
 save_remembered_settings() {
   [[ -n "$remember_token" && -n "$config_id" ]] || return 0
+  # A dry run changes nothing, the Federation included: what it saved became
+  # the next real run's answers (issue #415).
+  if [[ "$dry_run" == "true" ]]; then
+    info "Dry run: would save these answers to configuration ${config_id}; nothing was sent."
+    return 0
+  fi
 
   local payload http_code
   payload="$(python3 "$REPO_ROOT/install/remembered_settings.py" save \
@@ -1497,7 +1579,8 @@ save_remembered_settings() {
     "idp_url=$idp_url" \
     "want_access_requests=$want_access_requests" \
     "mongodb_url=$mongodb_url" \
-    "ckan_url=$ckan_url")"
+    "ckan_url=$ckan_url" \
+    "ckan_global_url=$ckan_global_url")"
 
   http_code="$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
     -X PUT "${federation_url%/}/ep/${config_id}/settings" \
@@ -1549,7 +1632,7 @@ if interactive; then
   # With a configuration id in hand, offer to use the Federation as the memory
   # for everything it does not itself record. Opt-in on purpose: declining
   # asks for no token and leaves the run exactly as it was before.
-  if [[ -n "$config_id" ]]; then
+  if [[ -n "$config_id" && "$use_remembered" == "yes" ]]; then
     offer_remembered_settings
   fi
 
@@ -1659,7 +1742,13 @@ if interactive; then
   section "Endpoint port" \
     "The host port the Endpoint's web UI and API are served on. The default" \
     "is the first free port found, to avoid clashing with what is running."
-  ep_api_port="$(first_free_port "$ep_api_port")"
+  # A port given with --ep-api-port is offered as given, and so is one this
+  # Endpoint's own container holds on a re-run; only otherwise is the next
+  # free one proposed (issue #415).
+  if [[ "$cli_given" != *" ep_api_port "* ]] && ! port_free "$ep_api_port" \
+     && ! port_is_this_endpoints "$ep_api_port"; then
+    ep_api_port="$(first_free_port "$ep_api_port")"
+  fi
   ask ep_api_port "Port to publish the Endpoint on" "$ep_api_port"
 
   if [[ "$backend" == "ckan" && -z "$ckan_url" ]]; then
@@ -1695,6 +1784,21 @@ if interactive; then
   # the same whether or not the Federation accepted the answers.
   save_remembered_settings
 
+# Unattended, the remembered answers are read when the owner's token was given
+# with --ndp-token-file: there is nobody to ask whether to use them, and the
+# token says who may (issue #417). They are only read, never written: nothing
+# was answered. What the command line says still wins (issue #415).
+elif [[ -n "$config_id" && -n "$ndp_token_file" && "$use_remembered" == "yes" ]]; then
+  get_ndp_token
+  remember_token="$ndp_token"
+  if [[ -n "$remember_token" ]]; then
+    if stored="$(fetch_remembered_settings)"; then
+      apply_remembered_settings "$stored"
+    else
+      warn "Could not read the remembered settings. Carrying on without them."
+    fi
+  fi
+  remember_token=""
 fi
 
 # example.env is written as a demo that shows every setting, so its defaults
@@ -1719,6 +1823,21 @@ put OIDC_ENABLED "False"
 # The development bypass token stays off on an installed Endpoint, whatever
 # example.env says (issue #383).
 put TEST_TOKEN ""
+
+# Re-running the installer is how an Endpoint is upgraded, and it overwrites
+# .env. Asked here, before any work, rather than after CKAN was built and
+# NetBird joined; and Yes by default, since the previous file is always kept
+# as a backup (issue #416).
+if [[ -f "$REPO_ROOT/.env" && "$dry_run" != "true" && "$assume_yes" != "true" \
+      && "$overwrite_env" != "true" ]]; then
+  section "Existing configuration" \
+    "This checkout already has a .env: this run replaces it, which is how an" \
+    "Endpoint is upgraded or reconfigured. The current file is kept as" \
+    ".env.backup.<date> next to it."
+  ask_yes_no overwrite_answer "$REPO_ROOT/.env already exists. Overwrite it?" "yes"
+  [[ "$overwrite_answer" == "yes" ]] \
+    || fail "Aborted before changing anything; $REPO_ROOT/.env is untouched."
+fi
 
 if [[ -n "$config_id" ]]; then
   step "Fetching the Federation registration"
@@ -1790,6 +1909,7 @@ emit("fed_pre_ckan_url", cfg.get("pre_ckan_url") or "")
 emit("fed_pre_ckan_key", cfg.get("pre_ckan_key") or "")
 emit("fed_realm", cfg.get("realm_name") or "NDP")
 emit("fed_client_id", cfg.get("client_id") or "")
+emit("fed_client_secret", cfg.get("client_secret") or "")
 emit("fed_public", "true" if truthy(cfg.get("public")) else "false")
 # Platform URLs the Federation serves with each configuration (1.12.9) and the
 # id Affinities gave this Endpoint when it registered (issue #359).
@@ -1856,6 +1976,26 @@ PY
     warn "The registration has no Keycloak client of this Endpoint's own (${fed_client_id:-none})."
     warn "Without AUTHZ_CLIENT_ID no user can write to this Endpoint; see docs/roles-and-permissions.md."
   fi
+
+  # The registration creates a confidential Keycloak client for this Endpoint
+  # (ep-<config-id>). The backend gets client-credentials tokens with it, so
+  # it is kept as the service client (issue #412). It is not the browser
+  # sign-in client: OIDC_CLIENT_ID is left alone. The secret is a credential
+  # and is never printed. A registration whose Keycloak step failed names the
+  # shared placeholder client instead, which is not this Endpoint's
+  # (sci-ndp/ndp-federation#138).
+  if [[ "$fed_client_id" == "default-ep-client" ]]; then
+    warn "The registration has no Keycloak client of its own (it names 'default-ep-client'):"
+    warn "creating it failed on the Federation. Ask the platform team to create it, then re-run the installer."
+  elif [[ -n "$fed_client_id" ]]; then
+    put OIDC_SERVICE_CLIENT_ID "$fed_client_id"
+    if [[ -n "$fed_client_secret" ]]; then
+      put OIDC_SERVICE_CLIENT_SECRET "$fed_client_secret"
+      info "Service client '$fed_client_id' (realm '$fed_realm') and its secret saved to .env."
+    else
+      warn "Service client '$fed_client_id' came without a secret; OIDC_SERVICE_CLIENT_SECRET left empty."
+    fi
+  fi
 elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."
   warn "The Endpoint will not be listed in the Federation."
@@ -1881,6 +2021,14 @@ put METRICS_ENDPOINT "${federation_url%/}/metrics/"
 # that succeeded, makes it required. An Endpoint installed before, with
 # nothing recorded, only joins with --netbird.
 [[ -n "$want_affinities" ]] || want_affinities="$(state_get AFFINITIES)"
+# A configuration that names the Affinities service and holds this Endpoint's
+# Affinities id means the Endpoint is already registered there, so the
+# integration is on unless --no-affinities, now or on an earlier run, says
+# otherwise (issue #414, as NetBird in #363).
+if [[ -z "$want_affinities" && -n "${fed_affinities_url:-}" && -n "${fed_affinities_uid:-}" ]]; then
+  want_affinities="yes"
+  info "The Federation configuration has this Endpoint's Affinities id; Affinities is on (--no-affinities to opt out)."
+fi
 [[ -n "$want_netbird" ]]    || want_netbird="$(state_get NETBIRD)"
 if [[ -z "$want_netbird" && "$fresh_install" == "true" ]]; then
   want_netbird="default"
@@ -1900,6 +2048,8 @@ if [[ "$want_affinities" == "yes" ]]; then
   put AFFINITIES_EP_UUID "$fed_affinities_uid"
   ok "Affinities integration on ($fed_affinities_url, id $fed_affinities_uid)"
   [[ "$dry_run" == "true" ]] || state_set AFFINITIES yes
+elif [[ "$want_affinities" == "no" ]]; then
+  [[ "$dry_run" == "true" ]] || state_set AFFINITIES no
 fi
 
 netbird_status() {
@@ -2140,6 +2290,66 @@ case "$want_netbird" in
 esac
 
 # --------------------------------------------------------------
+step "Choosing where ports are published"
+# --------------------------------------------------------------
+# By default every port is published on every interface, as before. --bind
+# publishes them on one address only, e.g. 127.0.0.1 behind a reverse proxy or
+# a tunnel (issue #418). It is done with a docker-compose.override.yml next to
+# each Compose file (install/bind_ports.py), which Compose reads by itself, so
+# the start/stop/status commands and a plain `docker compose up` keep it.
+[[ -n "$bind_address" ]] || bind_address="$(state_get BIND_ADDRESS)"
+if [[ "$bind_address" == "all" ]]; then
+  bind_address=""
+  [[ "$dry_run" == "true" ]] || state_set BIND_ADDRESS ""
+fi
+if [[ -n "$bind_address" ]]; then
+  python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import bind_ports; sys.exit(0 if bind_ports.valid_address(sys.argv[2]) else 1)' \
+    "$REPO_ROOT/install" "$bind_address" \
+    || fail "--bind needs an IP address, e.g. 127.0.0.1 (got: $bind_address); --bind all publishes on every interface."
+  compose_version="$("${COMPOSE[@]}" version --short 2>/dev/null | sed 's/^v//' || true)"
+  python3 -c 'import sys; v=[int(p) for p in (sys.argv[1].split("-")[0].split(".")+["0","0"])[:2]]; sys.exit(0 if v >= [2, 24] else 1)' \
+    "${compose_version:-0}" 2>/dev/null \
+    || fail "--bind needs Docker Compose 2.24 or later (found: ${compose_version:-unknown})."
+  [[ "$dry_run" == "true" ]] || state_set BIND_ADDRESS "$bind_address"
+  ok "Ports will be published on $bind_address only"
+else
+  info "Ports are published on every interface (--bind <address> to choose one)"
+fi
+
+bind_override() {
+  # bind_override DIR — write DIR/docker-compose.override.yml for --bind, or
+  # remove the one an earlier --bind wrote. One the operator wrote is theirs:
+  # it is never replaced or removed.
+  local dir="$1" file="$1/docker-compose.override.yml" marker
+  marker="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import bind_ports; print(bind_ports.MARKER)' "$REPO_ROOT/install")"
+  if [[ -f "$file" ]] && [[ "$(head -n1 "$file")" != "$marker" ]]; then
+    [[ -z "$bind_address" ]] && return 0
+    fail "$file was not written by this installer, so --bind will not replace it.
+       Move it aside, or add the addresses to it yourself."
+  fi
+  if [[ -z "$bind_address" ]]; then
+    if [[ -f "$file" ]]; then
+      if [[ "$dry_run" == "true" ]]; then
+        info "--dry-run: would remove $file and publish on every interface"
+      else
+        rm -f "$file"
+        info "Removed $file: ports are published on every interface again"
+      fi
+    fi
+    return 0
+  fi
+  if [[ "$dry_run" == "true" ]]; then
+    info "--dry-run: would write $file to publish on $bind_address"
+    return 0
+  fi
+  python3 "$REPO_ROOT/install/bind_ports.py" "$dir/docker-compose.yml" "$bind_address" > "$file.tmp" \
+    && mv "$file.tmp" "$file" \
+    || fail "Could not write $file."
+  ok "Wrote $file: ports on $bind_address"
+}
+bind_override "$REPO_ROOT"
+
+# --------------------------------------------------------------
 step "Selecting the local catalog backend"
 # --------------------------------------------------------------
 # Answers given at the prompt. A Federation registration, where there is one,
@@ -2150,6 +2360,18 @@ step "Selecting the local catalog backend"
 # and a remembered value may still be the old /temp/information URL.
 idp_url="$(printf '%s' "$idp_url" | sed -E 's#^([A-Za-z]+://[^/]+).*#\1#')"
 [[ -n "$idp_url" ]]       && put KEYCLOAK_URL "$idp_url"
+
+# The platform's global catalog (issue #413). Kept in the install state, so a
+# re-run searches the same one; left out, the Endpoint's own default
+# (production) applies.
+[[ -n "$ckan_global_url" ]] || ckan_global_url="$(state_get CKAN_GLOBAL_URL)"
+if [[ -n "$ckan_global_url" ]]; then
+  [[ "$ckan_global_url" =~ ^https?://[^[:space:]]+$ ]] \
+    || fail "--ckan-global-url must be an http(s) URL (got: $ckan_global_url)"
+  put CKAN_GLOBAL_URL "${ckan_global_url%/}"
+  info "Global catalog: ${ckan_global_url%/}"
+  [[ "$dry_run" == "true" ]] || state_set CKAN_GLOBAL_URL "${ckan_global_url%/}"
+fi
 
 put LOCAL_CATALOG_BACKEND "$backend"
 
@@ -2279,6 +2501,7 @@ else
     done
     ok "Ports $ckan_ssl_port, $ckan_http_port and $ckan_app_port are free"
 
+    bind_override "$ckan_dir"
     info "Building and starting CKAN — this takes several minutes the first time"
     rc=0
     compose_up CKAN "$ckan_dir" "${COMPOSE[@]}" up -d --build || rc=$?
@@ -2381,6 +2604,19 @@ if [[ "$want_s3" == "yes" ]]; then
   fi
 fi
 
+# Credentials for a MongoDB or MinIO this Endpoint does not have stay empty,
+# rather than example.env's published demo values, which looked real and would
+# be used by a service later switched on by hand (issue #419). Installing one
+# generates its own (bundled_mongodb_password, bundled_minio_keys).
+if [[ " ${profiles[*]:-} " != *" mongodb "* ]]; then
+  put MONGODB_ROOT_PASSWORD ""
+  [[ "$backend" == "mongodb" && -n "$mongodb_url" ]] || put MONGODB_CONNECTION_STRING ""
+fi
+if [[ "$want_s3" != "yes" ]]; then
+  put S3_ACCESS_KEY ""
+  put S3_SECRET_KEY ""
+fi
+
 if [[ "${fed_streaming:-false}" == "true" ]]; then
   profiles+=("kafka")
   info "Streaming enabled by the registration — adding the 'kafka' profile"
@@ -2438,10 +2674,7 @@ if [[ -f "$env_path" && "$dry_run" != "true" ]]; then
   chmod 600 "$backup"
   warn "Existing .env saved to $(basename "$backup")"
 
-  if [[ "$assume_yes" != "true" ]]; then
-    read -r -p "$env_path already exists. Overwrite? [y/N] " reply
-    [[ "$reply" =~ ^[Yy]$ ]] || fail "Aborted; nothing was changed (backup kept at $backup)."
-  fi
+  # Whether to overwrite was settled before any work (issue #416).
 fi
 
 target="$env_path"
@@ -2538,7 +2771,9 @@ if [[ "$dry_run" == "true" ]]; then
   echo
   info "Dry run — rendered configuration follows, nothing was written or started:"
   echo "----------------------------------------------------------------"
-  grep -vE '^\s*(#|$)' "$target" || true
+  # The service client's secret is a credential: say it is set, not what it is.
+  grep -vE '^\s*(#|$)' "$target" \
+    | sed -E 's/^(OIDC_SERVICE_CLIENT_SECRET=).+$/\1(set, not shown)/' || true
   echo "----------------------------------------------------------------"
   rm -f "$target"
   exit 0
@@ -2558,11 +2793,7 @@ if (exec 3<>"/dev/tcp/127.0.0.1/$ep_api_port") 2>/dev/null; then
   # Re-running the installer is how an Endpoint is upgraded, and the port is
   # then held by this checkout's own Endpoint container -- the one the
   # "up -d --build" below replaces. That is not a conflict (issue #332).
-  holder_dir=""
-  if [[ "$holder" == "${instance}-ep-api" ]]; then
-    holder_dir="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$holder" 2>/dev/null || true)"
-  fi
-  if [[ -n "$holder_dir" && "$(cd "$holder_dir" 2>/dev/null && pwd -P)" == "$(cd "$REPO_ROOT" && pwd -P)" ]]; then
+  if port_is_this_endpoints "$ep_api_port"; then
     info "Port $ep_api_port is held by this Endpoint's running container; it will be replaced."
   else
     fail "Port $ep_api_port is already in use${holder:+ by container '$holder'}.

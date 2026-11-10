@@ -83,7 +83,16 @@ def _run_pressing_enter(checkout, *args):
                 pending = ""
         elif process.poll() is not None:
             break
-    process.wait(timeout=30)
+    try:
+        process.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        # Show where the installer stopped instead of only the timeout
+        # (issue #404).
+        process.kill()
+        os.close(main)
+        pytest.fail(
+            "install.sh did not finish; it was waiting after:\n" + output[-2000:]
+        )
     os.close(main)
     lines = [line.strip() for line in output.splitlines()]
     return process.returncode, output, lines
@@ -120,3 +129,36 @@ def test_an_existing_mongodb_url_is_offered_as_its_default(checkout):
 
     assert f"[{url}]:" in output, output
     assert code == 0, output
+
+
+SLOW_TEE = """#!/usr/bin/env python3
+# A tee that is slow to copy, like one on a loaded machine (issue #404).
+import os, sys, time
+append = "-a" in sys.argv[1:]
+files = [open(a, "ab" if append else "wb") for a in sys.argv[1:] if a != "-a"]
+while True:
+    chunk = os.read(0, 4096)
+    if not chunk:
+        break
+    time.sleep(0.05)
+    os.write(1, chunk)
+    for f in files:
+        f.write(chunk)
+        f.flush()
+"""
+
+
+def test_each_prompt_comes_after_its_explanation_when_the_log_is_slow(checkout):
+    """The install log copies stdout and stderr through separate tee processes;
+    a prompt must still follow the text that explains it (issue #404)."""
+    copy, stubs = checkout
+    (stubs / "tee").write_text(SLOW_TEE, encoding="utf-8")
+    (stubs / "tee").chmod(0o755)
+
+    code, output, lines = _run_pressing_enter(checkout, "--backend", "mongodb")
+
+    assert code == 0, output
+    explanation = output.index("Leave blank and the next step offers to register now.")
+    assert output.index("Configuration id (blank to skip):") > explanation, output
+    options = output.index("5) CKAN, one I already have")
+    assert output.index("Choice [2]:") > options, output

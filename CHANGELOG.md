@@ -21,6 +21,119 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Breaking:** without `AUTHZ_CLIENT_ID` every guarded route answers 403 and approval answers 503; an Endpoint registered before the Federation linked clients to groups needs its client linked first (the AAI's `tools/adopt_client.py`). Users who could write only through a realm role (`ndp_writer`, `group:<g>:writer`) are refused until they hold the editor or admin level.
 
+## [0.34.82] - 2026-11-10
+
+### Added
+- **Search results a page at a time, with the number of matches** (#420). `GET /search` looked at no more than the first 1000 matching datasets and said nothing about the rest. On the global catalog `GNSS` matches 1124, so 124 could not be reached.
+  - `GET /search` takes `offset` (default 0) and `limit` (1–1000, default 1000), still asking the catalog for at most 100 datasets per request (#402).
+  - It reports the catalog's number of matches in a new `X-Total-Count` header, exposed to browsers through CORS.
+  - The body is still a list, so existing clients (the Python library included) are unaffected.
+  - New service function `search_datasets_page` returns the page and the total.
+- **The Search page shows the first 100 datasets, "Showing N of M matching datasets", and a Load more button** while the catalog has more (new `DatasetPager` component and `services/searchPaging.js`). With "Only mine" it says how many matches were looked through.
+  - Searches filtered by organization (`POST /search`) are not paged yet: #424.
+  - New tests in `tests/test_search_paging.py`, `ui/src/services/searchPaging.test.js` and `ui/src/components/DatasetPager.test.js`.
+  - Verified with the image of this release against the global catalog: `GET /search?terms=GNSS` answers `X-Total-Count: 1124`, and `offset=1100&limit=100` returns the last 24. On the Search page, Load more went 98 → 198 → … → 1122 of 1124 and then disappeared; the other 2 belong to the `services` organization, which the Datasets list leaves out.
+
+## [0.34.81] - 2026-11-10
+
+Installer options for unattended and self-hosted installs, all reported by Saleem Alharir.
+
+### Added
+- **`--ckan-global-url <url>`** (#413). The installer never wrote `CKAN_GLOBAL_URL`, so every Endpoint searched the production global catalog, including those of test, staging or self-hosted platforms.
+  - The URL is written to `.env`, kept in the install state for re-runs, and is one of the remembered settings.
+  - Without the option, the Endpoint's default (production) applies as before.
+  - `example.env` now documents the setting.
+- **`--bind <address>`** publishes every port on one IP address, e.g. `127.0.0.1` behind a reverse proxy or tunnel (#418).
+  - It covers the Endpoint's port, the bundled services' ports and the bundled CKAN's nginx.
+  - The installer writes a `docker-compose.override.yml` next to each Compose file (new `install/bind_ports.py`). The ports are read from the Compose files themselves, and `!override` replaces each service's port list.
+  - It needs Compose 2.24 or later.
+  - The address is kept on re-runs; `--bind all` removes the files.
+  - An override the installer did not write is never touched.
+  - Without `--bind` nothing changes: ports stay on every interface, IPv6 included.
+- **`--no-remembered-settings`** skips reading the remembered settings.
+
+### Changed
+- **Affinities is on by default when the configuration holds the Affinities URL and this Endpoint's Affinities id** (#414), as NetBird is since #363.
+  - `--no-affinities` turns it off and is remembered.
+  - `--affinities` still stops when either value is missing.
+  - Without the id it stays off.
+- **Unattended runs read the remembered settings when given the owner's token** (#417). Only a terminal read them, so `--ndp-token-file … --yes` fell back to defaults, including the production AAI URL.
+  - With `--config-id` and `--ndp-token-file`, they are now loaded and the run says so.
+  - They are only read, never written, and command-line options still win.
+
+### Fixed
+- **No demo credentials for services that are not installed** (#419). With no MongoDB or MinIO installed and none given, `.env` carried `example.env`'s published values (`admin123`, `minioadmin123`). They are now empty. Installing one still generates its own.
+  - Tests: new `install/tests/test_unattended_and_deployment_options.py` (20 tests, the real installer against a stand-in Federation); 14 fail on 0.34.80. `test_netbird_affinities.py` now expects Affinities on when the configuration has its id.
+  - Real check of `--bind 127.0.0.1` with Docker Compose 2.40:
+    - `docker compose config` on the generated overrides shows `host_ip: 127.0.0.1` on all 15 ports of `docker-compose.yml` (every profile) and on the CKAN project's nginx;
+    - a container started with an override listens only on `127.0.0.1`, and without one on `0.0.0.0` and `[::]`.
+
+## [0.34.80] - 2026-11-10
+
+### Fixed
+- **Re-running the installer does what the command line says** (#415, reported by Saleem Alharir). Together, these made a real install of a test Endpoint take three runs.
+  - **Command-line options win over remembered settings.** The remembered settings replaced options already parsed, so with a remembered `backend=none`, `--backend ckan` installed no catalog. Now:
+    - `--backend`, `--ep-api-port`, `--mongodb-url`, `--ckan-url`, `--access-requests`, `--s3`, `--s3-endpoint` and `--s3-secure` are kept over what the Federation remembers, and the questions offer them by default;
+    - a remembered catalog URL is only reused with the backend it belongs to.
+  - **The port question no longer moves the Endpoint.** It re-negotiated `--ep-api-port`, and on a re-run it offered the next port because the Endpoint's own container held it. A port given with `--ep-api-port`, or held by this checkout's own container, is now offered as it is. The own-container check is shared with the one before `compose up` (#332).
+  - **`--dry-run` no longer writes the remembered settings to the Federation.** It says what it would save.
+- **The `.env` overwrite question comes before any work, and Enter means yes** (#416). On a re-run, `.env already exists. Overwrite? [y/N]` came after CKAN was built and NetBird joined, and Enter aborted the upgrade with nothing changed.
+  - It is now asked right after the questions, before the registration is fetched or anything is built, with **Yes** as the default; the previous file is always kept as `.env.backup.<date>`.
+  - Answering no stops the run with nothing changed.
+  - New `--overwrite-env` skips only this question; `--yes` still skips them all.
+  - New tests in `install/tests/test_reinstall_flags.py` (pseudo-terminal runs against a stand-in Federation); 10 of the 11 fail on 0.34.79.
+
+## [0.34.79] - 2026-11-10
+
+### Added
+- **The installer keeps the Endpoint's service client from its registration** (#412, from Saleem Alharir's #411). Registering an Endpoint creates a confidential Keycloak client for it, `ep-<config-id>`, and the Federation hands its id and secret to the owner. The installer printed the id and dropped both, so the Endpoint could not get a client-credentials token, which approving access requests needs with the AAI API's new `/group/add-user` (sci-ndp/ndp-keycloak-aai#12). They are now written to the new `OIDC_SERVICE_CLIENT_ID` and `OIDC_SERVICE_CLIENT_SECRET`, read by the API as `oidc_service_client_id` and `oidc_service_client_secret` (a `SecretStr`).
+  - The secret is never printed: the installer says it was saved, and `--dry-run` shows `OIDC_SERVICE_CLIENT_SECRET=(set, not shown)`.
+  - This is not the browser sign-in client: `OIDC_CLIENT_ID` and `OIDC_ENABLED` are left as they were.
+  - A registration that names `default-ep-client` (its Keycloak client was never created, sci-ndp/ndp-federation#138) is not kept; the installer warns instead.
+  - The old NDP-EP `setup.sh` used this secret only for its JupyterHub install. That install, and its Kafka install, did not come over when NDP-EP switched to this installer on 2026-10-02; `install/README.md` now says so.
+  - New tests in `install/tests/test_service_client.py` (real installer, `--dry-run`, against a Federation served by the test) and `tests/test_service_client_settings.py`.
+
+## [0.34.78] - 2026-11-09
+
+### Fixed
+- **The installer's questions no longer appear above their explanation** (#404). Since the install log (#374), stdout and stderr reach the terminal through two separate `tee` processes. Explanations are echoed on stdout and questions were printed by `read -p` on stderr, so on a busy machine a question could overtake the text before it ("Configuration id (blank to skip):   Identifies this Endpoint's registration…"). While the log is active and stdout goes to a terminal, questions are now printed on stdout, the same path as their explanation; otherwise they are asked as before. The same applies to the uninstall and `.env` overwrite confirmations.
+  - This is also why `install/tests/test_backend_flag_interactive.py` failed intermittently in CI: it answers a question when it is the last line, and the installer waited at a question that was not. Running those tests 20 in parallel failed 9 of 25 before and passes 35 of 35 now, twice.
+  - The pseudo-terminal tests now report where the installer stopped instead of only a timeout. New test with a deliberately slow `tee` that fails on 0.34.77.
+
+## [0.34.77] - 2026-11-09
+
+### Added
+- **A summary of STAC collection resources in the dataset view** (#405). A resource that is a STAC collection showed only a link to its `collection.json`: for the GLSR Endpoint, 146 KB of JSON listing 1313 item paths, which browser STAC viewers cannot read either because the file server sends no CORS headers. Such resources now have a **Collection summary** button that shows the collection's title, description, license, period, item count and summaries (e.g. 27 models, 6 scenarios), its extent on the map, and its items, filtered by name and opened one at a time to get their download links. Every other resource looks as before.
+  - The Endpoint reads the collection: new routes `GET /stac/collection` and `GET /stac/item`, public like `GET /search`. They only read the URL of a resource of a public dataset in the local or global catalog, and items that collection links to; http(s) only, no loopback, link-local, multicast or reserved addresses, at most three redirects, `STAC_MAX_BYTES` (5 MB) and `STAC_FETCH_TIMEOUT_SECONDS` (10 s), cached for `STAC_CACHE_SECONDS` (10 min). `STAC_SUMMARY_ENABLED=False` turns it off. See `docs/configuration.md`.
+  - New tests in `tests/test_stac_summary.py` and `ui/src/components/StacCollectionSummary.test.js`.
+  - Verified with the image of this release and a local MongoDB catalog holding a dataset whose resource is the GLSR collection (`utah-cmip6.ndp.utah.edu/files/stac/collection.json`): the summary showed 1313 items, 1979–2099, 27 models and 6 scenarios with the Great Salt Lake Basin on the map; filtering by `MIROC6 ssp370` left 13 items; opening one showed its period and the link to its NetCDF file. The file-server resource of the same dataset shows no button and answers 422; an item URL that is not in the collection answers 404 without being read.
+
+## [0.34.76] - 2026-11-09
+
+### Fixed
+- **Endpoints with a MongoDB catalog find datasets by name again** (#406). 0.34.75 sent every search term as a phrase (#402). That suits CKAN, whose text field includes the dataset's name, but the MongoDB catalog searches only title, tags and notes, where a phrase like `"glsr-stac-test"` matched nothing, so a dataset could no longer be found by a name that is not in its title. Phrases are now used only with CKAN catalogs; MongoDB catalogs search as they did before 0.34.75.
+  - New tests in `tests/test_search_pages_and_phrases.py`.
+  - Verified on a local Endpoint with a MongoDB catalog: `glsr-stac-test` returned nothing with 0.34.75 and returns the dataset now; the global catalog still answers `macav2` with an empty result in 0.7 s and `water-bodies` with its dataset.
+
+## [0.34.75] - 2026-11-09
+
+### Fixed
+- **Searching the global catalog no longer fails with "Global catalog is not reachable" while it is up** (#402). The search asked CKAN for 1000 full datasets in one request, with each term unquoted. CKAN splits a term like `macav2` into `macav` and `2`, so on the global catalog it matched 4224 datasets, the request ran into the catalog's 15-second gateway timeout, and the 504 was reported as the catalog being unreachable. The Search page uses the global catalog by default, so this reached users of every Endpoint.
+  - Each term is now searched as a phrase (`"macav2"`, `title:"macav2"`), so CKAN returns only datasets with those parts together.
+  - Results are asked for 100 at a time, looking at no more than the 1000 datasets the single request used to return.
+  - An error from the catalog, a timeout included, now says the catalog could not answer the search, not that it is unreachable.
+  - A leftover `print` no longer writes every dataset found to the logs.
+  - New tests in `tests/test_search_pages_and_phrases.py`.
+  - Verified against the global catalog, before and after: `macav2` went from a 503 after 15.6 s to an empty result in 0.7 s; `water` (370 datasets), `climate` + `utah` (51) and `water-bodies` (1) return the same datasets as before.
+
+## [0.34.74] - 2026-11-09
+
+### Added
+- **Each release opens the pull request that installs it from NDP-EP** (#400, sci-ndp/NDP-EP#16). New Endpoints install the release pinned in `setup.sh` of sci-ndp/NDP-EP, and that pin was raised by hand after every release, so new Endpoints kept installing an older one whenever nobody remembered. After publishing a release that is not a prerelease, `docker-publish.yml` now opens a one-line pull request there raising `EP_VERSION`; merging it makes new installations use the release, closing it holds the release back. A release not newer than the pinned one opens nothing, and re-running the workflow does not open a second pull request.
+  - The job needs the `NDP_EP_PR_TOKEN` secret (Contents and Pull requests, read and write, on sci-ndp/NDP-EP). Without it the job fails and says to raise the pin by hand.
+  - The pin is rewritten by `scripts/bump_ndp_ep.py`. New tests in `tests/test_bump_ndp_ep.py`.
+  - The job's script was run against a clone of sci-ndp/NDP-EP with the push and the pull request stubbed: v0.34.74 raised the pin and committed it, v0.34.73 and v0.35.0-rc1 changed nothing, and without the token it stopped with the message above.
+
 ## [0.34.73] - 2026-11-06
 
 ### Fixed

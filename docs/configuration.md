@@ -274,6 +274,32 @@ the weaker `plain` challenge method; the other two sign-in methods still work
 there. `localhost` counts as a secure context, so an SSH tunnel is enough for
 testing.
 
+### The Endpoint's service client (set by the installer)
+
+Registering an Endpoint with the Federation creates a **confidential**
+Keycloak client for it, `ep-<config-id>`, and the Federation hands its id and
+secret to the Endpoint's owner. The Endpoint's backend uses this client to get
+client-credentials tokens from the identity provider (issue #412).
+
+It is a different client from the sign-in one above: `OIDC_CLIENT_ID` is a
+public client that the browser uses, and `OIDC_SERVICE_CLIENT_*` never reach
+the browser.
+
+#### `OIDC_SERVICE_CLIENT_ID`
+*Optional · default: empty.*
+The client's id, `ep-<config-id>`.
+**Where:** the installer copies it from the registration. When the
+registration names `default-ep-client`, the client was never created on the
+Federation (sci-ndp/ndp-federation#138), so the installer warns and leaves
+this empty.
+
+#### `OIDC_SERVICE_CLIENT_SECRET`
+*Optional · default: empty · secret.*
+The client's secret. The installer copies it from the registration without
+printing it (a `--dry-run` shows `(set, not shown)`). Keep it private.
+**Where:** the installer; otherwise the Endpoint's registration on the
+Federation (`GET /ep/{config-id}`, as the Endpoint's admin).
+
 ---
 
 ## Local catalog (where this EP stores its data)
@@ -326,7 +352,9 @@ turn verification on, give that CKAN a certificate the Endpoint trusts and set
 #### `CKAN_GLOBAL_URL`
 *Optional · default: `https://nationaldataplatform.org/catalog`.*
 Read-only global NDP catalog the EP can search alongside the local one.
-**Where:** usually leave the default.
+**Where:** leave the default for an Endpoint of the production platform. For
+a test, staging or self-hosted platform, its own portal's catalog
+(`<portal-url>/catalog`); the installer writes it with `--ckan-global-url`.
 
 ### MongoDB backend — only if `LOCAL_CATALOG_BACKEND=mongodb`
 
@@ -637,6 +665,43 @@ releases API (`tag_name`, `html_url`) works.
 How long the latest release is kept before it is read again. A failed lookup
 is retried after 15 minutes; until then the route answers with the latest
 version unknown.
+
+---
+
+## STAC collection summaries
+
+A dataset resource that is a STAC collection (a `collection.json`, or a
+resource whose format says STAC) gets a **Collection summary** button in the
+dataset view (since 0.34.77). The Endpoint reads the collection and returns,
+from `GET /stac/collection`, its title, description, license, spatial and
+temporal extent, summaries and items; `GET /stac/item` returns one item's
+properties and download links. The browser never reads the collection itself,
+so the file server needs no CORS headers.
+
+The Endpoint only reads the URL of a resource of a public dataset in the local
+or global catalog, and the items that collection links to. It reads http(s)
+only, refuses loopback, link-local, multicast and reserved addresses (cloud
+metadata services among them), and follows at most three redirects under the
+same rules. Private network addresses are allowed, for Endpoints that keep
+their files on an internal network.
+
+#### `STAC_SUMMARY_ENABLED`
+*Optional · default: `True`.*
+With `False` the routes answer 404 and nothing is read.
+**Where:** turn it off on Endpoints that must not make outbound requests.
+
+#### `STAC_FETCH_TIMEOUT_SECONDS`
+*Optional · default: `10`.*
+How long one read of a collection or item may take.
+
+#### `STAC_MAX_BYTES`
+*Optional · default: `5000000`.*
+Larger documents are not read; the route answers 502.
+
+#### `STAC_CACHE_SECONDS`
+*Optional · default: `600`.*
+How long a collection or item is kept before it is read again (each API
+worker keeps its own copy).
 
 ---
 
