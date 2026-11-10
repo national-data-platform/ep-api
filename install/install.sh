@@ -1808,6 +1808,7 @@ emit("fed_pre_ckan_url", cfg.get("pre_ckan_url") or "")
 emit("fed_pre_ckan_key", cfg.get("pre_ckan_key") or "")
 emit("fed_realm", cfg.get("realm_name") or "NDP")
 emit("fed_client_id", cfg.get("client_id") or "")
+emit("fed_client_secret", cfg.get("client_secret") or "")
 emit("fed_public", "true" if truthy(cfg.get("public")) else "false")
 # Platform URLs the Federation serves with each configuration (1.12.9) and the
 # id Affinities gave this Endpoint when it registered (issue #359).
@@ -1865,12 +1866,24 @@ PY
 
   put IS_PUBLIC "$([[ "$fed_public" == "true" ]] && echo True || echo False)"
 
-  # The client the registration creates is confidential and its tokens carry no
-  # `sub`, which AUTH_API_URL looks the user up by — so it cannot be used for
-  # sign-in as it stands. The installer says it exists and stops there; see
-  # docs/configuration.md.
-  if [[ -n "$fed_client_id" ]]; then
-    info "Registration includes client id '$fed_client_id' for realm '$fed_realm'."
+  # The registration creates a confidential Keycloak client for this Endpoint
+  # (ep-<config-id>). The backend gets client-credentials tokens with it, so
+  # it is kept as the service client (issue #412). It is not the browser
+  # sign-in client: OIDC_CLIENT_ID is left alone. The secret is a credential
+  # and is never printed. A registration whose Keycloak step failed names the
+  # shared placeholder client instead, which is not this Endpoint's
+  # (sci-ndp/ndp-federation#138).
+  if [[ "$fed_client_id" == "default-ep-client" ]]; then
+    warn "The registration has no Keycloak client of its own (it names 'default-ep-client'):"
+    warn "creating it failed on the Federation. Ask the platform team to create it, then re-run the installer."
+  elif [[ -n "$fed_client_id" ]]; then
+    put OIDC_SERVICE_CLIENT_ID "$fed_client_id"
+    if [[ -n "$fed_client_secret" ]]; then
+      put OIDC_SERVICE_CLIENT_SECRET "$fed_client_secret"
+      info "Service client '$fed_client_id' (realm '$fed_realm') and its secret saved to .env."
+    else
+      warn "Service client '$fed_client_id' came without a secret; OIDC_SERVICE_CLIENT_SECRET left empty."
+    fi
   fi
 elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."
@@ -2549,7 +2562,9 @@ if [[ "$dry_run" == "true" ]]; then
   echo
   info "Dry run — rendered configuration follows, nothing was written or started:"
   echo "----------------------------------------------------------------"
-  grep -vE '^\s*(#|$)' "$target" || true
+  # The service client's secret is a credential: say it is set, not what it is.
+  grep -vE '^\s*(#|$)' "$target" \
+    | sed -E 's/^(OIDC_SERVICE_CLIENT_SECRET=).+$/\1(set, not shown)/' || true
   echo "----------------------------------------------------------------"
   rm -f "$target"
   exit 0
