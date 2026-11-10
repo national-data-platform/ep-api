@@ -82,7 +82,7 @@ const RolesHelp = () => {
       <div className="card">
         <p style={{ margin: 0, color: '#475569', lineHeight: 1.55 }}>
           Keycloak decides what a user may do here, through the permission
-          gates of this Endpoint&apos;s client (<C>AUTHZ_CLIENT_ID</C>,{' '}
+          gates of this Endpoint&apos;s client (<C>OIDC_SERVICE_CLIENT_ID</C>,{' '}
           <C>ep-&#123;config-id&#125;</C>). The tiers are levels of the
           Endpoint&apos;s group: <C>viewers</C> pass <C>viewer-area</C>,{' '}
           <C>editors</C> (the writer tier) <C>editor-area</C>, <C>admins</C>{' '}

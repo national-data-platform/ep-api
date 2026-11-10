@@ -100,12 +100,12 @@ leader lock is the existing way to keep a background loop to one worker.
   tier also send it to Keycloak for a decision. No local JWT validation.
 - Tiers viewer / writer / admin are decided by Keycloak: each guarded route
   asks, with the caller's token, for the `viewer-area`, `editor-area` or
-  `admin-area` gate of the Endpoint's client `AUTHZ_CLIENT_ID`
+  `admin-area` gate of the Endpoint's client `OIDC_SERVICE_CLIENT_ID`
   (`ep-<config-id>`, set by the installer from the registration), which
   follow the user's level in the Endpoint's group
   (`api/services/auth_services/ep_access_gate.py`). The `roles` and
   `groups` the AAI returns are not used.
-- With `AUTHZ_CLIENT_ID` set, `GET /user/info`, which the UI calls at
+- With `OIDC_SERVICE_CLIENT_ID` set, `GET /user/info`, which the UI calls at
   sign-in, requires a tier too.
 - `TEST_TOKEN` bypasses the AAI and passes every gate
   (`get_current_user.py`, `ep_access_gate.py`).
@@ -276,7 +276,7 @@ Affinities is a product question.
 
 **Facts** — Self-service requests stored in MongoDB, approved by an admin
 through an AAI group call made with the admin's own token. The group is
-`ndp_ep/<AUTHZ_CLIENT_ID>`, the one the Endpoint's client is linked to;
+`ndp_ep/<OIDC_SERVICE_CLIENT_ID>`, the one the Endpoint's client is linked to;
 without a client, approval answers 503
 (`api/services/access_request_services/access_request_service.py`).
 

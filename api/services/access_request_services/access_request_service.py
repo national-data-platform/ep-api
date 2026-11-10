@@ -73,12 +73,12 @@ def _endpoint_group() -> str:
     the Federation created with the Endpoint's client, ``ndp_ep/<client>``,
     whose levels the client's gates are decided on.
     """
-    if not swagger_settings.authz_client_id:
+    if not swagger_settings.oidc_service_client_id:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AUTHZ_CLIENT_ID is not set; cannot grant access.",
+            detail="OIDC_SERVICE_CLIENT_ID is not set; cannot grant access.",
         )
-    return f"ndp_ep/{swagger_settings.authz_client_id}"
+    return f"ndp_ep/{swagger_settings.oidc_service_client_id}"
 
 
 def create_access_request(
@@ -135,15 +135,30 @@ def list_access_requests(
 def _grant_via_aai(
     admin_token: str,
     grant_type: Literal["viewer", "writer", "admin", "member"],
-    username: str,
+    user_sub: str,
 ) -> None:
     """
-    Perform the IDP write for an approve decision: add the user to the
-    endpoint group at the level for ``grant_type`` (the group calls the
-    writer tier "editor").
+    Perform the IDP write for an approve decision: add the user, by their
+    Keycloak id, to the endpoint group at the level for ``grant_type`` (the
+    group calls the writer tier "editor").
+
+    The Endpoint's own client vouches for the call as ``X-Client-Assertion``,
+    which the AAI needs to change a group under ``ndp_ep`` unless the admin
+    holds ``ndp_admin``. Without OIDC_SERVICE_CLIENT_SECRET it is left out.
     """
+    group = _endpoint_group()
+    secret = swagger_settings.oidc_service_client_secret.get_secret_value()
+    assertion = (
+        aai_client.client_login(swagger_settings.oidc_service_client_id, secret)
+        if secret
+        else None
+    )
     aai_client.add_user_to_group(
-        admin_token, _endpoint_group(), username, _GROUP_LEVEL[grant_type]
+        admin_token,
+        group,
+        user_sub,
+        _GROUP_LEVEL[grant_type],
+        client_assertion=assertion,
     )
 
 
@@ -175,8 +190,10 @@ def approve_access_request(
     # Execute the IDP side first. If the AAI rejects the write (admin does
     # not actually have the required role, transient outage, etc.) the
     # HTTPException propagates and the Mongo document stays pending — the
-    # admin can retry without producing a phantom "approved" record.
-    _grant_via_aai(admin_token, grant_type, doc["username"])
+    # admin can retry without producing a phantom "approved" record. The
+    # user is named by their Keycloak id (the token's sub): /group/add-user
+    # documents "email or ID", and tries the id first.
+    _grant_via_aai(admin_token, grant_type, doc["user_sub"])
 
     updated = repo.mark_decided(
         request_id=request_id,

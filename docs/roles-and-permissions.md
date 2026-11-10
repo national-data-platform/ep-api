@@ -52,7 +52,7 @@ searches and resource reads stay public.
 
 ### The entry check
 
-On an Endpoint with a client (`AUTHZ_CLIENT_ID`), `GET /user/info` (which
+On an Endpoint with a client (`OIDC_SERVICE_CLIENT_ID`), `GET /user/info` (which
 the UI uses to let a user in) also requires a tier, i.e. `viewer-area`, so
 a user with no level on the Endpoint cannot enter the UI and is offered the
 access-request form instead. Without a client, any authenticated user
@@ -65,7 +65,7 @@ enters.
 Registering through the Federation creates the Endpoint's Keycloak client
 `ep-<config-id>` linked to its group `ndp_ep/ep-<config-id>`; the AAI API
 turns the group's levels into the three gates (resources with policies on
-that client). The installer writes the client to `AUTHZ_CLIENT_ID`.
+that client). The installer writes the client to `OIDC_SERVICE_CLIENT_ID`.
 
 For each guarded request the EP sends, with the caller's bearer token:
 
@@ -75,7 +75,7 @@ Authorization: Bearer <caller's token>
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=urn:ietf:params:oauth:grant-type:uma-ticket
-&audience=<AUTHZ_CLIENT_ID>
+&audience=<OIDC_SERVICE_CLIENT_ID>
 &permission=editor-area
 &response_mode=decision
 ```
@@ -91,7 +91,7 @@ to protect `GET /ep/{config_id}`. No client secret is involved.
 | `401` (token not accepted) | `401` |
 | `5xx` or unreachable | `502` |
 
-Without `AUTHZ_CLIENT_ID` nothing is asked: guarded routes answer `403`
+Without `OIDC_SERVICE_CLIENT_ID` nothing is asked: guarded routes answer `403`
 and `effective_role` is `none`.
 
 Keycloak reads group membership live, so a grant takes effect on the
@@ -154,30 +154,46 @@ development, never on an Endpoint others can reach; see
 ## 4. AAI API for group management
 
 The AAI API (`<KEYCLOAK_URL>/api`) is
-authoritative for group writes. Approving an access request makes one
-call, with the approving administrator's own bearer token
-([`aai_client.py`](../api/services/auth_services/aai_client.py)):
+authoritative for group writes. Approving an access request makes two
+calls ([`aai_client.py`](../api/services/auth_services/aai_client.py)):
 
-| Action | Endpoint | Body the Endpoint sends |
+| Action | Endpoint | What the Endpoint sends |
 | ------ | -------- | ----------------------- |
-| Add user to a group at a level | `POST /group/add-user` | `{"group_name": "<group>", "username": "<user>", "role": "viewer\|editor\|admin"}` |
+| Sign in its own client | `POST /client/login` | `{"client_id": "<OIDC_SERVICE_CLIENT_ID>", "secret": "<OIDC_SERVICE_CLIENT_SECRET>"}` |
+| Add user to a group at a level | `POST /group/add-user` | `Authorization: Bearer <admin's token>`, `X-Client-Assertion: Bearer <client token>`, `{"groupName": "<group>", "user": "<user's Keycloak id>", "role": "viewer\|editor\|admin"}` |
 
 `/group/add-user` makes the user a member of the group, assigns the realm
 role `group:<group>:<level>` and puts the user in the level's subgroup
 (`<group>/viewers`, `/editors`, `/admins`), which is what the gates are
 decided on. The subgroup step is best effort: if it fails the AAI still
 answers 200 and only logs it. `/role/assign` sets only the realm role, so
-on its own it grants nothing on the Endpoint.
+on its own it grants nothing on the Endpoint. The user is named by their
+Keycloak id, the `sub` the AAI reported when they asked for access; the
+AAI also accepts an email.
 
-The AAI decides who may call it by the caller's own **realm roles**, not by
-their level subgroups: `group:<group or a parent>:editor` or `:admin`, or
-`ndp_admin`; granting `admin` needs `group:<group>:admin` or `ndp_admin`.
-An administrator added to `<group>/admins` by hand in the Keycloak console
-passes `admin-area` on the Endpoint but is refused by the AAI ("Forbidden:
-insufficient group privileges") until they also hold that realm role;
-`/group/add-user` with `role` `admin` gives both. AAI answers 400/401
-become 401, 403 stays 403, 404 stays 404, anything else and an unreachable
-AAI become 502.
+The AAI checks two things:
+
+- **Who the admin is.** The caller must be in the group's `admins`
+  subgroup (`ndp_ep/ep-<config-id>/admins`), or an ancestor's
+  (`ndp_ep/admins`), or hold `ndp_admin`. Membership is read live from
+  Keycloak, and realm roles such as `group:<group>:admin` do not count. That
+  is the same thing `admin-area`, which guards approval, is decided on.
+- **Which app is calling.** For a group under `ndp_ep`, the call must
+  carry the client-credentials token of that group's own client, here
+  `ep-<config-id>`, in `X-Client-Assertion`; an `ndp_admin` caller needs
+  none. The Endpoint gets the token with the same client whose gates it
+  asks, `OIDC_SERVICE_CLIENT_ID`, and its `OIDC_SERVICE_CLIENT_SECRET`
+  (the installer writes both from the registration), so the assertion
+  always names the group's own client. Without the secret it calls without
+  the header, which only an `ndp_admin`, or an AAI that does not check the
+  calling app yet, accepts.
+
+The admin's token was already accepted by the Endpoint, so AAI answers
+400/401 (a bad request or client assertion) become 502 rather than a 401
+that would sign the admin out. 403 stays 403, 404 stays 404; a 207
+(partial success), anything else and an unreachable AAI become 502. A
+refused `/client/login` becomes 503 naming the service-client settings.
+Either way the request stays pending, so the admin can retry.
 
 ---
 
@@ -189,13 +205,14 @@ AAI become 502.
 without access requests it from the login screen, and an admin approves
 it on the **Access Requests** page, picking the tier (Viewer / Writer /
 Admin). The Endpoint then calls `POST /group/add-user` with the admin's
-token at the matching level: `viewer`, `editor` for writer, or `admin`.
+token and its own client's assertion, at the matching level: `viewer`,
+`editor` for writer, or `admin`.
 
 The group used is the one the client is linked to,
-`ndp_ep/<AUTHZ_CLIENT_ID>`; without `AUTHZ_CLIENT_ID`, approval answers
+`ndp_ep/<OIDC_SERVICE_CLIENT_ID>`; without `OIDC_SERVICE_CLIENT_ID`, approval answers
 503. `member` is accepted as a deprecated alias for `viewer`.
 
-**Via the AAI API.** The body below is the one the Endpoint itself sends:
+**Via the AAI API.** These are the calls the Endpoint itself makes:
 
 ```bash
 AAI=https://idp.nationaldataplatform.org/api   # <KEYCLOAK_URL>/api
@@ -203,10 +220,18 @@ TOKEN=$(curl -s -X POST "$AAI/user/login" \
   -H 'Content-Type: application/json' \
   -d '{"username":"<admin>","password":"<pass>"}' | jq -r .access_token)
 
+# the Endpoint's own client vouches for the call (not needed as ndp_admin)
+CLIENT_TOKEN=$(curl -s -X POST "$AAI/client/login" \
+  -H 'Content-Type: application/json' \
+  -d '{"client_id":"ep-<config-id>","secret":"<OIDC_SERVICE_CLIENT_SECRET>"}' \
+  | jq -r .access_token)
+
 # make <user> an editor (the writer tier) of the Endpoint's group
 curl -s -X POST "$AAI/group/add-user" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"group_name":"ndp_ep/ep-<config-id>","username":"<user>","role":"editor"}'
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Client-Assertion: Bearer $CLIENT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"groupName":"ndp_ep/ep-<config-id>","user":"<user id or email>","role":"editor"}'
 ```
 
 The grant applies from the user's next request.
@@ -264,7 +289,7 @@ Open a request with NDP support when you need something that is not a
 plain grant of an existing tier:
 
 - A new permission level that the Endpoint must enforce (Scenario B).
-- An Endpoint whose client has no gates, or whose `AUTHZ_CLIENT_ID` is
+- An Endpoint whose client has no gates, or whose `OIDC_SERVICE_CLIENT_ID` is
   not its own client (the installer warns about both).
 - Realm-level changes you do not have admin rights for.
 

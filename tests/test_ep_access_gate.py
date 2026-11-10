@@ -32,7 +32,7 @@ USER = {"sub": "u-1", "roles": ["ndp_admin"], "groups": ["/ndp_ep/ep-test"]}
 @pytest.fixture(autouse=True)
 def _settings():
     with (
-        patch.object(swagger_settings, "authz_client_id", "ep-6ae0f828"),
+        patch.object(swagger_settings, "oidc_service_client_id", "ep-6ae0f828"),
         patch.object(swagger_settings, "authz_realm", "NDP"),
         patch.object(swagger_settings, "keycloak_url", "https://idp.example.org"),
         patch.object(swagger_settings, "test_token", "the-test-token"),
@@ -107,7 +107,7 @@ class TestEpAccessGate:
 
     def test_without_a_client_nothing_is_asked_and_the_answer_is_403(self):
         with (
-            patch.object(swagger_settings, "authz_client_id", ""),
+            patch.object(swagger_settings, "oidc_service_client_id", ""),
             patch(POST) as post,
         ):
             assert _refusal() == 403

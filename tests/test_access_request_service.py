@@ -182,11 +182,12 @@ class TestApproveAccessRequest:
         mock_repo,
     ):
         mock_settings.enable_access_requests = True
-        mock_settings.authz_client_id = "ep-123"
+        mock_settings.oidc_service_client_id = "ep-123"
         mock_repo.find_by_id.return_value = {
             "_id": "req1",
             "status": "pending",
             "username": "yutian",
+            "user_sub": "yutian-uuid",
         }
         mock_repo.mark_decided.return_value = {"_id": "req1", "status": "approved"}
         mock_get_repo.return_value = mock_repo
@@ -200,7 +201,11 @@ class TestApproveAccessRequest:
         )
 
         mock_aai.add_user_to_group.assert_called_once_with(
-            "tok", "ndp_ep/ep-123", "yutian", "viewer"
+            "tok",
+            "ndp_ep/ep-123",
+            "yutian-uuid",
+            "viewer",
+            client_assertion=mock_aai.client_login.return_value,
         )
         assert result == {"_id": "req1", "status": "approved"}
 
@@ -222,11 +227,12 @@ class TestApproveAccessRequest:
         """admin grant joins the group at its admin level, which passes the
         admin-area gate."""
         mock_settings.enable_access_requests = True
-        mock_settings.authz_client_id = "ep-123"
+        mock_settings.oidc_service_client_id = "ep-123"
         mock_repo.find_by_id.return_value = {
             "_id": "req1",
             "status": "pending",
             "username": "yutian",
+            "user_sub": "yutian-uuid",
         }
         mock_repo.mark_decided.return_value = {"_id": "req1"}
         mock_get_repo.return_value = mock_repo
@@ -240,7 +246,11 @@ class TestApproveAccessRequest:
         )
 
         mock_aai.add_user_to_group.assert_called_once_with(
-            "tok", "ndp_ep/ep-123", "yutian", "admin"
+            "tok",
+            "ndp_ep/ep-123",
+            "yutian-uuid",
+            "admin",
+            client_assertion=mock_aai.client_login.return_value,
         )
 
     @patch(
@@ -261,11 +271,12 @@ class TestApproveAccessRequest:
         """viewer grant joins the group at its viewer level, the AAI's
         default, which passes viewer-area only."""
         mock_settings.enable_access_requests = True
-        mock_settings.authz_client_id = "ep-123"
+        mock_settings.oidc_service_client_id = "ep-123"
         mock_repo.find_by_id.return_value = {
             "_id": "req1",
             "status": "pending",
             "username": "yutian",
+            "user_sub": "yutian-uuid",
         }
         mock_repo.mark_decided.return_value = {"_id": "req1", "status": "approved"}
         mock_get_repo.return_value = mock_repo
@@ -279,7 +290,11 @@ class TestApproveAccessRequest:
         )
 
         mock_aai.add_user_to_group.assert_called_once_with(
-            "tok", "ndp_ep/ep-123", "yutian", "viewer"
+            "tok",
+            "ndp_ep/ep-123",
+            "yutian-uuid",
+            "viewer",
+            client_assertion=mock_aai.client_login.return_value,
         )
 
     @patch(
@@ -300,11 +315,12 @@ class TestApproveAccessRequest:
         """writer grant joins the group at its editor level: the identity
         provider's name for the write tier, which passes editor-area."""
         mock_settings.enable_access_requests = True
-        mock_settings.authz_client_id = "ep-123"
+        mock_settings.oidc_service_client_id = "ep-123"
         mock_repo.find_by_id.return_value = {
             "_id": "req1",
             "status": "pending",
             "username": "yutian",
+            "user_sub": "yutian-uuid",
         }
         mock_repo.mark_decided.return_value = {"_id": "req1"}
         mock_get_repo.return_value = mock_repo
@@ -318,7 +334,11 @@ class TestApproveAccessRequest:
         )
 
         mock_aai.add_user_to_group.assert_called_once_with(
-            "tok", "ndp_ep/ep-123", "yutian", "editor"
+            "tok",
+            "ndp_ep/ep-123",
+            "yutian-uuid",
+            "editor",
+            client_assertion=mock_aai.client_login.return_value,
         )
 
     @patch(
@@ -373,11 +393,12 @@ class TestApproveAccessRequest:
         mock_repo,
     ):
         mock_settings.enable_access_requests = True
-        mock_settings.authz_client_id = "ep-123"
+        mock_settings.oidc_service_client_id = "ep-123"
         mock_repo.find_by_id.return_value = {
             "_id": "r1",
             "status": "pending",
             "username": "u",
+            "user_sub": "u-uuid",
         }
         mock_aai.add_user_to_group.side_effect = HTTPException(
             status_code=403, detail="nope"
@@ -397,7 +418,7 @@ class TestApproveAccessRequest:
     )
     def test_without_a_client_approval_raises_503(self, mock_settings):
         mock_settings.enable_access_requests = True
-        mock_settings.authz_client_id = ""
+        mock_settings.oidc_service_client_id = ""
 
         with patch(
             "api.services.access_request_services"
@@ -407,6 +428,7 @@ class TestApproveAccessRequest:
             mock_repo.find_by_id.return_value = {
                 "_id": "r1",
                 "status": "pending",
+                "user_sub": "u-uuid",
                 "username": "u",
             }
             mock_get_repo.return_value = mock_repo

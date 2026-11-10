@@ -77,7 +77,7 @@ From the registration the installer sets:
 | Registration field | `.env` |
 |---|---|
 | organization, endpoint name | `ORGANIZATION`, `EP_NAME` |
-| Keycloak client and realm | `AUTHZ_CLIENT_ID=ep-<config-id>`, `AUTHZ_REALM` (only when the client is this Endpoint's own) |
+| Keycloak client and realm | `OIDC_SERVICE_CLIENT_ID=ep-<config-id>`, `AUTHZ_REALM` (only when the client is this Endpoint's own) |
 | streaming | `KAFKA_CONNECTION=True` and the `kafka` compose profile |
 | JupyterHub | `USE_JUPYTERLAB=True`, `JUPYTER_URL` |
 | staging catalog URL and key | `PRE_CKAN_ENABLED=True`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY`, `PRE_CKAN_ORGANIZATION=ep-<config-id>` |
@@ -173,7 +173,7 @@ stored in MongoDB, read through `MONGODB_CONNECTION_STRING`, whatever the
 catalog is — so answering yes (or `--access-requests`) also starts the bundled
 MongoDB unless the catalog already provides one, and points the Endpoint at it.
 Approval grants membership of the group the Federation created with the
-Endpoint's client, `ndp_ep/<AUTHZ_CLIENT_ID>`.
+Endpoint's client, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`.
 
 The `mongo-express` administration console in the compose file has its own
 profile and is never started by the installer — it exposes the whole database
@@ -511,9 +511,9 @@ are what gets tested.
   `OIDC_ENABLED=False`. The client a registration creates is confidential, so
   the browser's code exchange (PKCE, which needs a public client) is refused,
   and its tokens carry no `sub` claim, which the AAI API looks the user up by.
-  The installer writes it to `AUTHZ_CLIENT_ID`, where it decides permissions,
-  and keeps it as the Endpoint's service client (`OIDC_SERVICE_CLIENT_ID` and
-  `OIDC_SERVICE_CLIENT_SECRET`, the secret never printed); it leaves
+  The installer keeps it as the Endpoint's service client instead
+  (`OIDC_SERVICE_CLIENT_ID`, whose gates decide permissions, and
+  `OIDC_SERVICE_CLIENT_SECRET`, never printed), and leaves
   `OIDC_CLIENT_ID` alone. A deployment with a working public client can switch
   sign-in on by hand. See [docs/configuration.md](../docs/configuration.md).
 - **The JupyterHub and Kafka installs of the old NDP-EP `setup.sh` are not

@@ -79,7 +79,7 @@ sequenceDiagram
 
     Installer->>Fed: GET /ep/<config-id>
     Fed-->>Installer: the configuration just created
-    Note over Installer: Applied: organization, name, the Keycloak client<br/>(AUTHZ_CLIENT_ID), listed-on-the-platform, staging<br/>catalog and PRE_CKAN_ORGANIZATION=ep-<config-id>.<br/>Streaming and JupyterHub stay off.
+    Note over Installer: Applied: organization, name, the Keycloak client<br/>(OIDC_SERVICE_CLIENT_ID), listed-on-the-platform, staging<br/>catalog and PRE_CKAN_ORGANIZATION=ep-<config-id>.<br/>Streaming and JupyterHub stay off.
 
     Installer->>Operator: Existing .env backed up — overwrite?
     Installer->>Installer: Render .env from example.env (24 values set),<br/>METRICS_ENDPOINT = <federation-url>/metrics/
@@ -115,7 +115,7 @@ install:
 | What | Where | The Endpoint uses it |
 |---|---|---|
 | A configuration record, keyed by the configuration id | Federation | Yes — re-runs read it with `--config-id` |
-| A Keycloak client `ep-<config-id>`, **confidential** | Identity provider | Yes — `AUTHZ_CLIENT_ID`: its gates decide who may enter and what they may do. Sign-in through it does not work; see [configuration.md](../configuration.md) |
+| A Keycloak client `ep-<config-id>`, **confidential** | Identity provider | Yes — `OIDC_SERVICE_CLIENT_ID`: its gates decide who may enter and what they may do. Sign-in through it does not work; see [configuration.md](../configuration.md) |
 | A group `ndp_ep/ep-<config-id>`, with you as administrator | Identity provider | Yes — its levels are what the client's gates read, and it is the group an approved access request grants |
 | An API token for the staging catalog, for organization `ep-<config-id>` | Staging CKAN | Yes — `PRE_CKAN_API_KEY`, with `PRE_CKAN_ORGANIZATION=ep-<config-id>` |
 | An entry describing this Endpoint | Affinities | No — the uid is not read and `AFFINITIES_EP_UUID` stays empty |
@@ -123,15 +123,16 @@ install:
 ## The `.env` it produces
 
 Only the values that differ from the [standalone install](installing-standalone-no-catalog.md)
-are listed; everything else is identical. The 24 values set are the 19
-variables the standalone install sets plus `AUTHZ_CLIENT_ID`,
-`AUTHZ_REALM`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` and
+are listed; everything else is identical. The 25 values set are the 19
+variables the standalone install sets plus `OIDC_SERVICE_CLIENT_ID`,
+`OIDC_SERVICE_CLIENT_SECRET`, `AUTHZ_REALM`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY` and
 `PRE_CKAN_ORGANIZATION`.
 
 | Variable | Value | Where it comes from |
 |---|---|---|
 | `ORGANIZATION`, `EP_NAME` | `my-org`, `my-ep` | The answers, stored in the registration |
-| `AUTHZ_CLIENT_ID` | `ep-<config-id>` | The client created for this Endpoint, when the registration names it |
+| `OIDC_SERVICE_CLIENT_ID` | `ep-<config-id>` | The client created for this Endpoint, when the registration names it |
+| `OIDC_SERVICE_CLIENT_SECRET` | the client's secret, never printed | The registration |
 | `AUTHZ_REALM` | `NDP` | The registration's realm |
 | `IS_PUBLIC` | `True` | "List this Endpoint on the platform" — this is what lets the metrics be posted |
 | `PRE_CKAN_ENABLED` | `True` | Set because the registration returned a staging URL and token |
@@ -142,7 +143,7 @@ variables the standalone install sets plus `AUTHZ_CLIENT_ID`,
 `OIDC_ENABLED` stays `False` even though a client was created for this
 Endpoint: the client is confidential, so the UI's browser sign-in (PKCE,
 which needs a public client) cannot use it. The installer does not offer it;
-the client serves as `AUTHZ_CLIENT_ID` instead.
+the client serves as the service client, `OIDC_SERVICE_CLIENT_ID`, instead.
 
 ## What this Endpoint does
 
@@ -152,7 +153,7 @@ global catalog, serve its UI, answer `/health` and `/ready` — plus:
 - **It is listed on the platform.** The first report goes out when the
   Endpoint starts and then one every 3300 seconds; the Federation records
   them, so the Endpoint shows as active.
-- **Entry is gated by the group.** With `AUTHZ_CLIENT_ID` set, a user needs a
+- **Entry is gated by the group.** With `OIDC_SERVICE_CLIENT_ID` set, a user needs a
   level in `ndp_ep/ep-<config-id>` (or the platform-wide `ndp_admin` role) to
   enter the Endpoint at all; the UI refuses anyone else at sign-in and offers
   the access-request form. **Writes** need the editor or admin level. You are

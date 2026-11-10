@@ -244,7 +244,8 @@ def test_an_unattended_run_with_the_token_loads_the_remembered_settings(
     assert "Loaded the settings remembered" in result.stdout
     env = _env(host)
     assert env["LOCAL_CATALOG_BACKEND"] == "mongodb"
-    assert env["AUTH_API_URL"] == "https://idp.test/temp/information"
+    # A remembered auth_api_url becomes KEYCLOAK_URL, keeping only its host.
+    assert env["KEYCLOAK_URL"] == "https://idp.test"
     assert env["EP_API_PORT"] == "8123"
     assert federation["puts"] == [], "an unattended run only reads them"
 

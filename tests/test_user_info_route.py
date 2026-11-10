@@ -92,7 +92,7 @@ def test_a_token_keycloak_rejects_is_401_not_none(keycloak):
 def test_entry_check(keycloak, client, level, allowed):
     """Only an Endpoint with a client turns away callers without a level."""
     keycloak.grant(level)
-    with patch.object(swagger_settings, "authz_client_id", client):
+    with patch.object(swagger_settings, "oidc_service_client_id", client):
         if allowed:
             assert get_user_info({"sub": "u1"}, TOKEN)["sub"] == "u1"
         else:

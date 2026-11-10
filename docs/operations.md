@@ -266,7 +266,7 @@ does not hold its port)
 **401, 403 or 502 on authenticated routes.** Who the user is comes from the
 AAI API on `KEYCLOAK_URL` (`api/services/auth_services/get_current_user.py`), and
 permissions are asked of Keycloak, for the gates of the Endpoint's client
-`AUTHZ_CLIENT_ID` (`api/services/auth_services/ep_access_gate.py`):
+`OIDC_SERVICE_CLIENT_ID` (`api/services/auth_services/ep_access_gate.py`):
 
 - 401 — the authentication service or Keycloak rejected the token (invalid or
   expired, or issued by another realm than `AUTHZ_REALM`); the authentication
@@ -277,7 +277,7 @@ permissions are asked of Keycloak, for the gates of the Endpoint's client
 - 403 — Keycloak did not let the user through the route's gate, named in the
   response: a write needs `editor-area` (editor or admin of the Endpoint's
   group), admin-only routes `admin-area`. If **every** user is refused, check
-  that `AUTHZ_CLIENT_ID` is set to this Endpoint's own client and that the
+  that `OIDC_SERVICE_CLIENT_ID` is set to this Endpoint's own client and that the
   client has gates (the decision `curl` in
   [roles-and-permissions.md](roles-and-permissions.md#check-what-keycloak-decides-for-a-user)
   answers `400` when it has none).
@@ -286,8 +286,8 @@ permissions are asked of Keycloak, for the gates of the Endpoint's client
 deployment" means `ENABLE_ACCESS_REQUESTS` is not true. Requests are stored in
 MongoDB through `MONGODB_CONNECTION_STRING`, so that MongoDB must be reachable
 whatever the catalog backend is. Approving a request adds the user to the
-Endpoint's group, `ndp_ep/<AUTHZ_CLIENT_ID>`, and answers 503
-"AUTHZ_CLIENT_ID is not set; cannot grant access." without a client.
+Endpoint's group, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`, and answers 503
+"OIDC_SERVICE_CLIENT_ID is not set; cannot grant access." without a client.
 
 **Metrics do not reach the Federation.** The report is posted only when
 `IS_PUBLIC=True`; with `False` it is collected and logged and nothing leaves

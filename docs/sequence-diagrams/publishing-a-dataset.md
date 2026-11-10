@@ -29,7 +29,7 @@ sequenceDiagram
     Note over EP: Route mounted only when a local catalog exists<br/>and CKAN_LOCAL_ENABLED is True — otherwise 404
     EP->>AAI: validate the token
     AAI-->>EP: identity, groups and roles
-    Note over EP: Keycloak decides editor-area on AUTHZ_CLIENT_ID<br/>(editor or admin of the Endpoint's group) — otherwise 403
+    Note over EP: Keycloak decides editor-area on OIDC_SERVICE_CLIENT_ID<br/>(editor or admin of the Endpoint's group) — otherwise 403
     EP->>Local: package_create
     Local-->>EP: dataset id
     Note over EP,Local: A name already taken is retried once with a<br/>timestamp suffix, and the caller is told
@@ -105,7 +105,7 @@ staging-catalog checks.
 | `CKAN_LOCAL_ENABLED=False` | **404** — the route is not mounted | **404** — same |
 | `LOCAL_CATALOG_BACKEND=none` | **404** — nothing to write to | **404** |
 | Token refused by the authentication service | **401** when it answers 400, 401, 403, or 200 with an `error`; **502** for any other status | same |
-| Keycloak refuses `editor-area` (not an editor or admin of the Endpoint's group), or no `AUTHZ_CLIENT_ID` | **403** | **403** |
+| Keycloak refuses `editor-area` (not an editor or admin of the Endpoint's group), or no `OIDC_SERVICE_CLIENT_ID` | **403** | **403** |
 | Dataset id or name not in the local catalog | — | **404** — "Dataset not found in local catalog" |
 | `owner_org` does not exist in the staging catalog | — | **400** — create it there first |
 | Staging catalog refuses the credentials (`NotAuthorized`) | — | **403** |

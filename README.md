@@ -232,13 +232,13 @@ supervisor output only.
 
 Keycloak decides every permission. For each guarded route the Endpoint asks
 Keycloak, with the caller's own token, whether they pass a gate of the
-Endpoint's client (`AUTHZ_CLIENT_ID`, `ep-<config-id>`): `admin-area`,
+Endpoint's client (`OIDC_SERVICE_CLIENT_ID`, `ep-<config-id>`): `admin-area`,
 `editor-area` or `viewer-area`. A user's tier is their level in the Endpoint's
 group `ndp_ep/ep-<config-id>` (`admins`, `editors`, `viewers`); the tiers nest.
 `TEST_TOKEN` is the exception (see above). The full model is in
 [docs/roles-and-permissions.md](docs/roles-and-permissions.md).
 
-`AUTHZ_CLIENT_ID` is written by the installer from the Federation
+`OIDC_SERVICE_CLIENT_ID` is written by the installer from the Federation
 registration. An Endpoint installed before it existed keeps working: when it
 is not set, it is taken from a `GROUP_NAMES` entry of the form
 `ndp_ep/ep-<config-id>`, with a warning in the log. Without either, every
@@ -250,7 +250,7 @@ guarded route answers 403.
 |---|---|
 | `GET`/`POST /search`, `GET /organization`, `GET /resource/{id}`, `GET /resources/search`, `/services/redirect/...`, `/health`, `/ready`, `POST /user/login`, `POST /token`, `/docs` | none |
 | `/status/`, `/status/version`, `/status/metrics`, `/status/jupyter`, `/status/kafka-details`, `POST /user/access-requests` | any valid token |
-| `GET /user/info` | valid token, plus `viewer-area` when `AUTHZ_CLIENT_ID` is set (the entry check) |
+| `GET /user/info` | valid token, plus `viewer-area` when `OIDC_SERVICE_CLIENT_ID` is set (the entry check) |
 | `GET /pelican/*` | viewer (`viewer-area`) |
 | every other catalog `POST`, `PUT`, `PATCH`, `DELETE`; the `/s3/*` routes that read (`GET`s and presigned download); `GET /status/rexec`; `POST /pelican/import-metadata` | writer (`editor-area`) |
 | the `/s3/*` routes that write (create and delete buckets, upload, presigned upload, delete objects); `GET /user/access-requests`, `POST /user/access-requests/{id}/approve` and `/reject` | admin (`admin-area`) |
@@ -261,7 +261,7 @@ With `ENABLE_ACCESS_REQUESTS=True`, a user without access can request it from
 the login screen, and an admin approves or rejects it from the UI. Requests are
 stored in MongoDB through `MONGODB_CONNECTION_STRING` (collection
 `ACCESS_REQUESTS_COLLECTION`), whatever the catalog backend. Approval adds the
-user to `ndp_ep/<AUTHZ_CLIENT_ID>` at the requested level (`viewer`, `editor`
+user to `ndp_ep/<OIDC_SERVICE_CLIENT_ID>` at the requested level (`viewer`, `editor`
 for writer, `admin`) through the AAI API with the approving admin's token.
 With the setting off, these routes answer 503.
 

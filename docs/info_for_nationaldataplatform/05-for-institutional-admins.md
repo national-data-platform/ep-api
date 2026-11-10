@@ -75,7 +75,7 @@ needs from the Federation.
 The installer then:
 
 - renders `.env` from the documented `example.env`, applying the answers and
-  the registration: the Endpoint's Keycloak client (`AUTHZ_CLIENT_ID`, whose
+  the registration: the Endpoint's Keycloak client (`OIDC_SERVICE_CLIENT_ID`, whose
   gates decide who may enter and what they may do), the staging-catalog URL, token and organization (`PRE_CKAN_*`),
   whether it is listed (`IS_PUBLIC`), and where to send metrics
   (`METRICS_ENDPOINT`);
@@ -97,7 +97,7 @@ is up to you; `ROOT_PATH` serves it under a path prefix if needed.
 The Endpoint treats as **admin** anyone in the `admins` level of the
 Endpoint's group (`ndp_ep/ep-<config-id>/admins`) or holding the
 platform-wide `ndp_admin` role; Keycloak decides it through the Endpoint's
-client (`AUTHZ_CLIENT_ID`). Admins see the Dashboard and, with access
+client (`OIDC_SERVICE_CLIENT_ID`). Admins see the Dashboard and, with access
 requests enabled, the Access Requests page. The registration makes the
 registering operator an administrator of the Endpoint's group in the identity
 provider (Federation side; see its documentation), effective straight away.

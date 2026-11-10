@@ -46,7 +46,7 @@ flowchart LR
     Browser --> Nginx
 
     Uvicorn -->|"POST token"| AAI["AAI API<br/>KEYCLOAK_URL/api"]
-    Uvicorn -->|"permission decision"| Keycloak["Keycloak realm<br/>gates of AUTHZ_CLIENT_ID"]
+    Uvicorn -->|"permission decision"| Keycloak["Keycloak realm<br/>gates of OIDC_SERVICE_CLIENT_ID"]
     Uvicorn -->|read| Global["Global NDP catalog (CKAN)<br/>CKAN_GLOBAL_URL"]
     Uvicorn -->|read/write| Local["Local catalog<br/>CKAN or MongoDB"]
     Uvicorn -->|read/write| Pre["Pre-CKAN staging catalog<br/>PRE_CKAN_URL"]
@@ -201,7 +201,7 @@ sequenceDiagram
     else
         D->>A: POST /information with the token
         A-->>D: user info (sub, username, …)
-        D->>K: UMA decision for the route's gate on AUTHZ_CLIENT_ID
+        D->>K: UMA decision for the route's gate on OIDC_SERVICE_CLIENT_ID
         K-->>D: {"result": true}, 403, or 401
     end
     D-->>R: user_info, or 401/403/502
@@ -282,12 +282,12 @@ Keycloak decides. `ep_access_gate` in
 [`ep_access_gate.py`](../../api/services/auth_services/ep_access_gate.py),
 named after the Federation's function and raising like it, asks the realm,
 with the caller's own token, whether they pass one of the
-three gates of the Endpoint's client `AUTHZ_CLIENT_ID` (`ep-<config-id>`):
+three gates of the Endpoint's client `OIDC_SERVICE_CLIENT_ID` (`ep-<config-id>`):
 `POST <realm>/protocol/openid-connect/token` with the UMA grant,
-`audience=<AUTHZ_CLIENT_ID>`, `permission=<gate>` and
+`audience=<OIDC_SERVICE_CLIENT_ID>`, `permission=<gate>` and
 `response_mode=decision`, as the Federation does. `<realm>` is
 `<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`. Only `{"result": true}`
-grants; Keycloak refusing, or no `AUTHZ_CLIENT_ID`, is **403**, rejecting the
+grants; Keycloak refusing, or no `OIDC_SERVICE_CLIENT_ID`, is **403**, rejecting the
 token **401**, failing or unreachable **502**. No client secret is involved.
 
 | Tier | Gate | Passed by the Endpoint group's |
@@ -299,7 +299,7 @@ token **401**, failing or unreachable **502**. No client secret is involved.
 Keycloak evaluates live group membership; levels on parent groups count
 (those whose subgroup existed when the gates were set up) and `ndp_admin`
 passes every gate of a client the AAI created (a client linked later with
-`tools/adopt_client.py` has no `ndp_admin` policy). With `AUTHZ_CLIENT_ID` set, `/user/info`
+`tools/adopt_client.py` has no `ndp_admin` policy). With `OIDC_SERVICE_CLIENT_ID` set, `/user/info`
 additionally requires a tier.
 
 The FastAPI dependencies, in
@@ -315,7 +315,7 @@ and [`get_current_user.py`](../../api/services/auth_services/get_current_user.py
 
 Catalog reads — `GET /search`, `POST /search`, `GET /organization`,
 `GET /resource/{id}`, `GET /resources/search` — take no token.
-`/user/info` (authenticated only; with `AUTHZ_CLIENT_ID` set it also
+`/user/info` (authenticated only; with `OIDC_SERVICE_CLIENT_ID` set it also
 requires a tier) adds `effective_role` (`admin`/`writer`/`viewer`/`none`,
 the highest gate passed) and
 `ndp_user_id` (first 16 hex characters of SHA-256 of `sub`) to the AAI
@@ -517,7 +517,7 @@ Every worker, leader or not, also tests the S3 connection at startup when
 
 | Integration | Switch | Code | What the Endpoint does |
 |---|---|---|---|
-| AAI | always | `auth_services/get_current_user.py`, `user_login.py`, `aai_client.py` | Says who every token belongs to; proxies username/password login; on access-request approval calls `POST /group/add-user` with the approving admin's token, on the Endpoint's group `ndp_ep/<AUTHZ_CLIENT_ID>`. All under `<KEYCLOAK_URL>/api`. |
+| AAI | always | `auth_services/get_current_user.py`, `user_login.py`, `aai_client.py` | Says who every token belongs to; proxies username/password login; on access-request approval calls `POST /group/add-user` with the approving admin's token, on the Endpoint's group `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`. All under `<KEYCLOAK_URL>/api`. |
 | Federation | `IS_PUBLIC` | `tasks/metrics_task.py` | Posts the periodic metrics report. Registration happens in the installer, not in the API. |
 | Affinities | `AFFINITIES_ENABLED` + `AFFINITIES_URL` + `AFFINITIES_EP_UUID` | `affinities_services/affinities_client.py` | After `POST /dataset` and `POST /services` (for `server=local` and `server=pre_ckan`), registers the record, links it to this Endpoint, creates an affinity triple, and stores the returned UUID as the `ndp_affinity_uuid` extra. Failures are logged and never fail the request. `/ready` reports whether Affinities knows `AFFINITIES_EP_UUID`. See [../affinities-integration.md](../affinities-integration.md). |
 | Pelican | `PELICAN_ENABLED` | `routes/pelican_routes.py`, `repositories/pelican_repository.py`, `pelican_services/` | Browses and reads federations (OSDF by default, or `PELICAN_FEDERATION_URL`), streams downloads, imports a Pelican object as a resource of a local dataset, and relays file events from the event server. |
@@ -553,7 +553,7 @@ each instantiated once at import as a module-level singleton:
 
 | Module | Object | Variables |
 |---|---|---|
-| `swagger_settings.py` | `swagger_settings` | `ROOT_PATH`, `ORGANIZATION`, `EP_NAME`, `IS_PUBLIC`, `METRICS_*`, `USE_JUPYTERLAB`, `JUPYTER_URL`, `TEST_TOKEN`, `KEYCLOAK_URL` (`AUTH_API_URL` still read), `AUTHZ_CLIENT_ID`, `AUTHZ_REALM`, `ENABLE_ACCESS_REQUESTS`, `ACCESS_REQUESTS_COLLECTION`, `SWAGGER_*` (the version is the default of `swagger_version`) |
+| `swagger_settings.py` | `swagger_settings` | `ROOT_PATH`, `ORGANIZATION`, `EP_NAME`, `IS_PUBLIC`, `METRICS_*`, `USE_JUPYTERLAB`, `JUPYTER_URL`, `TEST_TOKEN`, `KEYCLOAK_URL` (`AUTH_API_URL` still read), `OIDC_SERVICE_CLIENT_ID`, `OIDC_SERVICE_CLIENT_SECRET`, `AUTHZ_REALM`, `ENABLE_ACCESS_REQUESTS`, `ACCESS_REQUESTS_COLLECTION`, `SWAGGER_*` (the version is the default of `swagger_version`) |
 | `catalog_settings.py` | `catalog_settings` | `LOCAL_CATALOG_BACKEND`, `MONGODB_CONNECTION_STRING`, `MONGODB_DATABASE` |
 | `ckan_settings.py` | `ckan_settings` | `CKAN_LOCAL_ENABLED`, `CKAN_URL`, `CKAN_API_KEY`, `CKAN_VERIFY_SSL`, `CKAN_GLOBAL_URL`, `PRE_CKAN_*` |
 | `minio_settings.py` | `s3_settings` | `S3_*` |

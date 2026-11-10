@@ -119,7 +119,7 @@ def get_user_info(
     This endpoint acts as a passthrough to the authentication service,
     returning the complete user profile information that was retrieved
     during token validation. It also doubles as the UI's entry gate:
-    on an Endpoint with a Keycloak client (``AUTHZ_CLIENT_ID``), users it
+    on an Endpoint with a Keycloak client (``OIDC_SERVICE_CLIENT_ID``), users it
     grants no tier are rejected with a 403 response, which the UI answers
     with the access-request form.
 
@@ -152,7 +152,7 @@ def get_user_info(
         502: If authentication service is unavailable
     """
     role = _effective_role(token_data.credentials)
-    if swagger_settings.authz_client_id and role == "none":
+    if swagger_settings.oidc_service_client_id and role == "none":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this Endpoint. "

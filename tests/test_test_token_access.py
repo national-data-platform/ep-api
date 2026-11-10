@@ -32,7 +32,7 @@ def test_test_token_passes_every_gate_without_asking_keycloak(keycloak):
 def test_test_token_enters_as_admin_without_a_client():
     with (
         patch.object(swagger_settings, "test_token", "the-test-token"),
-        patch.object(swagger_settings, "authz_client_id", ""),
+        patch.object(swagger_settings, "oidc_service_client_id", ""),
     ):
         user = get_current_user(token_data=TEST_TOKEN)
         assert get_user_info(user, TEST_TOKEN)["effective_role"] == "admin"

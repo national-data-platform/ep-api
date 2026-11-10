@@ -41,7 +41,7 @@ shell.
 You really only need to set:
 
 - `KEYCLOAK_URL` → the platform's identity provider (so logins work).
-- `AUTHZ_CLIENT_ID` → this Endpoint's Keycloak client (so permissions can be
+- `OIDC_SERVICE_CLIENT_ID` → this Endpoint's Keycloak client (so permissions can be
   decided); the installer sets it from the Federation registration.
 - `LOCAL_CATALOG_BACKEND` → `none` for an Endpoint that stores nothing locally,
   or `mongodb`/`ckan` plus that backend's variables.
@@ -135,10 +135,12 @@ The identity provider's host. The EP derives the two URLs it needs from it:
   `POST <KEYCLOAK_URL>/api/information` with `{"token": "<token>"}` to read
   who the user is (`sub`, `username`); username/password login is proxied
   to `/api/user/login`, and access-request approval calls
-  `/api/group/add-user`. On routes that need a tier, Keycloak's decision
+  `/api/client/login` and `/api/group/add-user` (see
+  [roles-and-permissions.md](roles-and-permissions.md#4-aai-api-for-group-management)).
+  On routes that need a tier, Keycloak's decision
   call checks the token too.
 - `<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`, the **realm** permissions are asked
-  of (see `AUTHZ_CLIENT_ID`).
+  of (see `OIDC_SERVICE_CLIENT_ID`).
 
 The `roles` and `groups` the AAI API returns are shown by `/user/info` but
 **not used for permissions**. `AUTH_API_URL`, the old name (the full
@@ -147,7 +149,7 @@ its host is used.
 **Where:** your NDP/AAI administrator. For the central platform use the default;
 for a self-hosted one, its host.
 
-#### `AUTHZ_CLIENT_ID`
+#### `OIDC_SERVICE_CLIENT_ID`
 *Required for any guarded route · default: empty.*
 This Endpoint's Keycloak client, whose permission gates decide every
 permission: for each guarded route the EP asks Keycloak, with the caller's
@@ -157,11 +159,15 @@ guarded route answers `403` and `/user/info` reports `effective_role: none`.
 Set, it also makes `/user/info` (the UI's entry check) require a tier, so a
 user with no level on the Endpoint is turned away and offered the
 access-request form, and it names the group access requests are approved
-into, `ndp_ep/<AUTHZ_CLIENT_ID>`. Empty, any authenticated user enters the UI.
+into, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`. Empty, any authenticated user enters the UI.
 See [roles-and-permissions.md](roles-and-permissions.md).
 **Where:** the installer writes it from the Federation registration
 (`ep-<config-id>`), only when the registration names this Endpoint's own
-client.
+client. When the registration names `default-ep-client`, the client was never
+created on the Federation (sci-ndp/ndp-federation#138), so the installer
+warns and leaves this empty. The same client is the Endpoint's service client,
+with `OIDC_SERVICE_CLIENT_SECRET`; see
+[The Endpoint's service client](#the-endpoints-service-client-set-by-the-installer).
 
 #### `AUTHZ_REALM`
 *Optional · default: `NDP`.*
@@ -175,7 +181,7 @@ The realm the decisions are asked of, on `KEYCLOAK_URL`
 A fixed token the EP accepts without contacting AAI or Keycloak. **Whoever
 presents it is signed in as a platform administrator** (`sub: test_user`): it
 passes every permission gate and the entry check, with or without
-`AUTHZ_CLIENT_ID`. Empty, it is off: no token, not even an empty one, matches
+`OIDC_SERVICE_CLIENT_ID`. Empty, it is off: no token, not even an empty one, matches
 it. The installer always writes it empty. Before 0.34.65 the default and
 `example.env` were `testing_token`, a public value, so an Endpoint installed
 earlier accepts it until its `.env` is changed (see the security checklist in
@@ -184,11 +190,11 @@ earlier accepts it until its `.env` is changed (see the security checklist in
 `TEST_TOKEN=testing_token`. **Never set it on an Endpoint others can reach.**
 
 `ENABLE_GROUP_BASED_ACCESS` and `GROUP_NAMES` are gone: the entry check
-follows `AUTHZ_CLIENT_ID`, and the Endpoint's group is derived from it.
+follows `OIDC_SERVICE_CLIENT_ID`, and the Endpoint's group is derived from it.
 `ENABLE_GROUP_BASED_ACCESS` is ignored if still set. `GROUP_NAMES` is read
-only when `AUTHZ_CLIENT_ID` is empty, so an Endpoint installed before the
+only when `OIDC_SERVICE_CLIENT_ID` is empty, so an Endpoint installed before the
 client setting existed keeps its permissions: an entry `ndp_ep/ep-<config-id>`
-gives `AUTHZ_CLIENT_ID=ep-<config-id>`, and the log asks to set it.
+gives `OIDC_SERVICE_CLIENT_ID=ep-<config-id>`, and the log asks to set it.
 
 > **Tiers** (`viewer` / `writer` / `admin`) are **not** set here — they are the
 > user's level in the Endpoint's group, and Keycloak decides on them. See
@@ -278,20 +284,21 @@ testing.
 
 Registering an Endpoint with the Federation creates a **confidential**
 Keycloak client for it, `ep-<config-id>`, and the Federation hands its id and
-secret to the Endpoint's owner. The Endpoint's backend uses this client to get
-client-credentials tokens from the identity provider (issue #412).
+secret to the Endpoint's owner. Its id, [`OIDC_SERVICE_CLIENT_ID`](#oidc_service_client_id),
+names the client whose gates decide every permission; with its secret, the
+Endpoint's backend also gets client-credentials tokens from the identity
+provider (issue #412).
+
+Approving an access request needs it: the AAI adds a user to the Endpoint's
+group, `ndp_ep/ep-<config-id>`, only when the call carries a token of that
+group's own client in `X-Client-Assertion`, unless the approving admin holds
+`ndp_admin`. Without the secret approval is attempted without the
+assertion, which an AAI that checks the calling app refuses for every other
+admin; with a wrong secret approval answers 503.
 
 It is a different client from the sign-in one above: `OIDC_CLIENT_ID` is a
 public client that the browser uses, and `OIDC_SERVICE_CLIENT_*` never reach
 the browser.
-
-#### `OIDC_SERVICE_CLIENT_ID`
-*Optional · default: empty.*
-The client's id, `ep-<config-id>`.
-**Where:** the installer copies it from the registration. When the
-registration names `default-ep-client`, the client was never created on the
-Federation (sci-ndp/ndp-federation#138), so the installer warns and leaves
-this empty.
 
 #### `OIDC_SERVICE_CLIENT_SECRET`
 *Optional · default: empty · secret.*
@@ -488,7 +495,7 @@ platform's Affinities URL, or your local one.
 *Required if `AFFINITIES_ENABLED=True` · default: empty.*
 This Endpoint's UUID inside Affinities. Beyond the Affinities integration, the
 value is used in two places even with `AFFINITIES_ENABLED=False` (not
-for permissions, which Keycloak decides; see `AUTHZ_CLIENT_ID`):
+for permissions, which Keycloak decides; see `OIDC_SERVICE_CLIENT_ID`):
 
 - **Pelican events:** fallback client id for `GET /pelican/subscribe` when
   `PELICAN_EVENT_CLIENT_ID` is empty.
@@ -629,9 +636,9 @@ approves/rejects). While `False` every `/user/access-requests` route answers
 503. **Requires MongoDB** reachable via `MONGODB_CONNECTION_STRING` (database
 `MONGODB_DATABASE`), whatever the catalog backend is. Approval calls the AAI
 with the approving administrator's token and adds the user to the
-Endpoint's group, `ndp_ep/<AUTHZ_CLIENT_ID>`, at the level picked: `viewer`,
+Endpoint's group, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`, at the level picked: `viewer`,
 `editor` (for writer) or `admin`, which is what the permission gates read;
-without `AUTHZ_CLIENT_ID` it answers 503.
+without `OIDC_SERVICE_CLIENT_ID` it answers 503.
 **Where:** turn on if you want self-service access requests; the installer
 installs MongoDB for it when the catalog does not provide one.
 

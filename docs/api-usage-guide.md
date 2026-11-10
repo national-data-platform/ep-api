@@ -96,7 +96,7 @@ highest of the Endpoint's permission gates Keycloak lets the user through
 (`roles` and `groups` are the identity provider's and decide nothing);
 `ndp_user_id` is the first 16 hex characters of SHA-256 of `sub`, the same
 value stored in the `ndp_user_id` extra of datasets the user creates. On an
-Endpoint with a client (`AUTHZ_CLIENT_ID`), a user with no level on it
+Endpoint with a client (`OIDC_SERVICE_CLIENT_ID`), a user with no level on it
 (`effective_role` would be `none`) gets 403 here.
 
 ### Who may call what
@@ -105,14 +105,14 @@ Endpoint with a client (`AUTHZ_CLIENT_ID`), a user with no level on it
 |---|---|
 | No token | `GET /`, `/health`, `/ready`, `GET /search`, `POST /search`, `GET /stac/collection`, `GET /stac/item`, `GET /organization` (except `mine=true`), `GET /resource/{id}`, `GET /resources/search`, `POST /user/login`, `POST /token`, the service proxy unless the service sets `requires_auth` |
 | Any valid token | `/status/*` (except `/status/rexec`), `POST /user/access-requests`, `GET /organization?mine=true` |
-| A tier, only with `AUTHZ_CLIENT_ID` set | `GET /user/info` |
+| A tier, only with `OIDC_SERVICE_CLIENT_ID` set | `GET /user/info` |
 | viewer | `/pelican/*` |
 | writer | every POST/PUT/PATCH/DELETE on the catalog, `POST /dataset/{id}/publish`, every `/s3/buckets` and `/s3/objects` route (GETs included), `/status/rexec`, `POST /pelican/import-metadata` |
 | admin | `GET /user/access-requests`, approve, reject |
 
-Keycloak decides each tier through the Endpoint's client (`AUTHZ_CLIENT_ID`):
+Keycloak decides each tier through the Endpoint's client (`OIDC_SERVICE_CLIENT_ID`):
 viewer is the `viewer-area` gate, writer `editor-area`, admin `admin-area`. A
-refusal is 403, as is every call without `AUTHZ_CLIENT_ID`. Details
+refusal is 403, as is every call without `OIDC_SERVICE_CLIENT_ID`. Details
 in [roles-and-permissions.md](roles-and-permissions.md).
 
 ---

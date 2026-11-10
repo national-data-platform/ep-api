@@ -56,7 +56,7 @@ uvicorn api.main:app --reload --port 8000
 - `TEST_TOKEN` is accepted as a bearer token and resolves to an administrator
   without contacting the AAI API or Keycloak
   (`api/services/auth_services/get_current_user.py`, `ep_access_gate.py`), so
-  it works without `AUTHZ_CLIENT_ID`. It is empty by default, which turns it
+  it works without `OIDC_SERVICE_CLIENT_ID`. It is empty by default, which turns it
   off; for local development set it in `.env`, e.g. `TEST_TOKEN=testing_token`,
   the value `test_all_endpoints.py` and `seed_sample_data.py` use by default.
 - The app writes a log file under `logs/` in the working directory.

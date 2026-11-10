@@ -37,12 +37,12 @@ class FakeKeycloak:
 @pytest.fixture
 def keycloak():
     """
-    Stand in for Keycloak: sets ``AUTHZ_CLIENT_ID`` and refuses every gate
+    Stand in for Keycloak: sets ``OIDC_SERVICE_CLIENT_ID`` and refuses every gate
     until the test calls ``keycloak.grant("viewer" | "editor" | "admin")``.
     """
     fake = FakeKeycloak()
     with (
-        patch.object(swagger_settings, "authz_client_id", "ep-test"),
+        patch.object(swagger_settings, "oidc_service_client_id", "ep-test"),
         patch("api.services.auth_services.ep_access_gate.requests.post", fake),
     ):
         yield fake

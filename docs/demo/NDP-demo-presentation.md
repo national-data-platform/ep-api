@@ -436,7 +436,7 @@ existing admin, so the first one is set directly in Keycloak:
 1. Create the user and set a password (appendix *Creating a user — Keycloak*).
 2. Assign the realm role **`ndp_admin`** (platform-wide), or, for this
    Endpoint only, add the user to **`<G>/admins`** *and* assign the realm role
-   **`group:<G>:admin`** — `<G>` is `ndp_ep/<AUTHZ_CLIENT_ID>`. The Endpoint
+   **`group:<G>:admin`** — `<G>` is `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`. The Endpoint
    checks the subgroup; the AAI API checks the role when they approve requests.
 
 A level applies straight away; `ndp_admin` needs a new sign-in.
@@ -486,7 +486,7 @@ On the **Access Requests** page, an admin reviews pending requests and
 **rejects** it, optionally with notes.
 
 Approval uses the admin's own token on the AAI: it adds the user to the
-Endpoint's group, **`ndp_ep/<AUTHZ_CLIENT_ID>`**, at the level picked (Writer
+Endpoint's group, **`ndp_ep/<OIDC_SERVICE_CLIENT_ID>`**, at the level picked (Writer
 is the AAI's **editor**).
 
 > The new level applies straight away; the user just signs in again.
@@ -1065,7 +1065,7 @@ curl -s -X POST "$AAI/group/add-user" -H "Authorization: Bearer $TOKEN" \
   -d '{"group_name":"<GROUP>","username":"<user>","role":"editor"}'
 ```
 
-`<GROUP>` is `ndp_ep/<AUTHZ_CLIENT_ID>` (`ndp_ep/ep-<config-id>` on a
+`<GROUP>` is `ndp_ep/<OIDC_SERVICE_CLIENT_ID>` (`ndp_ep/ep-<config-id>` on a
 registered Endpoint).
 
 ---

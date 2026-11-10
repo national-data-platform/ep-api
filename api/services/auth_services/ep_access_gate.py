@@ -2,7 +2,7 @@
 """
 Permission gates for the Endpoint's protected routes.
 
-The Endpoint's Keycloak client (AUTHZ_CLIENT_ID, ``ep-<config-id>``) has
+The Endpoint's Keycloak client (OIDC_SERVICE_CLIENT_ID, ``ep-<config-id>``) has
 three gates, set up by the AAI API from the Endpoint's group:
 ``admin-area`` (its admins), ``editor-area`` (admins and editors) and
 ``viewer-area`` (admins, editors and viewers); ``ndp_admin`` passes all
@@ -31,7 +31,7 @@ def ep_access_gate(token: str, gate: str) -> None:
     Endpoint's client. TEST_TOKEN, when set, passes every gate without asking.
 
     401: Keycloak rejects the token. 403: anything but a grant, including
-    when AUTHZ_CLIENT_ID is not set. 502: Keycloak is unreachable or fails.
+    when OIDC_SERVICE_CLIENT_ID is not set. 502: Keycloak is unreachable or fails.
     """
     if swagger_settings.test_token and token == swagger_settings.test_token:
         return
@@ -39,7 +39,7 @@ def ep_access_gate(token: str, gate: str) -> None:
         status_code=status.HTTP_403_FORBIDDEN,
         detail=f"This token does not pass {gate} on this Endpoint",
     )
-    if not swagger_settings.authz_client_id:
+    if not swagger_settings.oidc_service_client_id:
         raise denied
 
     realm = swagger_settings.keycloak_realm_url
@@ -49,7 +49,7 @@ def ep_access_gate(token: str, gate: str) -> None:
             headers={"Authorization": f"Bearer {token}"},
             data={
                 "grant_type": _UMA_GRANT,
-                "audience": swagger_settings.authz_client_id,
+                "audience": swagger_settings.oidc_service_client_id,
                 "permission": gate,
                 "response_mode": "decision",
             },

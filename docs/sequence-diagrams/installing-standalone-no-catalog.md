@@ -125,7 +125,7 @@ NETBIRD_ENABLED=False
 NETBIRD_IP=
 NETBIRD_GROUP=
 KEYCLOAK_URL=https://idp.nationaldataplatform.org
-AUTHZ_CLIENT_ID=
+OIDC_SERVICE_CLIENT_ID=
 AUTHZ_REALM=NDP
 ENABLE_ACCESS_REQUESTS=False
 ACCESS_REQUESTS_COLLECTION=access_requests
@@ -223,6 +223,6 @@ staging catalog is off too, since it travels through the same routes. Nothing
 is posted to the Federation: the Endpoint never registered, so it is not
 public, and metrics stay local to its logs.
 
-With no Keycloak client (`AUTHZ_CLIENT_ID` is empty), any user the AAI
+With no Keycloak client (`OIDC_SERVICE_CLIENT_ID` is empty), any user the AAI
 accepts can enter, but nobody can write: every permission gate refuses
 without a client to ask about (`TEST_TOKEN` aside).

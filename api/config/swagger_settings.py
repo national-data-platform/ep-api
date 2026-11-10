@@ -48,20 +48,19 @@ class Settings(BaseSettings):
         default="https://idp.nationaldataplatform.org",
         validation_alias=AliasChoices("keycloak_url", "auth_api_url"),
     )
-    # This Endpoint's Keycloak client (ep-<config-id>), whose gates decide
-    # every permission, and the realm it is in.
-    authz_client_id: str = ""
-    authz_realm: str = "NDP"
-    # Read only to derive AUTHZ_CLIENT_ID for an Endpoint installed before it
-    # existed: its .env names the group, ndp_ep/ep-<config-id>, and not the
-    # client. Without this, upgrading such an Endpoint refused every request.
-    group_names: str = ""
-
     # The confidential Keycloak client the Federation created for this
-    # Endpoint (ep-<config-id>), for client-credentials tokens (issue #412).
-    # Not the browser sign-in client (OIDC_CLIENT_ID, read by the UI only).
+    # Endpoint (ep-<config-id>). Its gates decide every permission, and its
+    # client-credentials tokens vouch for the Endpoint to the AAI API (issue
+    # #412). Not the browser sign-in client (OIDC_CLIENT_ID, read by the UI
+    # only). AUTHZ_REALM is the realm it is in.
     oidc_service_client_id: str = ""
     oidc_service_client_secret: SecretStr = SecretStr("")
+    authz_realm: str = "NDP"
+    # Read only to derive OIDC_SERVICE_CLIENT_ID for an Endpoint installed
+    # before it existed: its .env names the group, ndp_ep/ep-<config-id>, and
+    # not the client. Without this, upgrading such an Endpoint refused every
+    # request.
+    group_names: str = ""
 
     # Access-request workflow (user requests entry → admin approves/rejects).
     # Requires a MongoDB instance reachable via MONGODB_CONNECTION_STRING
@@ -94,15 +93,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def client_from_the_old_group_setting(self):
-        """Take AUTHZ_CLIENT_ID from GROUP_NAMES when only that is set."""
-        if not self.authz_client_id:
+        """Take OIDC_SERVICE_CLIENT_ID from GROUP_NAMES when only that is set."""
+        if not self.oidc_service_client_id:
             client = client_id_from_group_names(self.group_names)
             if client:
-                self.authz_client_id = client
+                self.oidc_service_client_id = client
                 logging.getLogger(__name__).warning(
-                    "AUTHZ_CLIENT_ID is not set; using %s from GROUP_NAMES. "
-                    "Set AUTHZ_CLIENT_ID in .env (re-running the installer "
-                    "does it).",
+                    "OIDC_SERVICE_CLIENT_ID is not set; using %s from "
+                    "GROUP_NAMES. Set OIDC_SERVICE_CLIENT_ID in .env "
+                    "(re-running the installer does it).",
                     client,
                 )
         return self

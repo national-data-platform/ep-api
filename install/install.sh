@@ -1720,7 +1720,7 @@ if interactive; then
       "may read, write and administer it, and what makes identity-provider" \
       "sign-in possible without an administrator." \
       "Answer no to run a standalone Endpoint not listed in the Federation;" \
-      "nobody can write to it until AUTHZ_CLIENT_ID names a client."
+      "nobody can write to it until OIDC_SERVICE_CLIENT_ID names a client."
     ask_yes_no want_register "Register this Endpoint with the Federation now?" "yes"
 
     if [[ "$want_register" == "yes" ]]; then
@@ -1969,12 +1969,12 @@ PY
   # own client is used. A registration whose Keycloak step failed stores a
   # placeholder id, and a client that does not exist would refuse everyone.
   if [[ "$fed_client_id" == "ep-${config_id}" ]]; then
-    put AUTHZ_CLIENT_ID "$fed_client_id"
+    put OIDC_SERVICE_CLIENT_ID "$fed_client_id"
     put AUTHZ_REALM "$fed_realm"
     ok "Permissions are decided by Keycloak client '$fed_client_id' (realm '$fed_realm')."
   else
     warn "The registration has no Keycloak client of this Endpoint's own (${fed_client_id:-none})."
-    warn "Without AUTHZ_CLIENT_ID no user can write to this Endpoint; see docs/roles-and-permissions.md."
+    warn "Without OIDC_SERVICE_CLIENT_ID no user can write to this Endpoint; see docs/roles-and-permissions.md."
   fi
 
   # The registration creates a confidential Keycloak client for this Endpoint
@@ -1999,7 +1999,7 @@ PY
 elif [[ "${already_warned:-false}" != "true" ]]; then
   warn "No --config-id given: installing without a Federation registration."
   warn "The Endpoint will not be listed in the Federation."
-  warn "Nor will it have a Keycloak client to decide permissions: set AUTHZ_CLIENT_ID in .env to let users write."
+  warn "Nor will it have a Keycloak client to decide permissions: set OIDC_SERVICE_CLIENT_ID in .env to let users write."
 fi
 
 # Metrics go to the Federation this run was pointed at. Left to example.env,

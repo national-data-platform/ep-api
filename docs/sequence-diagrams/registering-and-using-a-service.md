@@ -26,7 +26,7 @@ sequenceDiagram
     Note over User,EP: owner_org must be "services" — the organization the<br/>Endpoint creates for them at startup. Anything else<br/>is refused by the request model
     EP->>AAI: validate the token
     AAI-->>EP: identity, groups and roles
-    Note over EP: A write: Keycloak's editor-area gate<br/>on AUTHZ_CLIENT_ID — otherwise 403
+    Note over EP: A write: Keycloak's editor-area gate<br/>on OIDC_SERVICE_CLIENT_ID — otherwise 403
     EP->>Local: package_create in "services",<br/>with a resource of format "service" holding the URL
     Local-->>EP: id
     EP-->>User: 201 with the id

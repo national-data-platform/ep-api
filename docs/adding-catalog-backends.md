@@ -303,7 +303,7 @@ os.environ["LOCAL_CATALOG_BACKEND"] = "your_backend"
 os.environ["YOUR_BACKEND_CONNECTION_STRING"] = "..."
 os.environ["CKAN_LOCAL_ENABLED"] = "True"   # otherwise POST /dataset is not mounted
 os.environ["TEST_TOKEN"] = "integration-test-token"
-os.environ["AUTHZ_CLIENT_ID"] = ""            # no entry check on /user/info
+os.environ["OIDC_SERVICE_CLIENT_ID"] = ""            # no entry check on /user/info
 os.environ["AFFINITIES_ENABLED"] = "False"
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -349,7 +349,7 @@ Points that make or break it:
   does.
 - **`TEST_TOKEN`** is accepted without calling the AAI API and passes
   every permission gate without asking Keycloak, so it passes the writer
-  guard even without `AUTHZ_CLIENT_ID`.
+  guard even without `OIDC_SERVICE_CLIENT_ID`.
 - **`CKAN_LOCAL_ENABLED=True`** is required with any backend: without it the
   registration routes are not mounted and `POST /dataset` is 404.
 - **201**, not 200, is the success status of every creation route.

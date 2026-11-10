@@ -25,7 +25,7 @@ EP_NAME=my_endpoint
 # OIDC_CLIENT_ID=ndp-ep-ui
 
 ENABLE_ACCESS_REQUESTS=False
-AUTHZ_CLIENT_ID=
+OIDC_SERVICE_CLIENT_ID=
 """
 
 
@@ -352,7 +352,7 @@ def test_a_registration_supplies_the_staging_organization():
 def test_a_registration_supplies_the_client_that_decides_permissions():
     """
     Keycloak decides every permission through the gates of the Endpoint's own
-    client, ep-<config-id>; without AUTHZ_CLIENT_ID every guarded route
+    client, ep-<config-id>; without OIDC_SERVICE_CLIENT_ID every guarded route
     answers 403. A registration whose Keycloak step failed stores a
     placeholder id, which must not be written: a client that does not exist
     refuses everyone.
@@ -362,5 +362,5 @@ def test_a_registration_supplies_the_client_that_decides_permissions():
     )
 
     assert 'if [[ "$fed_client_id" == "ep-${config_id}" ]]; then' in install_sh
-    assert 'put AUTHZ_CLIENT_ID "$fed_client_id"' in install_sh
+    assert 'put OIDC_SERVICE_CLIENT_ID "$fed_client_id"' in install_sh
     assert 'put AUTHZ_REALM "$fed_realm"' in install_sh
