@@ -2,11 +2,12 @@
 
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 
 from api.config.ckan_settings import ckan_settings  # Import CKAN settings
 from api.models import DataSourceResponse
 from api.services import datasource_services
+from api.services.datasource_services.search_datasets_by_terms import MAX_DATASETS
 
 router = APIRouter()
 
@@ -24,11 +25,23 @@ router = APIRouter()
         "- **server**: Specify the server to search on: 'local', "
         "'global'.\n"
         "  If 'local' CKAN is disabled, it is not allowed.\n"
-        "  If no server is specified, the default value is 'global'."
+        "  If no server is specified, the default value is 'global'.\n"
+        "- **offset**, **limit**: which matches to return, in the catalog's "
+        "order (default: the first 1000). Use them to page through a search "
+        "with more matches than that.\n\n"
+        "The `X-Total-Count` response header is the number of datasets the "
+        "catalog matched for the whole search, so a client can tell whether "
+        "there are more to fetch."
     ),
     responses={
         200: {
             "description": "Datasets retrieved successfully",
+            "headers": {
+                "X-Total-Count": {
+                    "description": "Datasets the catalog matched in all.",
+                    "schema": {"type": "integer"},
+                }
+            },
             "content": {
                 "application/json": {
                     "example": [
@@ -70,6 +83,7 @@ router = APIRouter()
     },
 )
 async def search_datasets(
+    response: Response,
     terms: List[str] = Query(
         ..., description="A list of terms to search for in the datasets."
     ),
@@ -87,6 +101,13 @@ async def search_datasets(
             "'global'"
             "If 'local' CKAN is disabled, it cannot be used."
         ),
+    ),
+    offset: int = Query(0, ge=0, description="How many matches to skip."),
+    limit: int = Query(
+        MAX_DATASETS,
+        ge=1,
+        le=MAX_DATASETS,
+        description=f"How many matches to return, at most {MAX_DATASETS}.",
     ),
 ):
     """
@@ -143,9 +164,15 @@ async def search_datasets(
 
     try:
         # Call the service function to perform the dataset search
-        results = await datasource_services.search_datasets_by_terms(
-            terms_list=terms, keys_list=keys, server=server
+        results, total = await datasource_services.search_datasets_page(
+            terms_list=terms,
+            keys_list=keys,
+            server=server,
+            offset=offset,
+            limit=limit,
         )
+        if total is not None:
+            response.headers["X-Total-Count"] = str(total)
         return results
     except HTTPException as he:
         # Re-raise FastAPI-specific exceptions

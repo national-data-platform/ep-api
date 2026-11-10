@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v0.34.81   # the release to install
+V=v0.34.82   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]

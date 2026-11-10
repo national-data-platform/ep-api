@@ -486,6 +486,20 @@ curl -s "$EP/search?terms=climate&keys=title&server=local"
   searches all fields for that term. Its length must equal `terms`' (400
   otherwise).
 - `server`: `global` (default) or `local`.
+- `offset` (default 0) and `limit` (1–1000, default 1000) choose which matches
+  are returned, in the catalog's order. The `X-Total-Count` response header is
+  the number of datasets the catalog matched for the whole search, so a
+  client can tell whether to ask for the next page (since 0.34.82):
+
+  ```bash
+  curl -si "$EP/search?terms=GNSS&offset=1100&limit=100" | grep -i x-total-count
+  # X-Total-Count: 1124
+  ```
+
+  The Endpoint drops any dataset of a page that does not contain every term,
+  so a page can hold fewer than `limit` datasets while more remain: keep
+  going until `offset` reaches `X-Total-Count`. The Search page shows the
+  first 100 and a **Load more** button.
 
 ### `POST /search` — by fields
 

@@ -154,6 +154,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # The number of matches of GET /search (issue #420).
+    expose_headers=["X-Total-Count"],
 )
 
 # Register global exception handlers

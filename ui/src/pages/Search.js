@@ -21,6 +21,8 @@ import {
   BASE_URL
 } from '../services/api';
 import DatasetMetadata from '../components/DatasetMetadata';
+import DatasetPager from '../components/DatasetPager';
+import { appendNew, DATASET_PAGE, nextOffsetAfter, totalOf } from '../services/searchPaging';
 import StacCollectionSummary, {
   looksLikeStacCollection
 } from '../components/StacCollectionSummary';
@@ -57,6 +59,12 @@ const Search = () => {
   const [server, setServer] = useState('global');
   const [hasSearched, setHasSearched] = useState(false);
   const [datasetResults, setDatasetResults] = useState([]);
+  // Paging of a term search (issue #420): the catalog's number of matches,
+  // and what the next page needs, or null when there is no next page.
+  const [datasetTotal, setDatasetTotal] = useState(null);
+  const [datasetNext, setDatasetNext] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState(null);
   const [serviceResults, setServiceResults] = useState([]);
   const [organizationResults, setOrganizationResults] = useState([]);
   // When set, datasets/services queries are scoped to this org and the typed
@@ -137,20 +145,59 @@ const Search = () => {
   const keepOnlyMine = (items, mine, hash) =>
     !mine || !hash ? items : items.filter((item) => item.extras?.ndp_user_id === hash);
 
+  // Returns { items, total, next }: total and next only for a term search,
+  // which is paged (issue #420); next is what loadMoreDatasets asks for.
   const fetchDatasets = async (term, selectedServer, ownerOrg, mine, hash) => {
-    let raw;
     if (ownerOrg) {
       const response = await searchAPI.searchAdvanced({
         owner_org: ownerOrg,
         search_term: term || undefined,
         server: selectedServer
       });
-      raw = (response.data || []).filter((item) => item.owner_org !== 'services');
-    } else {
-      const response = await searchAPI.searchByTerms([term], null, selectedServer);
-      raw = (response.data || []).filter((item) => item.owner_org !== 'services');
+      const raw = (response.data || []).filter((item) => item.owner_org !== 'services');
+      return { items: keepOnlyMine(raw, mine, hash), total: null, next: null };
     }
-    return keepOnlyMine(raw, mine, hash);
+    const response = await searchAPI.searchByTerms([term], null, selectedServer, {
+      offset: 0,
+      limit: DATASET_PAGE
+    });
+    const raw = (response.data || []).filter((item) => item.owner_org !== 'services');
+    const total = totalOf(response);
+    const offset = nextOffsetAfter(0, DATASET_PAGE, total);
+    return {
+      items: keepOnlyMine(raw, mine, hash),
+      total,
+      next: offset === null ? null : { term, server: selectedServer, mine, hash, offset }
+    };
+  };
+
+  const loadMoreDatasets = async () => {
+    if (!datasetNext || loadingMore) return;
+    const requestId = searchRequestIdRef.current;
+    const { term, server: from, mine, hash, offset } = datasetNext;
+    setLoadingMore(true);
+    setMoreError(null);
+    try {
+      const response = await searchAPI.searchByTerms([term], null, from, {
+        offset,
+        limit: DATASET_PAGE
+      });
+      // A new search started meanwhile: this page belongs to the old one.
+      if (requestId !== searchRequestIdRef.current) return;
+      const raw = (response.data || []).filter((item) => item.owner_org !== 'services');
+      const total = totalOf(response) ?? datasetTotal;
+      const after = nextOffsetAfter(offset, DATASET_PAGE, total);
+      setDatasetResults((shown) => appendNew(shown, keepOnlyMine(raw, mine, hash)));
+      setDatasetTotal(total);
+      setDatasetNext(after === null ? null : { ...datasetNext, offset: after });
+    } catch (err) {
+      if (requestId !== searchRequestIdRef.current) return;
+      setMoreError(
+        `Could not load more datasets${err.response?.data?.detail ? `: ${err.response.data.detail}` : ''}.`
+      );
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const fetchServices = async (term, selectedServer, ownerOrg, mine, hash) => {
@@ -228,7 +275,7 @@ const Search = () => {
                 currentUserHash
               )
             )
-          : Promise.resolve({ ok: true, data: [] }),
+          : Promise.resolve({ ok: true, data: { items: [], total: null, next: null } }),
         wantServices
           ? safe(
               fetchServices(
@@ -257,7 +304,10 @@ const Search = () => {
       const allFailed = requested.length > 0 && requested.every((r) => !r.ok);
       if (allFailed) throw requested[0].err;
 
-      setDatasetResults(datasetsRes.ok ? datasetsRes.data : []);
+      setDatasetResults(datasetsRes.ok ? datasetsRes.data.items : []);
+      setDatasetTotal(datasetsRes.ok ? datasetsRes.data.total : null);
+      setDatasetNext(datasetsRes.ok ? datasetsRes.data.next : null);
+      setMoreError(null);
       setServiceResults(servicesRes.ok ? servicesRes.data : []);
       setOrganizationResults(orgsRes.ok ? orgsRes.data : []);
       setHasSearched(true);
@@ -438,6 +488,8 @@ const Search = () => {
     // arrived at by clearing the org filter.
     if (!trimmed && !ownerOrgFilter && mode !== 'organizations' && !onlyMine) {
       setDatasetResults([]);
+      setDatasetTotal(null);
+      setDatasetNext(null);
       setServiceResults([]);
       setOrganizationResults([]);
       setHasSearched(false);
@@ -570,6 +622,19 @@ const Search = () => {
           mapDeleteError={friendlyDatasetDeleteError}
           onPublish={handlePublishDataset}
           mapPublishError={friendlyDatasetPublishError}
+        />
+      )}
+
+      {hasSearched && !loading && !error && (mode === 'datasets' || mode === 'both') && (
+        <DatasetPager
+          shown={datasetResults.length}
+          total={datasetTotal}
+          hasMore={datasetNext !== null}
+          loading={loadingMore}
+          error={moreError}
+          onLoadMore={loadMoreDatasets}
+          onlyMine={onlyMine}
+          lookedAt={datasetNext ? datasetNext.offset : datasetTotal}
         />
       )}
 
