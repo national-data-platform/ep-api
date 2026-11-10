@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v0.34.79   # the release to install
+V=v0.34.80   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]
@@ -193,6 +193,11 @@ asks for nothing and sends nothing.
 Only answers travel. Credentials — the CKAN and S3 keys, the token itself — are
 not remembered; `install/remembered_settings.py` lists what is.
 
+Options given on the command line win over remembered answers: with a
+remembered `backend=none`, `--backend ckan` installs CKAN, and `--ep-api-port`
+is offered as given. A remembered catalog URL is only reused with the backend
+it belongs to. `--dry-run` reads the remembered settings but never writes them.
+
 If the Federation cannot be reached, or does not offer remembered settings,
 the installer says so and carries on.
 
@@ -275,6 +280,7 @@ re-run to upgrade it: it only joins with `--netbird`. Affinities stays opt-in
 | `--affinities` | turn the Affinities integration on from the Federation configuration |
 | `--no-start` | write everything, bring nothing up; prints the command to start it |
 | `--yes` | no prompts at all (see [Without prompts](#without-prompts)), and overwrite an existing `.env` without asking |
+| `--overwrite-env` | overwrite an existing `.env` without asking, but still ask everything else |
 | `--ref <tag\|branch>` | from the web: install this version instead of the latest release (`main` for the development version) |
 | `--log-file <path>` | append the run to `<path>` instead of `install.log` in the checkout; `/dev/null` keeps no log (see [The install log](#the-install-log)) |
 | `--compose-timeout <n>` | give up when building and starting a stack takes more than `<n>` minutes (`<n>s` for seconds); default `30`, `0` for no limit |
@@ -284,7 +290,14 @@ The underscore spellings are the ones the platform's create-endpoint page
 sends; the hyphenated ones are the documented spellings.
 
 `--dry-run` is the quickest way to see what a registration would produce. It
-never installs anything, including CKAN.
+never installs anything, including CKAN, and writes nothing to the Federation.
+
+Re-running the installer in a checkout that already has a `.env` is how an
+Endpoint is upgraded or reconfigured. The installer asks once, before doing any
+work, whether to replace it: Enter means yes, and the current file is always
+kept as `.env.backup.<date>`. Answering no stops the run with nothing changed.
+On a re-run, the port the Endpoint's own container holds is offered again
+rather than the next free one.
 
 ### No local catalog
 

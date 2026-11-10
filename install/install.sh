@@ -208,6 +208,7 @@ s3_secure="False"
 dry_run="false"
 start="true"
 assume_yes="false"
+overwrite_env="false"
 # The Federation has no field for a remote-execution URL, so when registration
 # captures one it is applied straight to the .env after the config is fetched.
 reg_rexec_url=""
@@ -387,7 +388,10 @@ have:
   --ckan-app-port <port>  CKAN's application port on the host. Default: 5000
   --dry-run               Render .env and run the checks, start nothing
   --no-start              Write everything, do not bring the stack up
-  --yes                   Do not prompt before overwriting an existing .env
+  --yes                   Ask nothing: take every default, and overwrite an
+                          existing .env (a backup is always kept)
+  --overwrite-env         Overwrite an existing .env without asking, but still
+                          ask everything else
   --ref <tag|branch>      From the web: install this version instead of the
                           latest release (e.g. v0.34.61, or main for the
                           development version). EP_REPO_REF does the same.
@@ -406,6 +410,9 @@ USAGE
 
 # As given, for the install log; the secrets among them are masked there.
 cli_args=("$@")
+# The remembered answers given on this command line: they win over what the
+# Federation remembers (issue #415). Space-separated variable names.
+cli_given=" "
 
 case "${1:-}" in
   status|stop|start|uninstall) subcommand="$1"; shift ;;
@@ -423,9 +430,9 @@ while [[ $# -gt 0 ]]; do
                        federation_url="${2:-}"
                        federation_url_explicit="true"; shift 2 ;;
     --env)             federation_env="${2:-}"; shift 2 ;;
-    --backend)         backend="${2:-}"; shift 2 ;;
-    --mongodb-url)     mongodb_url="${2:-}"; shift 2 ;;
-    --ckan-url)        ckan_url="${2:-}"; shift 2 ;;
+    --backend)         backend="${2:-}"; cli_given+="backend "; shift 2 ;;
+    --mongodb-url)     mongodb_url="${2:-}"; cli_given+="mongodb_url "; shift 2 ;;
+    --ckan-url)        ckan_url="${2:-}"; cli_given+="ckan_url "; shift 2 ;;
     --ckan-api-key)    ckan_api_key="${2:-}"; shift 2 ;;
     --ckan-dir)        ckan_dir="${2:-}"; shift 2 ;;
     --ckan-repo)       ckan_repo="${2:-}"; shift 2 ;;
@@ -435,15 +442,15 @@ while [[ $# -gt 0 ]]; do
     --ckan-ssl-port)   ckan_ssl_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
     --ckan-http-port)  ckan_http_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
     --ckan-app-port)   ckan_app_port="${2:-}"; ckan_ports_given="true"; shift 2 ;;
-    --ep-api-port)     ep_api_port="${2:-}"; shift 2 ;;
+    --ep-api-port)     ep_api_port="${2:-}"; cli_given+="ep_api_port "; shift 2 ;;
     --instance)        instance="${2:-}"; shift 2 ;;
-    --access-requests) want_access_requests="yes"; shift ;;
-    --s3)              want_s3="yes"; shift ;;
-    --s3-endpoint)     want_s3="yes"; s3_endpoint="${2:-}"; shift 2 ;;
+    --access-requests) want_access_requests="yes"; cli_given+="want_access_requests "; shift ;;
+    --s3)              want_s3="yes"; cli_given+="want_s3 "; shift ;;
+    --s3-endpoint)     want_s3="yes"; s3_endpoint="${2:-}"; cli_given+="want_s3 s3_endpoint "; shift 2 ;;
     --s3-access-key)   s3_access_key="${2:-}"; shift 2 ;;
     --s3-secret-key)   s3_secret_key="${2:-}"; shift 2 ;;
     --s3-region)       s3_region="${2:-}"; shift 2 ;;
-    --s3-secure)       s3_secure="True"; shift ;;
+    --s3-secure)       s3_secure="True"; cli_given+="s3_secure "; shift ;;
     --netbird)         want_netbird="yes"; shift ;;
     --no-netbird)      want_netbird="no"; shift ;;
     --netbird-setup-key-file) netbird_setup_key_file="${2:-}"; want_netbird="yes"; shift 2 ;;
@@ -455,6 +462,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run)         dry_run="true"; shift ;;
     --no-start)        start="false"; shift ;;
     --yes)             assume_yes="true"; shift ;;
+    --overwrite-env)   overwrite_env="true"; shift ;;
     --log-file)        log_file="${2:-}"; shift 2 ;;
     # Chooses the version when installing from the web; the bootstrap above
     # has already acted on it, and a checkout runs what it has.
@@ -931,6 +939,17 @@ port_free() {
     return 1
   fi
   return 0
+}
+
+port_is_this_endpoints() {
+  # port_is_this_endpoints PORT — true when PORT is held by this checkout's
+  # own Endpoint container, which a re-run replaces: not a conflict (#332).
+  local holder holder_dir
+  holder="$(docker ps --format '{{.Names}}\t{{.Ports}}' 2>/dev/null \
+    | awk -v p=":$1->" '$0 ~ p {print $1; exit}')"
+  [[ "$holder" == "${instance}-ep-api" ]] || return 1
+  holder_dir="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$holder" 2>/dev/null || true)"
+  [[ -n "$holder_dir" && "$(cd "$holder_dir" 2>/dev/null && pwd -P)" == "$(cd "$REPO_ROOT" && pwd -P)" ]]
 }
 
 first_free_port() {
@@ -1498,12 +1517,35 @@ apply_remembered_settings() {
     return 0
   fi
 
+  # What the command line said wins over what is remembered (issue #415):
+  # keep those values, apply the rest, then put them back.
+  local name kept=() cli_backend="$backend" before_mongodb_url="$mongodb_url" before_ckan_url="$ckan_url"
+  for name in $cli_given; do kept+=("$name=${!name}"); done
+
   eval "$assignments"
+
+  # A remembered catalog URL belongs to the remembered backend. With another
+  # backend on the command line, it would turn "install CKAN" into "use the
+  # CKAN at this URL" (or a MongoDB URL into nothing).
+  if [[ "$cli_given" == *" backend "* && "$backend" != "$cli_backend" ]]; then
+    mongodb_url="$before_mongodb_url"
+    ckan_url="$before_ckan_url"
+  fi
+  local kv
+  for kv in "${kept[@]}"; do printf -v "${kv%%=*}" '%s' "${kv#*=}"; done
+
   ok "Loaded the settings remembered for this Endpoint."
+  [[ "$cli_given" == " " ]] || info "Options given on the command line were kept over the remembered ones."
 }
 
 save_remembered_settings() {
   [[ -n "$remember_token" && -n "$config_id" ]] || return 0
+  # A dry run changes nothing, the Federation included: what it saved became
+  # the next real run's answers (issue #415).
+  if [[ "$dry_run" == "true" ]]; then
+    info "Dry run: would save these answers to configuration ${config_id}; nothing was sent."
+    return 0
+  fi
 
   local payload http_code
   payload="$(python3 "$REPO_ROOT/install/remembered_settings.py" save \
@@ -1675,7 +1717,13 @@ if interactive; then
   section "Endpoint port" \
     "The host port the Endpoint's web UI and API are served on. The default" \
     "is the first free port found, to avoid clashing with what is running."
-  ep_api_port="$(first_free_port "$ep_api_port")"
+  # A port given with --ep-api-port is offered as given, and so is one this
+  # Endpoint's own container holds on a re-run; only otherwise is the next
+  # free one proposed (issue #415).
+  if [[ "$cli_given" != *" ep_api_port "* ]] && ! port_free "$ep_api_port" \
+     && ! port_is_this_endpoints "$ep_api_port"; then
+    ep_api_port="$(first_free_port "$ep_api_port")"
+  fi
   ask ep_api_port "Port to publish the Endpoint on" "$ep_api_port"
 
   if [[ "$backend" == "ckan" && -z "$ckan_url" ]]; then
@@ -1736,6 +1784,21 @@ put OIDC_ENABLED "False"
 # The development bypass token stays off on an installed Endpoint, whatever
 # example.env says (issue #383).
 put TEST_TOKEN ""
+
+# Re-running the installer is how an Endpoint is upgraded, and it overwrites
+# .env. Asked here, before any work, rather than after CKAN was built and
+# NetBird joined; and Yes by default, since the previous file is always kept
+# as a backup (issue #416).
+if [[ -f "$REPO_ROOT/.env" && "$dry_run" != "true" && "$assume_yes" != "true" \
+      && "$overwrite_env" != "true" ]]; then
+  section "Existing configuration" \
+    "This checkout already has a .env: this run replaces it, which is how an" \
+    "Endpoint is upgraded or reconfigured. The current file is kept as" \
+    ".env.backup.<date> next to it."
+  ask_yes_no overwrite_answer "$REPO_ROOT/.env already exists. Overwrite it?" "yes"
+  [[ "$overwrite_answer" == "yes" ]] \
+    || fail "Aborted before changing anything; $REPO_ROOT/.env is untouched."
+fi
 
 if [[ -n "$config_id" ]]; then
   step "Fetching the Federation registration"
@@ -2463,10 +2526,7 @@ if [[ -f "$env_path" && "$dry_run" != "true" ]]; then
   chmod 600 "$backup"
   warn "Existing .env saved to $(basename "$backup")"
 
-  if [[ "$assume_yes" != "true" ]]; then
-    read_reply reply "$env_path already exists. Overwrite? [y/N] "
-    [[ "$reply" =~ ^[Yy]$ ]] || fail "Aborted; nothing was changed (backup kept at $backup)."
-  fi
+  # Whether to overwrite was settled before any work (issue #416).
 fi
 
 target="$env_path"
@@ -2584,11 +2644,7 @@ if (exec 3<>"/dev/tcp/127.0.0.1/$ep_api_port") 2>/dev/null; then
   # Re-running the installer is how an Endpoint is upgraded, and the port is
   # then held by this checkout's own Endpoint container -- the one the
   # "up -d --build" below replaces. That is not a conflict (issue #332).
-  holder_dir=""
-  if [[ "$holder" == "${instance}-ep-api" ]]; then
-    holder_dir="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$holder" 2>/dev/null || true)"
-  fi
-  if [[ -n "$holder_dir" && "$(cd "$holder_dir" 2>/dev/null && pwd -P)" == "$(cd "$REPO_ROOT" && pwd -P)" ]]; then
+  if port_is_this_endpoints "$ep_api_port"; then
     info "Port $ep_api_port is held by this Endpoint's running container; it will be replaced."
   else
     fail "Port $ep_api_port is already in use${holder:+ by container '$holder'}.
