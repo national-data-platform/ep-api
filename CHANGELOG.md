@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.79] - 2026-11-10
+
+### Added
+- **The installer keeps the Endpoint's service client from its registration** (#412, from Saleem Alharir's #411). Registering an Endpoint creates a confidential Keycloak client for it, `ep-<config-id>`, and the Federation hands its id and secret to the owner. The installer printed the id and dropped both, so the Endpoint could not get a client-credentials token, which approving access requests needs with the AAI API's new `/group/add-user` (sci-ndp/ndp-keycloak-aai#12). They are now written to the new `OIDC_SERVICE_CLIENT_ID` and `OIDC_SERVICE_CLIENT_SECRET`, read by the API as `oidc_service_client_id` and `oidc_service_client_secret` (a `SecretStr`).
+  - The secret is never printed: the installer says it was saved, and `--dry-run` shows `OIDC_SERVICE_CLIENT_SECRET=(set, not shown)`.
+  - This is not the browser sign-in client: `OIDC_CLIENT_ID` and `OIDC_ENABLED` are left as they were.
+  - A registration that names `default-ep-client` (its Keycloak client was never created, sci-ndp/ndp-federation#138) is not kept; the installer warns instead.
+  - The old NDP-EP `setup.sh` used this secret only for its JupyterHub install. That install, and its Kafka install, did not come over when NDP-EP switched to this installer on 2026-10-02; `install/README.md` now says so.
+  - New tests in `install/tests/test_service_client.py` (real installer, `--dry-run`, against a Federation served by the test) and `tests/test_service_client_settings.py`.
+
 ## [0.34.78] - 2026-11-09
 
 ### Fixed

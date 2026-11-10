@@ -1,5 +1,6 @@
 # api/config/swagger_settings.py
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings
 
 
@@ -12,7 +13,7 @@ class Settings(BaseSettings):
 
     swagger_title: str = "API Documentation"
     swagger_description: str = "This is the API documentation."
-    swagger_version: str = "0.34.78"
+    swagger_version: str = "0.34.79"
     root_path: str = ""  # API root path prefix (e.g., "/test" or "")
     is_public: bool = True
     metrics_endpoint: str = "https://federation.ndp.utah.edu/metrics/"
@@ -27,6 +28,12 @@ class Settings(BaseSettings):
     auth_api_url: str = "https://idp.nationaldataplatform.org/temp/information"
     enable_group_based_access: bool = False
     group_names: str = ""  # Comma-separated list of allowed groups
+
+    # The confidential Keycloak client the Federation created for this
+    # Endpoint (ep-<config-id>), for client-credentials tokens (issue #412).
+    # Not the browser sign-in client (OIDC_CLIENT_ID, read by the UI only).
+    oidc_service_client_id: str = ""
+    oidc_service_client_secret: SecretStr = SecretStr("")
 
     # Access-request workflow (user requests entry → admin approves/rejects).
     # Requires a MongoDB instance reachable via MONGODB_CONNECTION_STRING

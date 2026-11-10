@@ -257,6 +257,32 @@ the weaker `plain` challenge method; the other two sign-in methods still work
 there. `localhost` counts as a secure context, so an SSH tunnel is enough for
 testing.
 
+### The Endpoint's service client (set by the installer)
+
+Registering an Endpoint with the Federation creates a **confidential**
+Keycloak client for it, `ep-<config-id>`, and the Federation hands its id and
+secret to the Endpoint's owner. The Endpoint's backend uses this client to get
+client-credentials tokens from the identity provider (issue #412).
+
+It is a different client from the sign-in one above: `OIDC_CLIENT_ID` is a
+public client that the browser uses, and `OIDC_SERVICE_CLIENT_*` never reach
+the browser.
+
+#### `OIDC_SERVICE_CLIENT_ID`
+*Optional · default: empty.*
+The client's id, `ep-<config-id>`.
+**Where:** the installer copies it from the registration. When the
+registration names `default-ep-client`, the client was never created on the
+Federation (sci-ndp/ndp-federation#138), so the installer warns and leaves
+this empty.
+
+#### `OIDC_SERVICE_CLIENT_SECRET`
+*Optional · default: empty · secret.*
+The client's secret. The installer copies it from the registration without
+printing it (a `--dry-run` shows `(set, not shown)`). Keep it private.
+**Where:** the installer; otherwise the Endpoint's registration on the
+Federation (`GET /ep/{config-id}`, as the Endpoint's admin).
+
 ---
 
 ## Local catalog (where this EP stores its data)

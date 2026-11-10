@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v0.34.78   # the release to install
+V=v0.34.79   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]
@@ -458,7 +458,12 @@ are what gets tested.
 - **Identity-provider sign-in is not offered**, and the installer leaves
   `OIDC_ENABLED=False`. The client a registration creates is confidential, so
   the browser's code exchange is refused, and its tokens carry no `sub` claim,
-  which `AUTH_API_URL` looks the user up by. The installer reports the client
-  id and stops there. The `OIDC_*` settings are read by the API, so a
-  deployment with a working public client can switch it on by hand. See
-  [docs/configuration.md](../docs/configuration.md).
+  which `AUTH_API_URL` looks the user up by. The installer keeps that client
+  as the Endpoint's service client instead (`OIDC_SERVICE_CLIENT_ID` and
+  `OIDC_SERVICE_CLIENT_SECRET`, the secret never printed), and leaves
+  `OIDC_CLIENT_ID` alone. A deployment with a working public client can switch
+  sign-in on by hand. See [docs/configuration.md](../docs/configuration.md).
+- **The JupyterHub and Kafka installs of the old NDP-EP `setup.sh` are not
+  done.** That script started a JupyterHub (sci-ndp/jhub) with Keycloak login,
+  using the registration's client secret, and a Kafka broker. Neither came
+  over when NDP-EP switched to this installer (2026-10-02).
