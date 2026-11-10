@@ -218,7 +218,9 @@ export const datasetAPI = {
 
 // Search API
 export const searchAPI = {
-  searchByTerms: (terms, keys = null, server = 'global') => {
+  // page: optional { offset, limit } (issue #420); the response's
+  // X-Total-Count header is the number of matches.
+  searchByTerms: (terms, keys = null, server = 'global', page = null) => {
     console.log('searchByTerms called with:', { terms, keys, server }); // Debug log
     
     // Build URL manually to ensure correct format
@@ -244,6 +246,10 @@ export const searchAPI = {
     
     // Add server
     url += `server=${encodeURIComponent(server)}`;
+
+    if (page) {
+      url += `&offset=${encodeURIComponent(page.offset)}&limit=${encodeURIComponent(page.limit)}`;
+    }
     
     console.log('Final URL:', url); // Debug log
     

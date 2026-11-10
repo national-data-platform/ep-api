@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.82] - 2026-11-10
+
+### Added
+- **Search results a page at a time, with the number of matches** (#420). `GET /search` looked at no more than the first 1000 matching datasets and said nothing about the rest. On the global catalog `GNSS` matches 1124, so 124 could not be reached.
+  - `GET /search` takes `offset` (default 0) and `limit` (1–1000, default 1000), still asking the catalog for at most 100 datasets per request (#402).
+  - It reports the catalog's number of matches in a new `X-Total-Count` header, exposed to browsers through CORS.
+  - The body is still a list, so existing clients (the Python library included) are unaffected.
+  - New service function `search_datasets_page` returns the page and the total.
+- **The Search page shows the first 100 datasets, "Showing N of M matching datasets", and a Load more button** while the catalog has more (new `DatasetPager` component and `services/searchPaging.js`). With "Only mine" it says how many matches were looked through.
+  - Searches filtered by organization (`POST /search`) are not paged yet: #424.
+  - New tests in `tests/test_search_paging.py`, `ui/src/services/searchPaging.test.js` and `ui/src/components/DatasetPager.test.js`.
+  - Verified with the image of this release against the global catalog: `GET /search?terms=GNSS` answers `X-Total-Count: 1124`, and `offset=1100&limit=100` returns the last 24. On the Search page, Load more went 98 → 198 → … → 1122 of 1124 and then disappeared; the other 2 belong to the `services` organization, which the Datasets list leaves out.
+
 ## [0.34.81] - 2026-11-10
 
 Installer options for unattended and self-hosted installs, all reported by Saleem Alharir.
