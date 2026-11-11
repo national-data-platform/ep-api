@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.83] - 2026-11-11
+
+### Fixed
+- **Endpoints installed for the test platform, or another one, check tokens with that platform's identity provider** (#365, with the cause Saleem Alharir added). `AUTH_API_URL` always stayed on production, so such an Endpoint refused every token from its own platform.
+  - `--env test` (what the test platform's create-endpoint page sends) now gives `https://idp-test.nationaldataplatform.org/temp/information`, also when `--federation-url` is given.
+  - The prompt offers the remembered AAI, or that of `--env`, instead of always production.
+  - The `auth_api_url` the Federation returns with the configuration (sci-ndp/ndp-federation#134) is used when nothing else names one; Enter on the offered fallback lets it apply.
+  - `AUTH_API_URL` is always written, so a re-run cannot fall back to `example.env`'s production default.
+
+### Added
+- **`--auth-api-url <url>`**, so unattended runs can set it. It wins over the remembered and Federation values.
+  - New tests in `install/tests/test_aai_url_default.py`.
+
 ## [0.34.82] - 2026-11-10
 
 ### Added

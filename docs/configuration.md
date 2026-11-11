@@ -135,6 +135,9 @@ username/password login (`<host>/user/login`) and for the AAI calls that grant
 access requests (`<host>/group/add-user`, `<host>/role/assign`).
 **Where:** your NDP/AAI administrator. For the central platform use the default;
 for a self-hosted AAI use its `…/information` URL.
+The installer always writes it: `--auth-api-url`, else the remembered or typed
+value, else the Federation's `auth_api_url`, else the test identity provider for
+`--env test` and production otherwise (see [install/README.md](../install/README.md)).
 
 #### `TEST_TOKEN`
 *Optional · dev only · default: empty (off).*
