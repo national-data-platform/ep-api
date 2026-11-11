@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.84] - 2026-11-11
+
+### Changed
+- **`POST /search` asks the catalog for 100 datasets at a time and returns at most 1000 per response** (#424). It asked for 1000 full datasets per request, the size that hit the global catalog's 15 s timeout in #402, and kept asking until nothing came back, so a broad search read and returned every match at once.
+  - It takes the same `offset` and `limit` (1–1000, default 1000) query parameters as `GET /search` (#420), and reports the catalog's number of matches in `X-Total-Count`.
+  - Both count the catalog's matches before the resource fields and `search_term` are checked, so a page can hold fewer than `limit` datasets.
+  - A client that needs more than 1000 matches now pages through them, the Python library's `advanced_search` included.
+  - The body and its fields are unchanged. New service function `search_datasource_page` returns the page and the total.
+- **The Search page pages the organization filter too.** It shows the first 100 datasets of the organization, "Showing N of M", and Load more (`requestDatasetPage` in `services/searchPaging.js`). The services list keeps one request.
+  - New tests in `tests/test_post_search_paging.py` and `ui/src/services/searchPaging.test.js`.
+
 ## [0.34.83] - 2026-11-11
 
 ### Fixed
