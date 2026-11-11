@@ -520,6 +520,18 @@ optional: `dataset_name`, `dataset_title`, `owner_org`, `dataset_description`,
 `pre_ckan`). When `search_term` is given, `dataset_name`, `dataset_title`,
 `owner_org` and `dataset_description` are ignored.
 
+Since 0.34.84 it pages like `GET /search`: the query parameters `offset`
+(default 0) and `limit` (1–1000, default 1000) choose which of the catalog's
+matches are looked at, and `X-Total-Count` is how many it matched. Before,
+it returned every match in one response. Both count the catalog's matches
+before the resource fields and `search_term` are checked, so a page can hold
+fewer than `limit` datasets: the next page starts at `offset + limit`.
+
+```bash
+curl -si -X POST "$EP/search?offset=0&limit=100" -H "Content-Type: application/json" \
+  -d '{"owner_org": "my-org", "server": "global"}' | grep -i x-total-count
+```
+
 ### Response
 
 Both return a list of datasets:

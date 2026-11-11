@@ -22,7 +22,13 @@ import {
 } from '../services/api';
 import DatasetMetadata from '../components/DatasetMetadata';
 import DatasetPager from '../components/DatasetPager';
-import { appendNew, DATASET_PAGE, nextOffsetAfter, totalOf } from '../services/searchPaging';
+import {
+  appendNew,
+  DATASET_PAGE,
+  nextOffsetAfter,
+  requestDatasetPage,
+  totalOf
+} from '../services/searchPaging';
 import StacCollectionSummary, {
   looksLikeStacCollection
 } from '../components/StacCollectionSummary';
@@ -145,43 +151,30 @@ const Search = () => {
   const keepOnlyMine = (items, mine, hash) =>
     !mine || !hash ? items : items.filter((item) => item.extras?.ndp_user_id === hash);
 
-  // Returns { items, total, next }: total and next only for a term search,
-  // which is paged (issue #420); next is what loadMoreDatasets asks for.
+  // Returns { items, total, next }. A term search (issue #420) and an
+  // organization search (issue #424) are both paged; next is what
+  // loadMoreDatasets asks for.
   const fetchDatasets = async (term, selectedServer, ownerOrg, mine, hash) => {
-    if (ownerOrg) {
-      const response = await searchAPI.searchAdvanced({
-        owner_org: ownerOrg,
-        search_term: term || undefined,
-        server: selectedServer
-      });
-      const raw = (response.data || []).filter((item) => item.owner_org !== 'services');
-      return { items: keepOnlyMine(raw, mine, hash), total: null, next: null };
-    }
-    const response = await searchAPI.searchByTerms([term], null, selectedServer, {
-      offset: 0,
-      limit: DATASET_PAGE
-    });
+    const query = { term, server: selectedServer, ownerOrg };
+    const response = await requestDatasetPage(searchAPI, query, 0);
     const raw = (response.data || []).filter((item) => item.owner_org !== 'services');
     const total = totalOf(response);
     const offset = nextOffsetAfter(0, DATASET_PAGE, total);
     return {
       items: keepOnlyMine(raw, mine, hash),
       total,
-      next: offset === null ? null : { term, server: selectedServer, mine, hash, offset }
+      next: offset === null ? null : { ...query, mine, hash, offset }
     };
   };
 
   const loadMoreDatasets = async () => {
     if (!datasetNext || loadingMore) return;
     const requestId = searchRequestIdRef.current;
-    const { term, server: from, mine, hash, offset } = datasetNext;
+    const { mine, hash, offset } = datasetNext;
     setLoadingMore(true);
     setMoreError(null);
     try {
-      const response = await searchAPI.searchByTerms([term], null, from, {
-        offset,
-        limit: DATASET_PAGE
-      });
+      const response = await requestDatasetPage(searchAPI, datasetNext, offset);
       // A new search started meanwhile: this page belongs to the old one.
       if (requestId !== searchRequestIdRef.current) return;
       const raw = (response.data || []).filter((item) => item.owner_org !== 'services');
