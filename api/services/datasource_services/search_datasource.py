@@ -122,6 +122,10 @@ async def search_datasource_page(
             search_params.append(f"notes:{dataset_description}")
 
     fq_list = []
+    # With a search term the query is the term alone; the organization is
+    # still applied, as a filter query (#427).
+    if search_term and owner_org:
+        fq_list.append(f'organization:"{owner_org}"')
 
     query_string = " AND ".join(search_params) if search_params else "*:*"
 

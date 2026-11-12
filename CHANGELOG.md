@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.85] - 2026-11-12
+
+### Fixed
+- **`POST /search` keeps the organization when a search term is given** (#427). With `search_term` set, the query was the term alone and `owner_org` was ignored, so the Search page's organization filter listed other organizations' datasets once a term was typed (`{"owner_org": "opentopography", "search_term": "lidar"}` returned 985 datasets from the global catalog, 844 of them from `usgs-3dep`).
+  - The organization is now sent to the catalog as a filter query (`organization:"<name>"`) next to the term, so the paging and `X-Total-Count` count that organization only.
+  - `dataset_name`, `dataset_title` and `dataset_description` are still ignored with `search_term`, as documented.
+  - New tests in `tests/test_post_search_org_and_term.py`.
+
 ## [0.34.84] - 2026-11-11
 
 ### Changed

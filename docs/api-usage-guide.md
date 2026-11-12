@@ -517,8 +517,9 @@ optional: `dataset_name`, `dataset_title`, `owner_org`, `dataset_description`,
 `search_term` (comma-separated keywords; a dataset must match all of them),
 `filter_list` (list of `field:value`), `timestamp` (a value or range on the
 `timestamp` field) and `server` (`local`, `global` — the default — or
-`pre_ckan`). When `search_term` is given, `dataset_name`, `dataset_title`,
-`owner_org` and `dataset_description` are ignored.
+`pre_ckan`). When `search_term` is given, `dataset_name`, `dataset_title` and
+`dataset_description` are ignored; `owner_org` still limits the search to
+that organization (since 0.34.85; before, it was ignored too).
 
 Since 0.34.84 it pages like `GET /search`: the query parameters `offset`
 (default 0) and `limit` (1–1000, default 1000) choose which of the catalog's
