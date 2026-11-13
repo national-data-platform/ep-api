@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **One identity-provider setting, `KEYCLOAK_URL`.** The AAI API (`<KEYCLOAK_URL>/api`) and the realm (`<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`) are derived from it. `AUTH_API_URL` is still read when it is not set, keeping only its host. This also fixes username/password login and access-request approval, which were sent to paths that answer 404.
 - **Approving an access request** adds the user to `ndp_ep/<OIDC_SERVICE_CLIENT_ID>` at the tier's level (`viewer`, `editor` for writer, `admin`) with one `/group/add-user` call, sending a `/client/login` token for `OIDC_SERVICE_CLIENT_ID`/`OIDC_SERVICE_CLIENT_SECRET` as `X-Client-Assertion`.
 - **The installer** asks for the identity provider's host and writes `KEYCLOAK_URL`, and writes `OIDC_SERVICE_CLIENT_ID` and `AUTHZ_REALM` from the Federation registration when it names this Endpoint's own client.
+  - The host is chosen as since 0.34.83 (#365): `--auth-api-url`, then the remembered or typed value, then the Federation's `auth_api_url`, then the test identity provider for `--env test` (or the test Federation's URL), production otherwise. Only its host is written, and `KEYCLOAK_URL` is always written.
 - **`GET /status/`** reports `keycloak_url` instead of `auth_api_url`, and no longer `group_based_access`.
 
 - **Writing to S3 needs the Endpoint's `admin-area` gate.** Creating and deleting buckets, uploading, presigned upload URLs and deleting objects were open to editors; the routes that read (listing, metadata, download, presigned download) keep `editor-area`. Tests in `tests/test_minio_routes_auth.py`.
@@ -21,6 +22,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GROUP_NAMES` and `ENABLE_GROUP_BASED_ACCESS`: the group follows from `OIDC_SERVICE_CLIENT_ID`, and the entry check applies whenever it is set. `GROUP_NAMES` is still read when `OIDC_SERVICE_CLIENT_ID` is empty: an entry `ndp_ep/ep-<config-id>` gives `OIDC_SERVICE_CLIENT_ID=ep-<config-id>`, with a warning in the log, so an Endpoint installed before this release keeps its permissions after upgrading instead of answering 403 to everyone. New tests in `tests/test_client_from_group_names.py`.
 
 **Breaking:** without `OIDC_SERVICE_CLIENT_ID` every guarded route answers 403 and approval answers 503, as it does without `OIDC_SERVICE_CLIENT_SECRET`; an Endpoint registered before the Federation linked clients to groups needs its client linked first (the AAI's `tools/adopt_client.py`). Users who could write only through a realm role (`ndp_writer`, `group:<g>:writer`) are refused until they hold the editor or admin level.
+
+### Tests
+- **Two disabled test files run again** (#260): `tests/test_search_routes_get.py` (8 tests, `GET /search`) and `tests/test_metrics_organization.py` (6 tests). Both passed unchanged; they were only named `*.py.disabled`.
+  - `test_pelican_routes.py.disabled` and `test_update_kafka_datasource.py.disabled` stay disabled. They no longer pass: the Pelican routes now require authentication, and the Kafka tests patch a `ckan_settings` the service no longer has. Both areas are rewritten by #389, so they are left until it is merged.
+
+## [0.34.85] - 2026-11-12
+
+### Fixed
+- **`POST /search` keeps the organization when a search term is given** (#427). With `search_term` set, the query was the term alone and `owner_org` was ignored, so the Search page's organization filter listed other organizations' datasets once a term was typed (`{"owner_org": "opentopography", "search_term": "lidar"}` returned 985 datasets from the global catalog, 844 of them from `usgs-3dep`).
+  - The organization is now sent to the catalog as a filter query (`organization:"<name>"`) next to the term, so the paging and `X-Total-Count` count that organization only.
+  - `dataset_name`, `dataset_title` and `dataset_description` are still ignored with `search_term`, as documented.
+  - New tests in `tests/test_post_search_org_and_term.py`.
+
+## [0.34.84] - 2026-11-11
+
+### Changed
+- **`POST /search` asks the catalog for 100 datasets at a time and returns at most 1000 per response** (#424). It asked for 1000 full datasets per request, the size that hit the global catalog's 15 s timeout in #402, and kept asking until nothing came back, so a broad search read and returned every match at once.
+  - It takes the same `offset` and `limit` (1–1000, default 1000) query parameters as `GET /search` (#420), and reports the catalog's number of matches in `X-Total-Count`.
+  - Both count the catalog's matches before the resource fields and `search_term` are checked, so a page can hold fewer than `limit` datasets.
+  - A client that needs more than 1000 matches now pages through them, the Python library's `advanced_search` included.
+  - The body and its fields are unchanged. New service function `search_datasource_page` returns the page and the total.
+- **The Search page pages the organization filter too.** It shows the first 100 datasets of the organization, "Showing N of M", and Load more (`requestDatasetPage` in `services/searchPaging.js`). The services list keeps one request.
+  - New tests in `tests/test_post_search_paging.py` and `ui/src/services/searchPaging.test.js`.
+
+## [0.34.83] - 2026-11-11
+
+### Fixed
+- **Endpoints installed for the test platform, or another one, check tokens with that platform's identity provider** (#365, with the cause Saleem Alharir added). `AUTH_API_URL` always stayed on production, so such an Endpoint refused every token from its own platform.
+  - `--env test` (what the test platform's create-endpoint page sends) now gives `https://idp-test.nationaldataplatform.org/temp/information`, also when `--federation-url` is given.
+  - The prompt offers the remembered AAI, or that of `--env`, instead of always production.
+  - The `auth_api_url` the Federation returns with the configuration (sci-ndp/ndp-federation#134) is used when nothing else names one; Enter on the offered fallback lets it apply.
+  - `AUTH_API_URL` is always written, so a re-run cannot fall back to `example.env`'s production default.
+
+### Added
+- **`--auth-api-url <url>`**, so unattended runs can set it. It wins over the remembered and Federation values.
+  - New tests in `install/tests/test_aai_url_default.py`.
 
 ## [0.34.82] - 2026-11-10
 

@@ -148,6 +148,10 @@ The `roles` and `groups` the AAI API returns are shown by `/user/info` but
 its host is used.
 **Where:** your NDP/AAI administrator. For the central platform use the default;
 for a self-hosted one, its host.
+The installer always writes it: `--auth-api-url`, else the remembered or typed
+value, else the Federation's `auth_api_url`, else the test identity provider for
+`--env test` and production otherwise, keeping only the host (see
+[install/README.md](../install/README.md)).
 
 #### `OIDC_SERVICE_CLIENT_ID`
 *Required for any guarded route · default: empty.*

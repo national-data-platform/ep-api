@@ -147,6 +147,9 @@ fi
 REPO_ROOT="$_here"
 FEDERATION_URL_DEFAULT="https://federation.ndp.utah.edu"
 FEDERATION_URL_TEST="https://federation.ndp.utah.edu/test"
+# The identity providers matching each Federation (issue #365).
+IDP_URL_DEFAULT="https://idp.nationaldataplatform.org"
+IDP_URL_TEST="https://idp-test.nationaldataplatform.org"
 
 CKAN_REPO_DEFAULT="https://github.com/sci-ndp/pop-ckan-docker.git"
 
@@ -157,6 +160,10 @@ federation_url="$FEDERATION_URL_DEFAULT"
 # in this order (issue #285).
 federation_url_explicit="false"
 federation_env=""
+# The identity provider (KEYCLOAK_URL). Empty until something names one:
+# --auth-api-url, the remembered settings or the prompt. Otherwise the
+# Federation's auth_api_url, then the identity provider of --env (issue #365).
+idp_url=""
 # The lightest Endpoint there is: no catalog to install, nothing to store, and
 # every optional integration off. It authenticates users, searches the
 # platform's global catalog and reports to the Federation. Asking for MongoDB
@@ -318,7 +325,14 @@ Options:
   --env prod|test         Pick the Federation by name instead of by URL.
                           prod: $FEDERATION_URL_DEFAULT
                           test: $FEDERATION_URL_TEST
-                          Ignored when --federation-url is given.
+                          Ignored when --federation-url is given, except
+                          that test still picks the test identity provider.
+  --auth-api-url <url>    Identity provider the Endpoint checks tokens with
+                          (only its host is kept, so an AAI .../information
+                          URL works too). Default: the remembered one, else
+                          the one the Federation names, else that of --env:
+                          prod: $IDP_URL_DEFAULT
+                          test: $IDP_URL_TEST
   --backend <name>        Local catalog backend: none | mongodb | ckan.
                           Default: none
   --ep-api-port <port>    Host port to publish the API on. Default: 8002
@@ -448,6 +462,7 @@ while [[ $# -gt 0 ]]; do
                        federation_url="${2:-}"
                        federation_url_explicit="true"; shift 2 ;;
     --env)             federation_env="${2:-}"; shift 2 ;;
+    --auth-api-url)    idp_url="${2:-}"; cli_given+="idp_url "; shift 2 ;;
     --backend)         backend="${2:-}"; cli_given+="backend "; shift 2 ;;
     --mongodb-url)     mongodb_url="${2:-}"; cli_given+="mongodb_url "; shift 2 ;;
     --ckan-url)        ckan_url="${2:-}"; cli_given+="ckan_url "; shift 2 ;;
@@ -872,6 +887,20 @@ compose_stalled() {
 # (docker exec without a tty) every answer falls back to its default, so
 # automation never hangs waiting for input that will not come.
 interactive() { [[ -t 0 && "$assume_yes" != "true" ]]; }
+
+# The identity provider that goes with the Federation: the test one for
+# --env test or the test Federation's URL, production otherwise (#365).
+default_idp_url() {
+  if [[ "$federation_env" == "test" || "${federation_url%/}" == "$FEDERATION_URL_TEST" ]]; then
+    echo "$IDP_URL_TEST"
+  else
+    echo "$IDP_URL_DEFAULT"
+  fi
+}
+
+# Only the host: the AAI API (/api) and the realm (/realms/...) are paths on
+# it, and a remembered or Federation value may be an old /temp/information URL.
+idp_host() { printf '%s' "$1" | sed -E 's#^([A-Za-z]+://[^/]+).*#\1#'; }
 
 ask() {
   # ask VARIABLE "Question" "default"
@@ -1603,7 +1632,6 @@ save_remembered_settings() {
 # terminal, ask rather than silently installing a demo nobody asked for.
 organization=""
 ep_name=""
-idp_url=""
 
 # Asked whether or not there is a configuration id. A registration answers
 # eleven things; none of them is the catalog, object storage, access requests
@@ -1765,10 +1793,18 @@ if interactive; then
     ask ckan_sysadmin  "CKAN sysadmin to create" "ckan_admin"
   fi
 
+  # Offered: what the command line or the remembered settings said, else the
+  # identity provider of --env. Enter on that fallback leaves the choice open,
+  # so the identity provider the Federation names for this Endpoint, if any,
+  # still applies (issue #365).
+  idp_fallback="$(default_idp_url)"
   section "Identity provider" \
     "The host of the Keycloak and AAI API the Endpoint signs users in and" \
-    "asks permissions of. Keep the default for the National Data Platform."
-  ask idp_url "Identity provider URL" "https://idp.nationaldataplatform.org"
+    "asks permissions of. Keep the default for the National Data Platform." \
+    "If the Federation names one for this Endpoint, Enter on ${idp_fallback} takes that one."
+  idp_named="$idp_url"
+  ask idp_url "Identity provider URL" "${idp_url:-$idp_fallback}"
+  [[ -n "$idp_named" || "$idp_url" != "$idp_fallback" ]] || idp_url=""
 
   section "Access requests" \
     "A self-service workflow: someone without access to this Endpoint asks" \
@@ -1916,6 +1952,8 @@ emit("fed_public", "true" if truthy(cfg.get("public")) else "false")
 emit("fed_netbird_url", cfg.get("netbird_management_url") or "")
 emit("fed_affinities_url", cfg.get("affinities_url") or "")
 emit("fed_affinities_uid", cfg.get("affinities_uid") or "")
+# The AAI of the Federation's deployment (sci-ndp/ndp-federation#134).
+emit("fed_auth_api_url", cfg.get("auth_api_url") or "")
 PY
 )"
 
@@ -2356,10 +2394,17 @@ step "Selecting the local catalog backend"
 # has already set organization and name, so these only fill in what it did not.
 [[ -n "$organization" ]]  && put ORGANIZATION "$organization"
 [[ -n "$ep_name" ]]       && put EP_NAME "$ep_name"
-# Only the host: the AAI API (/api) and the realm (/realms/...) are paths on it,
-# and a remembered value may still be the old /temp/information URL.
-idp_url="$(printf '%s' "$idp_url" | sed -E 's#^([A-Za-z]+://[^/]+).*#\1#')"
-[[ -n "$idp_url" ]]       && put KEYCLOAK_URL "$idp_url"
+# Named on the command line, remembered or typed, else the Federation's, else
+# that of --env (issue #365). Always written: example.env's default is
+# production, which an Endpoint of another platform must not fall back to.
+if [[ -n "$idp_url" ]]; then
+  put KEYCLOAK_URL "$(idp_host "$idp_url")"
+elif [[ -n "${fed_auth_api_url:-}" ]]; then
+  put KEYCLOAK_URL "$(idp_host "$fed_auth_api_url")"
+  ok "Identity provider from the Federation: $(idp_host "$fed_auth_api_url")"
+else
+  put KEYCLOAK_URL "$(default_idp_url)"
+fi
 
 # The platform's global catalog (issue #413). Kept in the install state, so a
 # re-run searches the same one; left out, the Endpoint's own default
