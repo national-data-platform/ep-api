@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v0.34.82   # the release to install
+V=v0.34.85   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]
@@ -71,6 +71,15 @@ where registering creates a real Keycloak client; the installer says so before
 asking. `--env test` selects `https://federation.ndp.utah.edu/test`, and
 `--federation-url` any other. The URL in use is printed at the start of every
 run.
+
+The Endpoint checks tokens with the identity provider of the same platform.
+`KEYCLOAK_URL` (its host) is, first to last: `--auth-api-url`; the remembered
+one, or the one typed at the prompt; the `auth_api_url` the Federation returns
+with the configuration (sci-ndp/ndp-federation#134); the test identity
+provider (`https://idp-test.nationaldataplatform.org`) with `--env test` or the
+test Federation's URL; production otherwise. Only the host is kept, so an old
+`…/temp/information` URL works too. At the prompt, Enter on the offered
+fallback lets the Federation's identity provider apply.
 
 From the registration the installer sets:
 
@@ -121,7 +130,7 @@ question is preceded by a short explanation, omitted here):
           Endpoint name [my_endpoint]:
 
   Port to publish the Endpoint on [8002]:
-  Authentication service (AAI) URL [https://idp.nationaldataplatform.org/temp/information]:
+  Identity provider URL [https://idp.nationaldataplatform.org]:
   Enable access requests? [y/N]:
 ```
 
@@ -269,7 +278,8 @@ off, and is remembered; without the id it stays off.
 |---|---|
 | `--config-id <id>` | Federation configuration id (`--config_id` is accepted too) |
 | `--federation-url <url>` | default `https://federation.ndp.utah.edu` (`--federation_url` is accepted too) |
-| `--env prod\|test` | pick the Federation by name; ignored when `--federation-url` is given |
+| `--env prod\|test` | pick the Federation by name; ignored when `--federation-url` is given, except that `test` still picks the test identity provider |
+| `--auth-api-url <url>` | identity provider the Endpoint checks tokens with (only its host is kept); see above for the default |
 | `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--mongodb-url <url>` | use this existing MongoDB instead of starting one |
 | `--ep-api-port <port>` | host port for the Endpoint, default `8002` |

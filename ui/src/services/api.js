@@ -256,9 +256,11 @@ export const searchAPI = {
     return apiClient.get(url);
   },
   
-  searchAdvanced: (searchData) => {
+  // page = { offset, limit }: one page of the catalog's matches, whose
+  // number comes back in X-Total-Count (issue #424).
+  searchAdvanced: (searchData, page = null) => {
     console.log('searchAdvanced called with:', searchData); // Debug log
-    return apiClient.post('/search', searchData);
+    return apiClient.post('/search', searchData, page ? { params: page } : undefined);
   },
 };
 

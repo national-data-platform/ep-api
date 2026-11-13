@@ -1,4 +1,10 @@
-import { appendNew, DATASET_PAGE, nextOffsetAfter, totalOf } from './searchPaging';
+import {
+  appendNew,
+  DATASET_PAGE,
+  nextOffsetAfter,
+  requestDatasetPage,
+  totalOf
+} from './searchPaging';
 
 describe('totalOf', () => {
   test('reads the number of matches from X-Total-Count', () => {
@@ -30,5 +36,50 @@ describe('appendNew', () => {
   test('adds a page without repeating what is shown', () => {
     const shown = [{ id: 'a' }, { id: 'b' }];
     expect(appendNew(shown, [{ id: 'b' }, { id: 'c' }]).map((d) => d.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+// The organization filter pages too (issue #424): POST /search takes the
+// same offset and limit as GET /search.
+describe('requestDatasetPage', () => {
+  const fakeSearchAPI = () => {
+    const calls = [];
+    return {
+      calls,
+      searchByTerms: (...args) => {
+        calls.push(['terms', ...args]);
+        return Promise.resolve('terms');
+      },
+      searchAdvanced: (...args) => {
+        calls.push(['advanced', ...args]);
+        return Promise.resolve('advanced');
+      }
+    };
+  };
+
+  test('a term search asks GET /search for the page', async () => {
+    const api = fakeSearchAPI();
+    await requestDatasetPage(api, { term: 'gnss', server: 'global', ownerOrg: '' }, 200);
+    expect(api.calls).toEqual([
+      ['terms', ['gnss'], null, 'global', { offset: 200, limit: DATASET_PAGE }]
+    ]);
+  });
+
+  test('an organization search asks POST /search for the page', async () => {
+    const api = fakeSearchAPI();
+    await requestDatasetPage(api, { term: 'water', server: 'local', ownerOrg: 'big-org' }, 100);
+    expect(api.calls).toEqual([
+      [
+        'advanced',
+        { owner_org: 'big-org', search_term: 'water', server: 'local' },
+        { offset: 100, limit: DATASET_PAGE }
+      ]
+    ]);
+  });
+
+  test('an organization search without a term sends no search_term', async () => {
+    const api = fakeSearchAPI();
+    await requestDatasetPage(api, { term: '', server: 'local', ownerOrg: 'big-org' }, 0);
+    expect(api.calls[0][1]).toEqual({ owner_org: 'big-org', search_term: undefined, server: 'local' });
   });
 });

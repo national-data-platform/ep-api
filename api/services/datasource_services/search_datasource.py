@@ -1,11 +1,15 @@
 # api/services/datasource_services/search_datasource.py
 import json
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from ckanapi import NotFound
 
 from api.config.catalog_settings import catalog_settings
 from api.models import DataSourceResponse, Resource
+from api.services.datasource_services.search_datasets_by_terms import (
+    MAX_DATASETS,
+    _search_pages,
+)
 
 
 def tstamp_to_query(timestamp):
@@ -47,7 +51,19 @@ def tstamp_to_query(timestamp):
     return (fq, count_max, sort)
 
 
-async def search_datasource(
+async def search_datasource(**kwargs) -> List[DataSourceResponse]:
+    """
+    Search datasets by registration fields: the first ``MAX_DATASETS``
+    catalog matches.
+
+    See ``search_datasource_page`` for the parameters; this is it with
+    ``offset=0`` and ``limit=MAX_DATASETS``, without the total.
+    """
+    results, _ = await search_datasource_page(**kwargs)
+    return results
+
+
+async def search_datasource_page(
     dataset_name: Optional[str] = None,
     dataset_title: Optional[str] = None,
     owner_org: Optional[str] = None,
@@ -60,7 +76,23 @@ async def search_datasource(
     filter_list: Optional[list[str]] = None,
     timestamp: Optional[str] = None,
     server: Optional[str] = "local",
-) -> List[DataSourceResponse]:
+    offset: int = 0,
+    limit: int = MAX_DATASETS,
+) -> Tuple[List[DataSourceResponse], Optional[int]]:
+    """
+    Search datasets by registration fields, one page of catalog matches.
+
+    The catalog is asked for at most 100 datasets per request (issue #424;
+    1000 at once hit the global catalog's timeout in #402). ``offset`` and
+    ``limit`` count the catalog's matches: the resource and keyword filters
+    applied afterwards can leave fewer than ``limit`` in the page.
+
+    Returns
+    -------
+    tuple
+        The matching datasets, and the catalog's number of matches before
+        those filters (``None`` when the catalog does not say).
+    """
     if server not in ["local", "global", "pre_ckan"]:
         raise Exception("Invalid server. Use 'local', 'global', or 'pre_ckan'.")
 
@@ -90,6 +122,10 @@ async def search_datasource(
             search_params.append(f"notes:{dataset_description}")
 
     fq_list = []
+    # With a search term the query is the term alone; the organization is
+    # still applied, as a filter query (#427).
+    if search_term and owner_org:
+        fq_list.append(f'organization:"{owner_org}"')
 
     query_string = " AND ".join(search_params) if search_params else "*:*"
 
@@ -99,39 +135,22 @@ async def search_datasource(
         fq_tstamp, count_max, sort = tstamp_to_query(timestamp)
         fq_list.append(fq_tstamp)
 
-    rows = 1000
-    if count_max and count_max < rows:
-        rows = count_max
+    # A nearest-in-time search wants a single dataset.
+    if count_max:
+        limit = min(limit, count_max)
+    extra = {"fq_list": fq_list}
+    if sort:
+        extra["sort"] = sort
 
     try:
-        start = 0
-        datasets = None
-        while True:
-            data_dict = {
-                "q": query_string,
-                "fq_list": fq_list,
-                "rows": rows,
-                "start": start,
-            }
-            if sort:
-                data_dict["sort"] = sort
-            results = repository.package_search(**data_dict)
-            if results and results["results"]:
-                if datasets:
-                    datasets["results"].extend(results["results"])
-                else:
-                    datasets = results
-            else:
-                if not datasets:
-                    datasets = results
-                break
-            start = start + len(results["results"])
-            if count_max and start >= count_max:
-                break
+        found = {}
+        datasets = list(
+            _search_pages(repository, query_string, offset, limit, found, **extra)
+        )
 
         results = []
 
-        for dataset in datasets["results"]:
+        for dataset in datasets:
             matching_resources = []
             for resource in dataset.get("resources", []):
                 # Ensure that the resource matches all provided filter
@@ -203,10 +222,10 @@ async def search_datasource(
                 if stream_matches_keywords(dataset, keywords_list)
             ]
 
-        return results
+        return results, found.get("count")
 
     except NotFound:
-        return []
+        return [], 0
     except Exception as e:
         raise Exception(f"Error searching for datasets: {str(e)}")
 

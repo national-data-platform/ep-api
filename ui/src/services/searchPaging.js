@@ -26,3 +26,17 @@ export const appendNew = (shown, page) => {
   const seen = new Set(shown.map((item) => item.id));
   return [...shown, ...page.filter((item) => !seen.has(item.id))];
 };
+
+// Ask for one page of datasets (issue #424): POST /search when an
+// organization is selected, GET /search otherwise. Both take offset and limit
+// and report X-Total-Count. searchAPI is passed in so this can be tested.
+export const requestDatasetPage = (searchAPI, { term, server, ownerOrg }, offset) => {
+  const page = { offset, limit: DATASET_PAGE };
+  if (ownerOrg) {
+    return searchAPI.searchAdvanced(
+      { owner_org: ownerOrg, search_term: term || undefined, server },
+      page
+    );
+  }
+  return searchAPI.searchByTerms([term], null, server, page);
+};

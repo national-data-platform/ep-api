@@ -319,6 +319,7 @@ def _search_pages(
     offset: int = 0,
     limit: int = MAX_DATASETS,
     found: Optional[dict] = None,
+    **search_params,
 ):
     """
     Yield the datasets matching a query, one page of results at a time.
@@ -335,6 +336,9 @@ def _search_pages(
         How many matches to return at most.
     found : dict, optional
         Receives ``count``, the catalog's number of matches, when it says.
+    **search_params
+        Further ``package_search`` parameters (``fq_list``, ``sort``), sent
+        with every page.
 
     Yields
     ------
@@ -346,7 +350,9 @@ def _search_pages(
     end = offset + limit
     while start < end:
         rows = min(PAGE_SIZE, end - start)
-        page = repository.package_search(q=query_string, rows=rows, start=start)
+        page = repository.package_search(
+            q=query_string, rows=rows, start=start, **search_params
+        )
         results = page.get("results", [])
         count = page.get("count")
         if found is not None and count is not None:
