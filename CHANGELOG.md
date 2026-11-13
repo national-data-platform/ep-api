@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests
+- **Two disabled test files run again** (#260): `tests/test_search_routes_get.py` (8 tests, `GET /search`) and `tests/test_metrics_organization.py` (6 tests). Both passed unchanged; they were only named `*.py.disabled`.
+  - `test_pelican_routes.py.disabled` and `test_update_kafka_datasource.py.disabled` stay disabled. They no longer pass: the Pelican routes now require authentication, and the Kafka tests patch a `ckan_settings` the service no longer has. Both areas are rewritten by #389, so they are left until it is merged.
+
 ## [0.34.85] - 2026-11-12
 
 ### Fixed
