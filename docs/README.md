@@ -44,8 +44,8 @@ People who install, configure and run an Endpoint.
   where state lives, upgrading, several Endpoints on one host, backup, logs,
   health, common problems and a
   production security checklist.
-- [roles-and-permissions.md](roles-and-permissions.md) — the role tiers, how
-  roles reach the token and how to grant them.
+- [roles-and-permissions.md](roles-and-permissions.md) — the tiers, how
+  Keycloak decides them and how to grant them.
 - [affinities-integration.md](affinities-integration.md) — enabling the
   optional Affinities registration of datasets and services.
 - [minio-setup.md](minio-setup.md) — setting up S3-compatible storage, with

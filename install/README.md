@@ -54,8 +54,7 @@ Federation. A walk-through for operators is in
 
 Without a configuration id, an interactive run offers to register the Endpoint.
 Registration (`POST /ep/simple` on the Federation) creates this Endpoint's
-**Keycloak client and group**, which is what the group-based access control is
-keyed on. It also fetches a staging-catalog token and registers the Endpoint in
+**Keycloak client and group**, whose permission gates decide who may read, write and administer it. It also fetches a staging-catalog token and registers the Endpoint in
 Affinities.
 
 It needs your NDP access token, from your user panel on the platform. The user
@@ -73,20 +72,21 @@ asking. `--env test` selects `https://federation.ndp.utah.edu/test`, and
 `--federation-url` any other. The URL in use is printed at the start of every
 run.
 
-The Endpoint checks tokens with the authentication service (AAI) of the same
-platform. `AUTH_API_URL` is, first to last: `--auth-api-url`; the remembered
+The Endpoint checks tokens with the identity provider of the same platform.
+`KEYCLOAK_URL` (its host) is, first to last: `--auth-api-url`; the remembered
 one, or the one typed at the prompt; the `auth_api_url` the Federation returns
 with the configuration (sci-ndp/ndp-federation#134); the test identity
-provider (`https://idp-test.nationaldataplatform.org/temp/information`) with
-`--env test` or the test Federation's URL; production otherwise. At the prompt,
-Enter on the offered fallback lets the Federation's AAI apply.
+provider (`https://idp-test.nationaldataplatform.org`) with `--env test` or the
+test Federation's URL; production otherwise. Only the host is kept, so an old
+`…/temp/information` URL works too. At the prompt, Enter on the offered
+fallback lets the Federation's identity provider apply.
 
 From the registration the installer sets:
 
 | Registration field | `.env` |
 |---|---|
 | organization, endpoint name | `ORGANIZATION`, `EP_NAME` |
-| group | `ENABLE_GROUP_BASED_ACCESS=True`, `GROUP_NAMES=<group>` |
+| Keycloak client and realm | `OIDC_SERVICE_CLIENT_ID=ep-<config-id>`, `AUTHZ_REALM` (only when the client is this Endpoint's own) |
 | streaming | `KAFKA_CONNECTION=True` and the `kafka` compose profile |
 | JupyterHub | `USE_JUPYTERLAB=True`, `JUPYTER_URL` |
 | staging catalog URL and key | `PRE_CKAN_ENABLED=True`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY`, `PRE_CKAN_ORGANIZATION=ep-<config-id>` |
@@ -130,7 +130,7 @@ question is preceded by a short explanation, omitted here):
           Endpoint name [my_endpoint]:
 
   Port to publish the Endpoint on [8002]:
-  Authentication service (AAI) URL [https://idp.nationaldataplatform.org/temp/information]:
+  Identity provider URL [https://idp.nationaldataplatform.org]:
   Enable access requests? [y/N]:
 ```
 
@@ -181,8 +181,8 @@ screen, and an administrator approves or rejects it from the UI. Requests are
 stored in MongoDB, read through `MONGODB_CONNECTION_STRING`, whatever the
 catalog is — so answering yes (or `--access-requests`) also starts the bundled
 MongoDB unless the catalog already provides one, and points the Endpoint at it.
-Approval grants membership of the first `GROUP_NAMES` entry, which for a
-registered Endpoint is the group the Federation created for it.
+Approval grants membership of the group the Federation created with the
+Endpoint's client, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`.
 
 The `mongo-express` administration console in the compose file has its own
 profile and is never started by the installer — it exposes the whole database
@@ -279,7 +279,7 @@ off, and is remembered; without the id it stays off.
 | `--config-id <id>` | Federation configuration id (`--config_id` is accepted too) |
 | `--federation-url <url>` | default `https://federation.ndp.utah.edu` (`--federation_url` is accepted too) |
 | `--env prod\|test` | pick the Federation by name; ignored when `--federation-url` is given, except that `test` still picks the test identity provider |
-| `--auth-api-url <url>` | authentication service (AAI) the Endpoint checks tokens with; see above for the default |
+| `--auth-api-url <url>` | identity provider the Endpoint checks tokens with (only its host is kept); see above for the default |
 | `--backend none\|mongodb\|ckan` | local catalog backend, default `none` |
 | `--mongodb-url <url>` | use this existing MongoDB instead of starting one |
 | `--ep-api-port <port>` | host port for the Endpoint, default `8002` |
@@ -519,10 +519,11 @@ are what gets tested.
   started.
 - **Identity-provider sign-in is not offered**, and the installer leaves
   `OIDC_ENABLED=False`. The client a registration creates is confidential, so
-  the browser's code exchange is refused, and its tokens carry no `sub` claim,
-  which `AUTH_API_URL` looks the user up by. The installer keeps that client
-  as the Endpoint's service client instead (`OIDC_SERVICE_CLIENT_ID` and
-  `OIDC_SERVICE_CLIENT_SECRET`, the secret never printed), and leaves
+  the browser's code exchange (PKCE, which needs a public client) is refused,
+  and its tokens carry no `sub` claim, which the AAI API looks the user up by.
+  The installer keeps it as the Endpoint's service client instead
+  (`OIDC_SERVICE_CLIENT_ID`, whose gates decide permissions, and
+  `OIDC_SERVICE_CLIENT_SECRET`, never printed), and leaves
   `OIDC_CLIENT_ID` alone. A deployment with a working public client can switch
   sign-in on by hand. See [docs/configuration.md](../docs/configuration.md).
 - **The JupyterHub and Kafka installs of the old NDP-EP `setup.sh` are not

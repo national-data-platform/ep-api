@@ -30,10 +30,7 @@ from api.services.pelican_services.event_subscription import (
     load_config,
 )
 from api.services.pelican_services.import_metadata import import_file_as_resource
-from api.services.auth_services import (
-    get_user_for_read_operation,
-    get_user_for_write_operation,
-)
+from api.services.auth_services import ep_editor_gate, ep_viewer_gate
 import json
 import logging
 import os
@@ -52,7 +49,7 @@ DEFAULT_MAX_READ_BYTES = 10 * 1024 * 1024
 router = APIRouter(
     prefix="/pelican",
     tags=["Pelican Federation"],
-    dependencies=[Depends(get_user_for_read_operation)],
+    dependencies=[Depends(ep_viewer_gate)],
 )
 
 
@@ -491,7 +488,7 @@ async def list_subscriptions():
 @router.post("/import-metadata")
 async def import_metadata(
     request: ImportMetadataRequest,
-    _user=Depends(get_user_for_write_operation),
+    _user=Depends(ep_editor_gate),
 ):
     """
     Import a Pelican file as a resource in the local catalog.

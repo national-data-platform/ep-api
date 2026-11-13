@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from api.main import app
-from api.services.auth_services import get_current_user, require_admin
+from api.services.auth_services import ep_admin_gate, get_current_user
 
 client = TestClient(app)
 
@@ -83,7 +83,7 @@ class TestCreateAccessRequest:
 
 class TestListAccessRequests:
     def setup_method(self):
-        app.dependency_overrides[require_admin] = lambda: {
+        app.dependency_overrides[ep_admin_gate] = lambda: {
             "sub": "admin-sub",
             "username": "raul",
             "roles": ["ndp_admin"],
@@ -114,11 +114,11 @@ class TestListAccessRequests:
         assert response.status_code == 422
 
     def test_non_admin_gets_403(self):
-        # Simulate require_admin raising a 403 like real life
+        # Simulate ep_admin_gate raising a 403 like real life
         def deny():
             raise HTTPException(status_code=403, detail="Administrator role required.")
 
-        app.dependency_overrides[require_admin] = deny
+        app.dependency_overrides[ep_admin_gate] = deny
 
         response = client.get(
             "/user/access-requests",
@@ -129,7 +129,7 @@ class TestListAccessRequests:
 
 class TestApproveAccessRequest:
     def setup_method(self):
-        app.dependency_overrides[require_admin] = lambda: {
+        app.dependency_overrides[ep_admin_gate] = lambda: {
             "sub": "admin-sub",
             "username": "raul",
             "roles": ["ndp_admin"],
@@ -181,7 +181,7 @@ class TestApproveAccessRequest:
 
 class TestRejectAccessRequest:
     def setup_method(self):
-        app.dependency_overrides[require_admin] = lambda: {
+        app.dependency_overrides[ep_admin_gate] = lambda: {
             "sub": "admin-sub",
             "username": "raul",
             "roles": ["ndp_admin"],

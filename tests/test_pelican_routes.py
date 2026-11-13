@@ -5,7 +5,6 @@ import pytest
 from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 
-from api.config.affinities_settings import affinities_settings
 from api.config.swagger_settings import swagger_settings
 
 
@@ -161,56 +160,49 @@ class TestPelicanRoutesAuthorization:
     """
     The Pelican routes shipped without any authentication (issue #261), so
     these tests pin the gate down: no anonymous access, no access without a
-    role, and the write route demands more than the read routes.
+    level on the Endpoint, and the write route demands more than the read
+    routes. Keycloak decides; the ``keycloak`` fixture stands in for it.
     """
 
     @pytest.fixture(autouse=True)
-    def _group_based_access_off(self):
-        """
-        Pin group-based access off rather than inherit it from ``.env``.
-
-        With it on, the dependencies check group membership before roles,
-        and the simulated users belong to no group — so these tests failed
-        on any machine that enabled it, while passing in CI (issue #268).
-        The group branch is covered explicitly further down instead.
-        """
-        with patch.object(swagger_settings, "enable_group_based_access", False):
-            yield
+    def _keycloak(self, keycloak):
+        self.keycloak = keycloak
 
     @staticmethod
-    def _client():
+    def _client(token="user-token"):
         """Mount the Pelican router on a bare app, independent of
-        ``PELICAN_ENABLED`` and of the rest of the application."""
+        ``PELICAN_ENABLED`` and of the rest of the application, signed in
+        as a user the AAI API knows unless ``token`` is None."""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
         from api.routes.pelican_routes import router
+        from api.services.auth_services import get_current_user
 
         app = FastAPI()
         app.include_router(router)
-        return app, TestClient(app)
-
-    @staticmethod
-    def _as(roles):
-        """Build a ``get_current_user`` override for a user with ``roles``."""
-        return lambda: {
-            "roles": roles,
+        if token is None:
+            return TestClient(app)
+        app.dependency_overrides[get_current_user] = lambda: {
+            "roles": [],
             "groups": [],
             "sub": "test_user",
             "username": "Test User",
         }
+        return TestClient(app, headers={"Authorization": f"Bearer {token}"})
 
     def test_read_route_rejects_anonymous_caller(self):
         """A request with no Authorization header never reaches the route."""
-        _app, client = self._client()
+        client = self._client(token=None)
 
         response = client.get("/pelican/federations")
 
         assert response.status_code == 401
+        assert self.keycloak.asked == []
 
     @patch("api.routes.pelican_routes.browse_namespace")
     def test_browse_rejects_anonymous_caller(self, mock_browse):
         """Browsing is refused before the federation is contacted."""
-        _app, client = self._client()
+        client = self._client(token=None)
 
         response = client.get("/pelican/browse", params={"path": "/public"})
 
@@ -220,36 +212,25 @@ class TestPelicanRoutesAuthorization:
     @patch("api.routes.pelican_routes.download_file")
     def test_download_rejects_anonymous_caller(self, mock_download):
         """Downloading is refused before any byte leaves the federation."""
-        _app, client = self._client()
+        client = self._client(token=None)
 
         response = client.get("/pelican/download", params={"path": "/public/f.txt"})
 
         assert response.status_code == 401
         mock_download.assert_not_called()
 
-    def test_read_route_rejects_user_without_role(self):
-        """An authenticated user with no role tier still gets 403."""
-        from api.services.auth_services import get_current_user
-
-        app, client = self._client()
-        app.dependency_overrides[get_current_user] = self._as([])
-        try:
-            response = client.get("/pelican/federations")
-        finally:
-            app.dependency_overrides.clear()
+    def test_read_route_rejects_user_without_level(self):
+        """An authenticated user Keycloak grants nothing still gets 403."""
+        response = self._client().get("/pelican/federations")
 
         assert response.status_code == 403
+        assert self.keycloak.asked == [("user-token", "viewer-area")]
 
     def test_read_route_allows_viewer(self):
         """A viewer may read: the gate is authorization, not a blanket block."""
-        from api.services.auth_services import get_current_user
+        self.keycloak.grant("viewer")
 
-        app, client = self._client()
-        app.dependency_overrides[get_current_user] = self._as(["ndp_viewer"])
-        try:
-            response = client.get("/pelican/federations")
-        finally:
-            app.dependency_overrides.clear()
+        response = self._client().get("/pelican/federations")
 
         assert response.status_code == 200
         assert response.json()["success"] is True
@@ -257,76 +238,43 @@ class TestPelicanRoutesAuthorization:
     @patch("api.routes.pelican_routes.import_file_as_resource")
     def test_import_metadata_rejects_viewer(self, mock_import):
         """The write route is stricter than the read gate it sits behind."""
-        from api.services.auth_services import get_current_user
+        self.keycloak.grant("viewer")
 
-        app, client = self._client()
-        app.dependency_overrides[get_current_user] = self._as(["ndp_viewer"])
-        try:
-            response = client.post(
-                "/pelican/import-metadata",
-                json={
-                    "pelican_url": "pelican://osg-htc.org/public/f.txt",
-                    "package_id": "pkg-1",
-                },
-            )
-        finally:
-            app.dependency_overrides.clear()
+        response = self._client().post(
+            "/pelican/import-metadata",
+            json={
+                "pelican_url": "pelican://osg-htc.org/public/f.txt",
+                "package_id": "pkg-1",
+            },
+        )
 
         assert response.status_code == 403
         mock_import.assert_not_called()
 
     @patch("api.routes.pelican_routes.get_pelican_repo")
     @patch("api.routes.pelican_routes.import_file_as_resource")
-    def test_import_metadata_allows_writer(self, mock_import, mock_get_repo):
-        """A writer reaches the route body."""
-        from api.services.auth_services import get_current_user
-
+    def test_import_metadata_allows_editor(self, mock_import, mock_get_repo):
+        """An editor reaches the route body."""
         mock_get_repo.return_value = MagicMock()
         mock_import.return_value = {"success": True, "id": "res-1"}
+        self.keycloak.grant("editor")
 
-        app, client = self._client()
-        app.dependency_overrides[get_current_user] = self._as(["ndp_editor"])
-        try:
-            response = client.post(
-                "/pelican/import-metadata",
-                json={
-                    "pelican_url": "pelican://osg-htc.org/public/f.txt",
-                    "package_id": "pkg-1",
-                },
-            )
-        finally:
-            app.dependency_overrides.clear()
+        response = self._client().post(
+            "/pelican/import-metadata",
+            json={
+                "pelican_url": "pelican://osg-htc.org/public/f.txt",
+                "package_id": "pkg-1",
+            },
+        )
 
         assert response.status_code == 200
         mock_import.assert_called_once()
 
-    @pytest.mark.parametrize(
-        "groups,expected_status",
-        [([], 403), (["/pelican-readers"], 200)],
-    )
-    def test_group_based_access_gates_the_read_routes(self, groups, expected_status):
-        """
-        With group-based access on, a viewer outside the configured groups
-        is refused and one inside is let through. Covered on purpose here,
-        since the other tests pin the feature off.
-        """
-        from api.services.auth_services import get_current_user
+    @pytest.mark.parametrize("level,expected_status", [(None, 403), ("viewer", 200)])
+    def test_the_viewer_gate_decides(self, level, expected_status):
+        """The groups the AAI API reports play no part: only viewer-area."""
+        self.keycloak.grant(level)
 
-        app, client = self._client()
-        app.dependency_overrides[get_current_user] = lambda: {
-            "roles": ["ndp_viewer"],
-            "groups": groups,
-            "sub": "test_user",
-            "username": "Test User",
-        }
-        try:
-            with (
-                patch.object(swagger_settings, "enable_group_based_access", True),
-                patch.object(swagger_settings, "group_names", "pelican-readers"),
-                patch.object(affinities_settings, "ep_uuid", ""),
-            ):
-                response = client.get("/pelican/federations")
-        finally:
-            app.dependency_overrides.clear()
+        response = self._client().get("/pelican/federations")
 
         assert response.status_code == expected_status

@@ -28,7 +28,7 @@ class TestCreateGeneralDatasetEndpoint:
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_local_server_success(
@@ -60,7 +60,7 @@ class TestCreateGeneralDatasetEndpoint:
 
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_pre_ckan_disabled(
@@ -84,7 +84,7 @@ class TestCreateGeneralDatasetEndpoint:
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_value_error(
@@ -113,7 +113,7 @@ class TestCreateGeneralDatasetEndpoint:
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_key_error(
@@ -142,7 +142,7 @@ class TestCreateGeneralDatasetEndpoint:
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_no_scheme_error(
@@ -171,7 +171,7 @@ class TestCreateGeneralDatasetEndpoint:
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_duplicate_name_error(
@@ -200,7 +200,7 @@ class TestCreateGeneralDatasetEndpoint:
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_duplicate_url_error(
@@ -229,7 +229,7 @@ class TestCreateGeneralDatasetEndpoint:
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_generic_error(
@@ -258,7 +258,7 @@ class TestCreateGeneralDatasetEndpoint:
     @patch("api.routes.register_routes.post_general_dataset.ckan_settings")
     @patch("api.routes.register_routes.post_general_dataset.create_general_dataset")
     @patch(
-        "api.routes.register_routes.post_general_dataset.get_user_for_write_operation"
+        "api.routes.register_routes.post_general_dataset.ep_editor_gate"
     )
     @pytest.mark.asyncio
     async def test_create_dataset_with_resources(

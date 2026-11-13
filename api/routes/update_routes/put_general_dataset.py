@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import catalog_settings, ckan_settings
 from api.models.general_dataset_request_model import GeneralDatasetUpdateRequest
 from api.repositories import CKANRepository
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 from api.services.dataset_services.general_dataset import update_general_dataset
 
 router = APIRouter()
@@ -104,7 +104,7 @@ async def update_general_dataset_endpoint(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    _: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Update a general dataset by dataset_id (full replacement).

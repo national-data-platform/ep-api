@@ -40,7 +40,9 @@ shell.
 
 You really only need to set:
 
-- `AUTH_API_URL` → the platform's AAI (so logins/roles work).
+- `KEYCLOAK_URL` → the platform's identity provider (so logins work).
+- `OIDC_SERVICE_CLIENT_ID` → this Endpoint's Keycloak client (so permissions can be
+  decided); the installer sets it from the Federation registration.
 - `LOCAL_CATALOG_BACKEND` → `none` for an Endpoint that stores nothing locally,
   or `mongodb`/`ckan` plus that backend's variables.
 - `CKAN_LOCAL_ENABLED=True` → if this EP should allow publishing (not read-only);
@@ -125,60 +127,82 @@ and normally should not be overridden.
 
 ## Authentication & access (AAI)
 
-#### `AUTH_API_URL`
-*Required · default: `https://idp.nationaldataplatform.org/temp/information`.*
-The AAI endpoint the EP calls to **validate bearer tokens** and read the user's
-identity, groups and **roles**: every authenticated request sends
-`POST AUTH_API_URL` with `{"token": "<token>"}`. This is the single source of
-authentication. The scheme and host of this URL are also used for
-username/password login (`<host>/user/login`) and for the AAI calls that grant
-access requests (`<host>/group/add-user`, `<host>/role/assign`).
+#### `KEYCLOAK_URL`
+*Required · default: `https://idp.nationaldataplatform.org`.*
+The identity provider's host. The EP derives the two URLs it needs from it:
+
+- `<KEYCLOAK_URL>/api`, the **AAI API**: every authenticated request sends
+  `POST <KEYCLOAK_URL>/api/information` with `{"token": "<token>"}` to read
+  who the user is (`sub`, `username`); username/password login is proxied
+  to `/api/user/login`, and access-request approval calls
+  `/api/client/login` and `/api/group/add-user` (see
+  [roles-and-permissions.md](roles-and-permissions.md#4-aai-api-for-group-management)).
+  On routes that need a tier, Keycloak's decision
+  call checks the token too.
+- `<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`, the **realm** permissions are asked
+  of (see `OIDC_SERVICE_CLIENT_ID`).
+
+The `roles` and `groups` the AAI API returns are shown by `/user/info` but
+**not used for permissions**. `AUTH_API_URL`, the old name (the full
+`…/temp/information` URL), is still read when `KEYCLOAK_URL` is not set; only
+its host is used.
 **Where:** your NDP/AAI administrator. For the central platform use the default;
-for a self-hosted AAI use its `…/information` URL.
+for a self-hosted one, its host.
 The installer always writes it: `--auth-api-url`, else the remembered or typed
 value, else the Federation's `auth_api_url`, else the test identity provider for
-`--env test` and production otherwise (see [install/README.md](../install/README.md)).
+`--env test` and production otherwise, keeping only the host (see
+[install/README.md](../install/README.md)).
+
+#### `OIDC_SERVICE_CLIENT_ID`
+*Required for any guarded route · default: empty.*
+This Endpoint's Keycloak client, whose permission gates decide every
+permission: for each guarded route the EP asks Keycloak, with the caller's
+token, whether they pass `admin-area`, `editor-area` or `viewer-area` on this
+client (UMA grant, `response_mode=decision`; no client secret). Empty, every
+guarded route answers `403` and `/user/info` reports `effective_role: none`.
+Set, it also makes `/user/info` (the UI's entry check) require a tier, so a
+user with no level on the Endpoint is turned away and offered the
+access-request form, and it names the group access requests are approved
+into, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`. Empty, any authenticated user enters the UI.
+See [roles-and-permissions.md](roles-and-permissions.md).
+**Where:** the installer writes it from the Federation registration
+(`ep-<config-id>`), only when the registration names this Endpoint's own
+client. When the registration names `default-ep-client`, the client was never
+created on the Federation (sci-ndp/ndp-federation#138), so the installer
+warns and leaves this empty. The same client is the Endpoint's service client,
+with `OIDC_SERVICE_CLIENT_SECRET`; see
+[The Endpoint's service client](#the-endpoints-service-client-set-by-the-installer).
+
+#### `AUTHZ_REALM`
+*Optional · default: `NDP`.*
+The realm the decisions are asked of, on `KEYCLOAK_URL`
+(`https://idp.nationaldataplatform.org/realms/NDP` for the default). It must be the realm that issued the users' tokens: Keycloak answers
+`401` for a token it did not issue, and so does the EP.
+**Where:** the installer writes it from the registration.
 
 #### `TEST_TOKEN`
 *Optional · dev only · default: empty (off).*
-A fixed token the EP accepts without contacting AAI. **Whoever presents it is
-signed in as a platform administrator** (`roles: ["ndp_admin"]`, `sub:
-test_user`): it passes every role check and the group gate. Empty, it is off:
-no token, not even an empty one, matches it. The installer always writes it
-empty. Before 0.34.65 the default and `example.env` were `testing_token`, a
-public value, so an Endpoint installed earlier accepts it until its `.env` is
-changed (see the security checklist in `docs/operations.md`).
+A fixed token the EP accepts without contacting AAI or Keycloak. **Whoever
+presents it is signed in as a platform administrator** (`sub: test_user`): it
+passes every permission gate and the entry check, with or without
+`OIDC_SERVICE_CLIENT_ID`. Empty, it is off: no token, not even an empty one, matches
+it. The installer always writes it empty. Before 0.34.65 the default and
+`example.env` were `testing_token`, a public value, so an Endpoint installed
+earlier accepts it until its `.env` is changed (see the security checklist in
+`docs/operations.md`).
 **Where:** you set it for local development only, e.g.
 `TEST_TOKEN=testing_token`. **Never set it on an Endpoint others can reach.**
 
-#### `ENABLE_GROUP_BASED_ACCESS`
-*Optional · default: `False`.*
-If `True`, an extra gate applies on top of the role model to `/user/info`
-(the UI's entry check), every write route, every `/s3/*` route and every
-`/pelican/*` route: the user must hold `ndp_admin`, or belong to the group named
-`AFFINITIES_EP_UUID`, or belong to one of `GROUP_NAMES`. Catalog searches stay
-public. **Where:** the installer turns it on when the Federation registration
-provides a group.
+`ENABLE_GROUP_BASED_ACCESS` and `GROUP_NAMES` are gone: the entry check
+follows `OIDC_SERVICE_CLIENT_ID`, and the Endpoint's group is derived from it.
+`ENABLE_GROUP_BASED_ACCESS` is ignored if still set. `GROUP_NAMES` is read
+only when `OIDC_SERVICE_CLIENT_ID` is empty, so an Endpoint installed before the
+client setting existed keeps its permissions: an entry `ndp_ep/ep-<config-id>`
+gives `OIDC_SERVICE_CLIENT_ID=ep-<config-id>`, and the log asks to set it.
 
-#### `GROUP_NAMES`
-*Optional · default: empty.*
-Comma-separated list of the Endpoint's groups (e.g. `ndp_ep/ep-123`). Used in
-three places:
-
-- the group gate above (membership in any of them passes; matching is
-  case-insensitive and ignores leading/trailing slashes);
-- the per-Endpoint role names: `group:<entry>:admin|writer|editor|viewer` is
-  accepted for each entry (see [roles-and-permissions.md](roles-and-permissions.md));
-- access-request approval (since 0.34.46): the user is added to, and given
-  their role on, the **first** entry.
-
-Empty with the gate on lets in only `ndp_admin` holders and members of the
-`AFFINITIES_EP_UUID` group. **Where:** the installer writes the group the
-Federation created for the Endpoint (`ndp_ep/ep-<config-id>`); otherwise ask
-your AAI administrator.
-
-> **Roles** (`viewer` / `writer` / `admin`) are **not** set here — they travel in
-> the token issued by AAI. See [roles-and-permissions.md](roles-and-permissions.md).
+> **Tiers** (`viewer` / `writer` / `admin`) are **not** set here — they are the
+> user's level in the Endpoint's group, and Keycloak decides on them. See
+> [roles-and-permissions.md](roles-and-permissions.md).
 
 ---
 
@@ -239,7 +263,7 @@ saying nothing, so `OIDC_HELP_TEXT` shows no second line while empty.
    `https://my-endpoint.example.org/ep-api/ui/auth/callback`. The Endpoint
    derives this from the browser's address and `ROOT_PATH`, so you never
    configure it, but it must match what is registered.
-3. **The `sub` claim in access tokens.** `AUTH_API_URL` looks the user up by
+3. **The `sub` claim in access tokens.** The AAI API looks the user up by
    `sub`. Since Keycloak 24 that claim comes from the built-in `basic` client
    scope, and a realm imported from an older export may not have `basic` among
    its default scopes — in which case a freshly created client silently mints
@@ -247,7 +271,7 @@ saying nothing, so `OIDC_HELP_TEXT` shows no second line while empty.
 
 ### Two things that commonly go wrong
 
-**`OIDC_ISSUER` and `AUTH_API_URL` must point at the same identity provider.**
+**`OIDC_ISSUER` must be the realm on `KEYCLOAK_URL`, the same identity provider.**
 The token is minted by one and validated by the other. If they disagree, the
 user's `sub` will not exist on the validating side and sign-in fails at the
 last step — after a successful login, which makes it look like a credentials
@@ -264,20 +288,19 @@ testing.
 
 Registering an Endpoint with the Federation creates a **confidential**
 Keycloak client for it, `ep-<config-id>`, and the Federation hands its id and
-secret to the Endpoint's owner. The Endpoint's backend uses this client to get
-client-credentials tokens from the identity provider (issue #412).
+secret to the Endpoint's owner. Its id, [`OIDC_SERVICE_CLIENT_ID`](#oidc_service_client_id),
+names the client whose gates decide every permission; with its secret, the
+Endpoint's backend also gets client-credentials tokens from the identity
+provider (issue #412).
+
+Approving an access request needs it: the AAI adds a user to the Endpoint's
+group, `ndp_ep/ep-<config-id>`, only when the call carries a token of that
+group's own client in `X-Client-Assertion`, unless the approving admin holds
+`ndp_admin`. Without the secret, or with a wrong one, approval answers 503.
 
 It is a different client from the sign-in one above: `OIDC_CLIENT_ID` is a
 public client that the browser uses, and `OIDC_SERVICE_CLIENT_*` never reach
 the browser.
-
-#### `OIDC_SERVICE_CLIENT_ID`
-*Optional · default: empty.*
-The client's id, `ep-<config-id>`.
-**Where:** the installer copies it from the registration. When the
-registration names `default-ep-client`, the client was never created on the
-Federation (sci-ndp/ndp-federation#138), so the installer warns and leaves
-this empty.
 
 #### `OIDC_SERVICE_CLIENT_SECRET`
 *Optional · default: empty · secret.*
@@ -391,7 +414,7 @@ Pre-CKAN.
 #### `S3_ENABLED`
 *Optional · default: `False`.*
 Mounts the `/s3/buckets/…` and `/s3/objects/…` routes (all of them require the
-writer role) and the **S3 Management** tool in the UI. Unrelated to `POST /s3`,
+writer tier) and the **S3 Management** tool in the UI. Unrelated to `POST /s3`,
 which registers a catalog dataset pointing at an S3 URL and is controlled by
 `CKAN_LOCAL_ENABLED`. Setup: [minio-setup.md](minio-setup.md).
 
@@ -473,16 +496,9 @@ platform's Affinities URL, or your local one.
 #### `AFFINITIES_EP_UUID`
 *Required if `AFFINITIES_ENABLED=True` · default: empty.*
 This Endpoint's UUID inside Affinities. Beyond the Affinities integration, the
-value is used in several places even with `AFFINITIES_ENABLED=False`:
+value is used in two places even with `AFFINITIES_ENABLED=False` (not
+for permissions, which Keycloak decides; see `OIDC_SERVICE_CLIENT_ID`):
 
-- **Roles:** `group:<uuid>:<tier>`, `group:ndp_ep/<uuid>:<tier>`,
-  `group:ndp_ep/ep-<uuid>:<tier>` and the legacy `<uuid>_admin` are accepted
-  as per-Endpoint roles (see [roles-and-permissions.md](roles-and-permissions.md)).
-- **Group gate:** members of the group named `<uuid>` pass
-  `ENABLE_GROUP_BASED_ACCESS`.
-- **Access requests:** approval grants membership and role on this group when
-  `GROUP_NAMES` is empty (since 0.34.46; up to 0.34.45 it was the only group
-  used, and approval answered 503 without it).
 - **Pelican events:** fallback client id for `GET /pelican/subscribe` when
   `PELICAN_EVENT_CLIENT_ID` is empty.
 - **UI:** passed to the UI in `config.js`.
@@ -537,7 +553,7 @@ process environment only (see [Where the values are read from](#where-the-values
 *Optional · default: `False`.*
 Mounts the `/pelican/*` routes: browsing/downloading from Pelican federations
 (OSDF, etc.) and importing a Pelican object into a local dataset. Every route
-requires at least the viewer role; `POST /pelican/import-metadata` requires
+requires at least the viewer tier; `POST /pelican/import-metadata` requires
 writer.
 
 #### `PELICAN_FEDERATION_URL`
@@ -603,7 +619,7 @@ Liveness interval. A non-numeric or too-small value falls back to the default.
 
 #### `REXEC_CONNECTION`
 *Optional · default: `False`.*
-Mounts `GET /status/rexec` (writer role), which returns
+Mounts `GET /status/rexec` (writer tier), which returns
 `REXEC_DEPLOYMENT_API_URL` to the UI. The API does not call that service.
 
 #### `REXEC_DEPLOYMENT_API_URL`
@@ -621,9 +637,11 @@ Enable the access-request workflow (a user requests access; an admin
 approves/rejects). While `False` every `/user/access-requests` route answers
 503. **Requires MongoDB** reachable via `MONGODB_CONNECTION_STRING` (database
 `MONGODB_DATABASE`), whatever the catalog backend is. Approval calls the AAI
-with the approving administrator's token and grants membership and role on the
-first `GROUP_NAMES` entry, or on `AFFINITIES_EP_UUID` when `GROUP_NAMES` is
-empty (since 0.34.46); with neither it answers 503.
+with the approving administrator's token and adds the user to the
+Endpoint's group, `ndp_ep/<OIDC_SERVICE_CLIENT_ID>`, at the level picked: `viewer`,
+`editor` (for writer) or `admin`, which is what the permission gates read;
+without `OIDC_SERVICE_CLIENT_ID` or `OIDC_SERVICE_CLIENT_SECRET` it answers
+503.
 **Where:** turn on if you want self-service access requests; the installer
 installs MongoDB for it when the catalog does not provide one.
 

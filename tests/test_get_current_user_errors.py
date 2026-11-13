@@ -26,7 +26,7 @@ def _call(token="a-token"):
         "api.services.auth_services.get_current_user.swagger_settings"
     ) as settings:
         settings.test_token = "the-test-token"
-        settings.auth_api_url = "https://aai.example.org/information"
+        settings.aai_api_url = "https://aai.example.org/api"
         return get_current_user(token_data=_Creds(token))
 
 

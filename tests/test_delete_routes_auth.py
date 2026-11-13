@@ -4,7 +4,7 @@ Authorization tests for the delete routes (``DELETE /resource``,
 ``DELETE /dataset/{id}/resource/{resource_id}``).
 
 These endpoints remove datasets, resources and whole organizations, so they
-must be guarded by :func:`get_user_for_write_operation` like every other write
+must be guarded by :func:`ep_editor_gate` like every other write
 route. They were reachable without any token at all.
 
 The tests send real HTTP requests through a minimal app with the delete router
@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from api.routes.delete_routes import router as delete_router
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 app = FastAPI()
 app.include_router(delete_router)
@@ -70,7 +70,7 @@ def test_delete_routes_deny_users_without_write_permission(
             detail="You do not have permission to modify resources.",
         )
 
-    app.dependency_overrides[get_user_for_write_operation] = _deny
+    app.dependency_overrides[ep_editor_gate] = _deny
 
     for method, path in DELETE_ENDPOINTS:
         response = getattr(client, method)(path)
@@ -91,7 +91,7 @@ def test_delete_routes_allow_writers(
     mock_dataset_services, mock_org_services, mock_resource_services
 ):
     """A writer passes the guard and the delete goes through."""
-    app.dependency_overrides[get_user_for_write_operation] = lambda: {
+    app.dependency_overrides[ep_editor_gate] = lambda: {
         "username": "writer-user",
         "sub": "writer-sub",
         "effective_role": "writer",

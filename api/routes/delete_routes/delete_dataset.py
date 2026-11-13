@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.config import catalog_settings, ckan_settings
 from api.repositories import CKANRepository
 from api.services import dataset_services
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -48,7 +48,7 @@ async def delete_resource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    _: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Endpoint to delete a dataset by its resource_id.
@@ -115,7 +115,7 @@ async def delete_resource_by_name(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    _: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Endpoint to delete a dataset by its name.

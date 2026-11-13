@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.config import ckan_settings
 from api.models.s3request_model import S3Request
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 from api.services.s3_services.add_s3 import add_s3
 
 router = APIRouter()
@@ -67,7 +67,7 @@ async def create_s3_resource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Add an S3 resource to CKAN.

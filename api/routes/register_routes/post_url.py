@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.config import ckan_settings
 from api.models.urlrequest_model import URLRequest
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 from api.services.url_services.add_url import add_url
 
 router = APIRouter()
@@ -81,7 +81,7 @@ async def create_url_resource(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Add a URL resource to CKAN.

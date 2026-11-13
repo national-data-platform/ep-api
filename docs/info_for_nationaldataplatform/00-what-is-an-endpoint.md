@@ -18,7 +18,7 @@ in which case the prefix is part of `<endpoint-url>`.
 An Endpoint is a small, self-contained service that offers:
 
 - **A web app** at `<endpoint-url>/ui/` where you search, browse, and (with the
-  right role) create datasets, services, and resources.
+  right tier) create datasets, services, and resources.
 - **A REST API** at `<endpoint-url>/` (interactive docs at
   `<endpoint-url>/docs`) so the same operations can be automated from code or
   from the [`ndp-ep`](https://pypi.org/project/ndp-ep/) Python library.
@@ -30,9 +30,10 @@ An Endpoint is a small, self-contained service that offers:
 - **S3-compatible object storage** (optional) for large files, with an
   **S3 storage** management page for writers and admins.
 - **Kafka topics** (optional), registered as datasets that describe a stream.
-- **Identity, roles, and access requests** that reuse the user's NDP account:
-  every request is checked against the NDP authentication service, so users
-  do not create yet another account.
+- **Identity, permission tiers, and access requests** that reuse the user's
+  NDP account: who the user is comes from the NDP authentication service, and
+  what they may do from their level in the Endpoint's group, so users do not
+  create yet another account.
 - **An operational link to NDP** (only when the Endpoint is listed on the
   platform): the Endpoint reports its presence and operational metrics —
   version, host load, public IP, catalog counts and service titles, and which

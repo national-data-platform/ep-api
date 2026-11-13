@@ -137,6 +137,12 @@ class TestWhatComesBack:
         assert "backend" not in answers
         assert answers["want_s3"] == "no"
 
+    def test_the_old_auth_api_url_answers_the_identity_provider(self):
+        url = "https://idp-test.example.org/temp/information"
+        answers = from_payload(json.dumps({"settings": {"auth_api_url": url}}))
+
+        assert answers == {"idp_url": url}
+
     def test_a_round_trip_keeps_the_answers(self):
         assert from_payload(to_payload(ANSWERS)) == ANSWERS
 
@@ -151,9 +157,9 @@ class TestTheShellReadsThemSafely:
         assert "want_s3='yes'" in rendered
 
     def test_a_value_with_a_space_stays_one_word(self):
-        rendered = as_shell_assignments({"auth_api_url": "http://host/a b"})
+        rendered = as_shell_assignments({"idp_url": "http://host/a b"})
 
-        assert rendered == "auth_api_url='http://host/a b'"
+        assert rendered == "idp_url='http://host/a b'"
 
     def test_a_value_cannot_close_its_quote_and_run_a_command(self):
         """
@@ -216,9 +222,9 @@ class TestTheCommandLine:
 
     def test_save_handles_a_value_containing_an_equals_sign(self):
         """``key=value`` splits once: a URL with a query string survives."""
-        body = json.loads(to_payload({"auth_api_url": "http://h/a?b=c"}))
+        body = json.loads(to_payload({"idp_url": "http://h/a?b=c"}))
 
-        assert body["settings"]["auth_api_url"] == "http://h/a?b=c"
+        assert body["settings"]["idp_url"] == "http://h/a?b=c"
 
     def test_an_unknown_action_fails(self, capsys):
         assert main(["x", "frobnicate"]) == 2

@@ -26,7 +26,7 @@ sequenceDiagram
     Note over User,EP: owner_org must be "services" — the organization the<br/>Endpoint creates for them at startup. Anything else<br/>is refused by the request model
     EP->>AAI: validate the token
     AAI-->>EP: identity, groups and roles
-    Note over EP: A write: writer or admin, and the group when<br/>group-based access is on
+    Note over EP: A write: Keycloak's editor-area gate<br/>on OIDC_SERVICE_CLIENT_ID — otherwise 403
     EP->>Local: package_create in "services",<br/>with a resource of format "service" holding the URL
     Local-->>EP: id
     EP-->>User: 201 with the id
@@ -148,7 +148,7 @@ reaches the service.
 
 That forwarding cuts both ways: whoever registers a service receives the
 tokens of everyone who reaches it through the proxy. Registering requires a
-writer role, so this is not open to anonymous callers, but it is worth knowing
+the writer tier, so this is not open to anonymous callers, but it is worth knowing
 before pointing a service at somewhere you do not control.
 
 ## Who gets through

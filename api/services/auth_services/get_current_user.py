@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     """
-    Validate user token and return user information.
+    Return who the bearer token belongs to, as the AAI API's /information
+    reports it. Routes that need a tier also send the token to Keycloak for
+    a decision (ep_access_gate.py).
 
     This function ensures that the returned user information always contains
     a 'sub' field. If the authentication service response doesn't include
@@ -43,12 +45,8 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     # Handle test token. An empty TEST_TOKEN (the default) disables it, so an
     # empty bearer token can never match it (issue #383).
     if swagger_settings.test_token and token == swagger_settings.test_token:
-        # The test token is meant to grant full access without contacting the
-        # authentication service. It must therefore carry the platform admin
-        # role the endpoint actually recognizes (``ndp_admin``); the earlier
-        # ``"admin"`` string matched nothing, so with group-based access
-        # enabled the test user was denied entry to its own endpoint and
-        # resolved to no effective role.
+        # The test token grants full access without contacting the
+        # authentication service or Keycloak (see ep_access_gate.py).
         return {
             "roles": ["ndp_admin"],
             "groups": [],
@@ -59,7 +57,9 @@ def get_current_user(token_data=Depends(security)) -> Dict[str, Any]:
     # Validate with external API
     try:
         response = requests.post(
-            f"{swagger_settings.auth_api_url}", json={"token": token}, timeout=10
+            f"{swagger_settings.aai_api_url}/information",
+            json={"token": token},
+            timeout=10,
         )
 
         # Handle different HTTP status codes from auth service

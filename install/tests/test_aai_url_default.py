@@ -7,7 +7,8 @@ installed for the test platform refused every token from it. Nor could a
 remembered AAI URL, or one named by the Federation, take its place: the prompt
 always offered production, and unattended runs had no way to set it at all.
 
-``AUTH_API_URL`` now comes from, first to last:
+``KEYCLOAK_URL`` (the identity provider's host; ``AUTH_API_URL`` before
+#389) now comes from, first to last:
 
 1. ``--auth-api-url``;
 2. the remembered settings, or what was typed at the prompt;
@@ -45,11 +46,17 @@ pytestmark = pytest.mark.skipif(
 
 CONFIG_ID = "cfg365"
 OWNER_TOKEN = "owner-token-365"
-PROD = "https://idp.nationaldataplatform.org/temp/information"
-TEST = "https://idp-test.nationaldataplatform.org/temp/information"
+PROD = "https://idp.nationaldataplatform.org"
+TEST = "https://idp-test.nationaldataplatform.org"
+# What the Federation, older remembered settings and older scripts name: the
+# AAI's /information URL. Only the host is written.
 FEDERATION_AAI = "https://aai.selfhosted.example/temp/information"
 REMEMBERED_AAI = "https://aai.remembered.example/temp/information"
 GIVEN_AAI = "https://aai.given.example/temp/information"
+
+
+def host_of(url):
+    return "/".join(url.split("/")[:3])
 
 
 @pytest.fixture
@@ -162,7 +169,7 @@ def _install(host, federation, *args):
 
 def _auth_api_url(host):
     text = (host["checkout"] / ".env").read_text(encoding="utf-8")
-    found = re.findall(r"^AUTH_API_URL=(.*)$", text, re.MULTILINE)
+    found = re.findall(r"^KEYCLOAK_URL=(.*)$", text, re.MULTILINE)
     assert len(found) == 1, found
     return found[0]
 
@@ -195,7 +202,7 @@ def test_the_federations_aai_is_used(host, federation):
 
     _install(host, federation, "--env", "test")
 
-    assert _auth_api_url(host) == FEDERATION_AAI
+    assert _auth_api_url(host) == host_of(FEDERATION_AAI)
 
 
 def test_auth_api_url_option_wins(host, federation):
@@ -203,7 +210,7 @@ def test_auth_api_url_option_wins(host, federation):
 
     _install(host, federation, "--env", "test", "--auth-api-url", GIVEN_AAI)
 
-    assert _auth_api_url(host) == GIVEN_AAI
+    assert _auth_api_url(host) == host_of(GIVEN_AAI)
 
 
 def test_a_remembered_aai_wins_over_the_federations(host, federation):
@@ -212,7 +219,7 @@ def test_a_remembered_aai_wins_over_the_federations(host, federation):
 
     _install(host, federation, "--ndp-token-file", str(host["token"]))
 
-    assert _auth_api_url(host) == REMEMBERED_AAI
+    assert _auth_api_url(host) == host_of(REMEMBERED_AAI)
 
 
 def test_the_option_wins_over_a_remembered_aai(host, federation):
@@ -227,7 +234,7 @@ def test_the_option_wins_over_a_remembered_aai(host, federation):
         GIVEN_AAI,
     )
 
-    assert _auth_api_url(host) == GIVEN_AAI
+    assert _auth_api_url(host) == host_of(GIVEN_AAI)
 
 
 def test_the_option_is_documented():
@@ -285,7 +292,7 @@ def _run_on_a_terminal(host, args, answer):
         pytest.fail("install.sh did not finish:\n" + output[-2000:])
     os.close(main)
     assert process.returncode == 0, output
-    rendered = re.findall(r"^\s*AUTH_API_URL=(\S*)", output, re.MULTILINE)
+    rendered = re.findall(r"^\s*KEYCLOAK_URL=(\S*)", output, re.MULTILINE)
     return rendered, prompts
 
 
@@ -298,7 +305,7 @@ def _remember(line):
 
 
 def _aai_prompt(prompts):
-    found = [p for p in prompts if "Authentication service (AAI) URL" in p]
+    found = [p for p in prompts if "Identity provider URL" in p]
     assert len(found) == 1, prompts
     return found[0]
 
@@ -334,7 +341,7 @@ def test_the_prompt_offers_the_remembered_aai(host, federation):
     rendered, prompts = _run_on_a_terminal(host, _terminal_args(federation), _remember)
 
     assert f"[{REMEMBERED_AAI}]" in _aai_prompt(prompts)
-    assert rendered == [REMEMBERED_AAI]
+    assert rendered == [host_of(REMEMBERED_AAI)]
 
 
 def test_enter_at_the_prompt_takes_the_federations_aai(host, federation):
@@ -344,15 +351,15 @@ def test_enter_at_the_prompt_takes_the_federations_aai(host, federation):
         host, _terminal_args(federation), lambda line: ""
     )
 
-    assert rendered == [FEDERATION_AAI]
+    assert rendered == [host_of(FEDERATION_AAI)]
 
 
 def test_what_is_typed_at_the_prompt_wins(host, federation):
     federation["config"]["auth_api_url"] = FEDERATION_AAI
 
     def answer(line):
-        return GIVEN_AAI if "Authentication service (AAI) URL" in line else ""
+        return GIVEN_AAI if "Identity provider URL" in line else ""
 
     rendered, _ = _run_on_a_terminal(host, _terminal_args(federation), answer)
 
-    assert rendered == [GIVEN_AAI]
+    assert rendered == [host_of(GIVEN_AAI)]
