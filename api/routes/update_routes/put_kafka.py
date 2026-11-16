@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import ckan_settings
 from api.models.update_kafka_model import KafkaDataSourceUpdateRequest
 from api.services import kafka_services
+from api.services.affinities_services.sync import sync_with_affinities
 from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
@@ -151,6 +152,9 @@ async def update_kafka_datasource(
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Kafka dataset not found")
+        # Affinities follows the change (non-blocking; #279)
+        await sync_with_affinities(dataset_id, ckan_instance=ckan_instance)
+
         return {"message": "Kafka dataset updated successfully"}
 
     except HTTPException as he:

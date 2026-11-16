@@ -9,6 +9,7 @@ from api.models.general_dataset_request_model import GeneralDatasetUpdateRequest
 from api.repositories import CKANRepository
 from api.services.auth_services import ep_editor_gate
 from api.services.dataset_services.general_dataset import update_general_dataset
+from api.services.affinities_services.sync import sync_with_affinities
 
 router = APIRouter()
 
@@ -171,6 +172,9 @@ async def update_general_dataset_endpoint(
 
         if not updated_id:
             raise HTTPException(status_code=404, detail="Dataset not found")
+
+        # Affinities follows the change (non-blocking; #279)
+        await sync_with_affinities(dataset_id, repository=repository)
 
         return {"message": "Dataset updated successfully"}
 

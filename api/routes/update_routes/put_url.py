@@ -8,6 +8,7 @@ from api.config.ckan_settings import ckan_settings
 from api.models.update_url_model import URLUpdateRequest
 from api.services.auth_services import ep_editor_gate
 from api.services.url_services.update_url import update_url
+from api.services.affinities_services.sync import sync_with_affinities
 
 router = APIRouter()
 
@@ -162,6 +163,9 @@ async def update_url_resource(
             processing=data.processing,
             ckan_instance=ckan_instance,
         )
+        # Affinities follows the change (non-blocking; #279)
+        await sync_with_affinities(resource_id, ckan_instance=ckan_instance)
+
         return {"message": "Resource updated successfully"}
 
     except KeyError as e:

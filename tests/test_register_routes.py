@@ -21,9 +21,7 @@ class TestCreateServiceRoute:
         non-blocking, so nothing reported that the call had been made at all
         (issue #283).
         """
-        with patch(
-            "api.routes.register_routes.post_service.AffinitiesClient"
-        ) as client:
+        with patch("api.services.affinities_services.sync.AffinitiesClient") as client:
             client.return_value.is_enabled = False
             yield client
 

@@ -8,6 +8,7 @@ from api.config import ckan_settings
 from api.models.urlrequest_model import URLRequest
 from api.services.auth_services import ep_editor_gate
 from api.services.url_services.add_url import add_url
+from api.services.affinities_services.sync import sync_with_affinities
 
 router = APIRouter()
 
@@ -135,6 +136,9 @@ async def create_url_resource(
             ckan_instance=ckan_instance,
             user_info=user_info,
         )
+        # Register in Affinities (non-blocking, errors are logged; #280)
+        await sync_with_affinities(resource_id, ckan_instance=ckan_instance)
+
         return {"id": resource_id}
 
     except KeyError as e:

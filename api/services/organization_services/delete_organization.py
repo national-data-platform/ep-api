@@ -23,6 +23,12 @@ def delete_organization(organization_name: str, repository=None, cascade: bool =
         inside — the caller can clean them up first and retry. This
         narrower mode is what the UI uses, so users do not lose data by
         clicking "Delete" on an organization card.
+
+    Returns
+    -------
+    list
+        The datasets deleted with the organization, as the catalog listed
+        them, so the caller can remove them from Affinities (#279).
     """
     if repository is None:
         repository = catalog_settings.local_catalog
@@ -45,10 +51,12 @@ def delete_organization(organization_name: str, repository=None, cascade: bool =
                 "inside; delete them first or call with cascade=true"
             )
 
+        deleted = []
         if cascade:
             for dataset in dataset_results:
                 # Use package_delete for repository pattern
                 repository.package_delete(id=dataset["id"])
+                deleted.append(dataset)
 
         # Delete the organization
         repository.organization_delete(id=organization_id)
@@ -59,6 +67,8 @@ def delete_organization(organization_name: str, repository=None, cascade: bool =
         except AttributeError:
             # MongoDB doesn't have purge method, that's fine
             pass
+
+        return deleted
 
     except Exception as e:
         error_msg = str(e).lower()

@@ -1,5 +1,4 @@
 # api/routes/register_routes/post_service.py
-import logging
 from typing import Any, Dict, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -7,12 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import catalog_settings, ckan_settings
 from api.models.service_request_model import ServiceRequest
 from api.repositories import CKANRepository
-from api.services.affinities_services import AffinitiesClient
+from api.services.affinities_services.sync import sync_with_affinities
 from api.services.auth_services import ep_editor_gate
 from api.services.service_services.add_service import add_service
-from api.services.service_services.update_service import patch_service
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -214,38 +210,7 @@ async def create_service(
         )
 
         # Register in Affinities (non-blocking, errors are logged)
-        affinities_client = AffinitiesClient()
-        if affinities_client.is_enabled:
-            try:
-                affinity_uuid = await affinities_client.register_service(
-                    service_type=data.service_type,
-                    openapi_url=data.documentation_url,
-                    metadata={
-                        "service_name": data.service_name,
-                        "service_title": data.service_title,
-                        "service_url": data.service_url,
-                        "local_id": service_id,
-                        "notes": data.notes,
-                    },
-                )
-
-                # Store the Affinities UUID in the service extras
-                if affinity_uuid:
-                    try:
-                        patch_service(
-                            service_id=service_id,
-                            extras={"ndp_affinity_uuid": str(affinity_uuid)},
-                            ckan_instance=ckan_instance,
-                        )
-                        logger.info(
-                            f"Stored Affinities UUID {affinity_uuid} in service {service_id}"
-                        )
-                    except Exception as patch_error:
-                        logger.warning(
-                            f"Failed to store Affinities UUID in service extras: {patch_error}"
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to register service in Affinities: {e}")
+        await sync_with_affinities(service_id, repository=repository)
 
         return {"id": service_id}
 

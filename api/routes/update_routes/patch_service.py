@@ -8,6 +8,7 @@ from api.models.update_service_model import ServiceUpdateRequest
 from api.repositories import CKANRepository
 from api.services.auth_services import ep_editor_gate
 from api.services.service_services import patch_service
+from api.services.affinities_services.sync import sync_with_affinities
 
 router = APIRouter()
 
@@ -175,6 +176,9 @@ async def patch_service_endpoint(
 
         if not updated_id:
             raise HTTPException(status_code=404, detail="Service not found")
+
+        # Affinities follows the change (non-blocking; #279)
+        await sync_with_affinities(service_id, repository=repository)
 
         return {"message": "Service updated successfully"}
 
