@@ -28,9 +28,12 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.main import app
+from api.routes.delete_routes import router as delete_router
+from api.routes.register_routes import router as register_router
+from api.routes.update_routes import router as update_router
 from api.services.affinities_services.affinities_client import AffinitiesClient
 from api.services.affinities_services.sync import (
     fetch_dataset,
@@ -367,6 +370,11 @@ async def test_an_unregistered_dataset_is_not_looked_for(affinities, catalog):
 
 @pytest.fixture
 def client():
+    # The routes themselves, not api.main: it mounts the write routes only
+    # when a local catalog is configured, which CI has not.
+    app = FastAPI()
+    for router in (register_router, update_router, delete_router):
+        app.include_router(router)
     app.dependency_overrides[get_user_for_write_operation] = lambda: {
         "username": "tester",
         "roles": ["admin"],
