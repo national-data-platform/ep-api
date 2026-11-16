@@ -74,37 +74,69 @@ See [configuration.md](configuration.md#affinities_ep_uuid).
 
 When Affinities integration is enabled:
 
-### Dataset Registration
+Affinities follows the catalog: every route that creates, changes or deletes
+a dataset or a service updates Affinities afterwards, so its record describes
+what the Endpoint holds now, not what was first registered. The code is
+[`api/services/affinities_services/sync.py`](../api/services/affinities_services/sync.py),
+called by the routes below with `server=local` (the default) and
+`server=pre_ckan` alike.
 
-When you create a dataset via `POST /dataset` — with `server=local` (the
-default) or `server=pre_ckan`, the same steps run for both:
+| Routes | What happens in Affinities |
+|---|---|
+| `POST /dataset`, `/url`, `/s3`, `/kafka`, `/services` | Registered (see below) |
+| `PUT` and `PATCH` of `/dataset/{id}`, `/url/{id}`, `/s3/{id}`, `/kafka/{id}`, `/services/{id}` | The record's title and metadata are replaced with the current ones; registered if it has none |
+| `DELETE /resource?resource_id=…`, `DELETE /resource/{name}` | The record is deleted |
+| `DELETE /organization/{name}` (with `cascade=true`, the default) | The record of every dataset deleted with the organization is deleted |
 
-1. The dataset is created in the chosen catalog (local CKAN or MongoDB, or
-   Pre-CKAN)
-2. NDP-EP registers the dataset in Affinities (`POST /datasets`)
-3. A relationship is created between the dataset and this endpoint (`POST /dataset-endpoints`)
+Services are told apart from datasets by their organization, `services`.
+
+### Registration
+
+1. The dataset or service is created in the chosen catalog (local CKAN or
+   MongoDB, or Pre-CKAN)
+2. NDP-EP registers it in Affinities (`POST /datasets` or `POST /services`)
+3. A relationship is created between it and this endpoint
+   (`POST /dataset-endpoints` or `POST /service-endpoints`)
 4. An affinity triple is created for the pair (`POST /affinities`), **only if
    step 3 succeeded** — a triple built on a relationship that does not exist
    names an endpoint Affinities cannot resolve
-5. The UUID Affinities assigned is stored on the dataset as the
-   `ndp_affinity_uuid` extra, whether or not step 3 succeeded, since it is the
-   only reference back to the record that was created
+5. The UUID Affinities assigned is stored on it as the `ndp_affinity_uuid`
+   extra, whether or not step 3 succeeded, since it is the only reference back
+   to the record that was created
 
-### Service Registration
+### Updates
 
-When you register a service via `POST /services` (again for `server=local`
-and `server=pre_ckan`):
+After a successful update, the record named by `ndp_affinity_uuid` is
+replaced (`PUT /datasets/{uid}` or `PUT /services/{uid}`) with the fields
+listed in [Metadata Stored in Affinities](#metadata-stored-in-affinities), read
+from the catalog after the update. A dataset without `ndp_affinity_uuid`
+(created before this sync existed, or while Affinities was off) is registered
+instead. If Affinities answers 404 — the record was removed there — it is
+registered again and the new UUID replaces the old one.
 
-1. The service is created in the chosen catalog
-2. NDP-EP registers the service in Affinities (`POST /services`)
-3. A relationship is created between the service and this endpoint (`POST /service-endpoints`)
-4. An affinity triple is created, under the same condition as for datasets
-5. The assigned UUID is stored on the service as `ndp_affinity_uuid`
+### Deletes
 
-No other route registers anything in Affinities: `POST /url`, `/s3`, `/kafka`,
-updates, deletes and `POST /dataset/{id}/publish` do not call it, and nothing
-is removed from Affinities when a dataset or service is deleted. Requests to
-Affinities carry no authentication and use `AFFINITIES_TIMEOUT`.
+The dataset is read before it is deleted, to know its `ndp_affinity_uuid`,
+and after the delete its record is removed (`DELETE /datasets/{uid}`).
+Affinities deletes the record's relationship and triple with it. For a
+service, the triple it was registered with names it in a list rather than by
+foreign key, so NDP-EP first deletes the triples that name that service alone
+and no dataset, then the service (`DELETE /services/{uid}`); triples naming
+other services are left alone. A record Affinities no longer has counts as
+deleted.
+
+CKAN does not purge a deleted dataset, it marks it deleted; it is gone for
+every reader of the Endpoint, so its record is removed from Affinities all the
+same.
+
+### Not covered
+
+`POST /dataset/{id}/publish`, resource-only changes
+(`PATCH /dataset/{id}/resource/{resource_id}`, `DELETE` of a resource) and
+changes made directly in the catalog, outside this API, do not reach
+Affinities. Resources are not part of the record, so the resource routes
+change nothing it holds. Requests to Affinities carry no authentication and
+use `AFFINITIES_TIMEOUT`.
 
 The client is
 [`api/services/affinities_services/affinities_client.py`](../api/services/affinities_services/affinities_client.py).
@@ -113,7 +145,7 @@ The client is
 
 The Affinities integration is **non-blocking**:
 
-- If Affinities is unreachable or returns an error, the main operation (dataset/service creation) still succeeds
+- If Affinities is unreachable or returns an error, the main operation (creating, updating or deleting the dataset or service) still succeeds; the problem is logged
 - This ensures that Affinities availability does not impact NDP-EP functionality
 
 Non-blocking is not silent. A record that Affinities accepted but refused to

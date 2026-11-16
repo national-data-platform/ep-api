@@ -1,6 +1,5 @@
 # api/routes/register_routes/post_general_dataset.py
 
-import logging
 from typing import Any, Dict, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,14 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.config import catalog_settings, ckan_settings
 from api.models.general_dataset_request_model import GeneralDatasetRequest
 from api.repositories import CKANRepository
-from api.services.affinities_services import AffinitiesClient
+from api.services.affinities_services.sync import sync_with_affinities
 from api.services.auth_services import get_user_for_write_operation
-from api.services.dataset_services.general_dataset import (
-    create_general_dataset,
-    patch_general_dataset,
-)
-
-logger = logging.getLogger(__name__)
+from api.services.dataset_services.general_dataset import create_general_dataset
 
 router = APIRouter()
 
@@ -231,37 +225,7 @@ async def create_general_dataset_endpoint(
         warning = creation_result["warning"]
 
         # Register in Affinities (non-blocking, errors are logged)
-        affinities_client = AffinitiesClient()
-        if affinities_client.is_enabled:
-            try:
-                affinity_uuid = await affinities_client.register_dataset(
-                    title=final_title,
-                    metadata={
-                        "name": final_name,
-                        "owner_org": data.owner_org,
-                        "local_id": dataset_id,
-                        "notes": data.notes,
-                        "tags": data.tags,
-                    },
-                )
-
-                # Store the Affinities UUID in the dataset extras
-                if affinity_uuid:
-                    try:
-                        patch_general_dataset(
-                            dataset_id=dataset_id,
-                            extras={"ndp_affinity_uuid": str(affinity_uuid)},
-                            repository=repository,
-                        )
-                        logger.info(
-                            f"Stored Affinities UUID {affinity_uuid} in dataset {dataset_id}"
-                        )
-                    except Exception as patch_error:
-                        logger.warning(
-                            f"Failed to store Affinities UUID in dataset extras: {patch_error}"
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to register dataset in Affinities: {e}")
+        await sync_with_affinities(dataset_id, repository=repository)
 
         return {
             "id": dataset_id,

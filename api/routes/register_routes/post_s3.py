@@ -6,6 +6,7 @@ from api.config import ckan_settings
 from api.models.s3request_model import S3Request
 from api.services.auth_services import get_user_for_write_operation
 from api.services.s3_services.add_s3 import add_s3
+from api.services.affinities_services.sync import sync_with_affinities
 
 router = APIRouter()
 
@@ -117,6 +118,9 @@ async def create_s3_resource(
             ckan_instance=ckan_instance,
             user_info=user_info,
         )
+        # Register in Affinities (non-blocking, errors are logged; #280)
+        await sync_with_affinities(resource_id, ckan_instance=ckan_instance)
+
         return {"id": resource_id}
 
     except KeyError as e:

@@ -8,6 +8,7 @@ from api.config.ckan_settings import ckan_settings
 from api.models.update_s3_model import S3ResourceUpdateRequest
 from api.services.auth_services import get_user_for_write_operation
 from api.services.s3_services.update_s3 import update_s3
+from api.services.affinities_services.sync import sync_with_affinities
 
 router = APIRouter()
 
@@ -151,6 +152,9 @@ async def update_s3_resource(
         )
         if not updated_id:
             raise HTTPException(status_code=404, detail="S3 resource not found")
+        # Affinities follows the change (non-blocking; #279)
+        await sync_with_affinities(resource_id, ckan_instance=ckan_instance)
+
         return {"message": "S3 resource updated successfully"}
 
     except Exception as exc:

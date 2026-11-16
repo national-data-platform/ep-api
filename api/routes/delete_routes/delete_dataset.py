@@ -8,6 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.config import catalog_settings, ckan_settings
 from api.repositories import CKANRepository
 from api.services import dataset_services
+from api.services.affinities_services.sync import (
+    fetch_dataset,
+    forget_in_affinities,
+)
 from api.services.auth_services import get_user_for_write_operation
 
 router = APIRouter()
@@ -65,7 +69,10 @@ async def delete_resource(
                 )
             repository = CKANRepository(ckan_settings.pre_ckan)
 
+        # Read first: the Affinities UUID is on the dataset (#279)
+        dataset = fetch_dataset(resource_id, repository=repository)
         dataset_services.delete_dataset(resource_id=resource_id, repository=repository)
+        await forget_in_affinities(dataset)
         return {"message": f"{resource_id} deleted successfully"}
 
     except Exception as e:
@@ -132,9 +139,12 @@ async def delete_resource_by_name(
                 )
             repository = CKANRepository(ckan_settings.pre_ckan)
 
+        # Read first: the Affinities UUID is on the dataset (#279)
+        dataset = fetch_dataset(resource_name, repository=repository)
         dataset_services.delete_dataset(
             dataset_name=resource_name, repository=repository
         )
+        await forget_in_affinities(dataset)
         return {"message": f"{resource_name} deleted successfully"}
 
     except Exception as e:

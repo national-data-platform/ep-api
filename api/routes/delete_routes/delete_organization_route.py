@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.config import catalog_settings, ckan_settings
 from api.repositories import CKANRepository
 from api.services import organization_services
+from api.services.affinities_services.sync import forget_in_affinities
 from api.services.auth_services import get_user_for_write_operation
 
 router = APIRouter()
@@ -80,11 +81,16 @@ async def delete_organization(
                 )
             repository = CKANRepository(ckan_settings.pre_ckan)
 
-        organization_services.delete_organization(
+        deleted = organization_services.delete_organization(
             organization_name=organization_name,
             repository=repository,
             cascade=cascade,
         )
+        # The cascade deleted these datasets too (#279)
+        for dataset in deleted or []:
+            await forget_in_affinities(
+                {"organization": {"name": organization_name}, **dataset}
+            )
         return {"message": "Organization deleted successfully"}
 
     except Exception as e:
