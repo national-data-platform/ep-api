@@ -7,6 +7,7 @@ from api.config import ckan_settings
 from api.models.request_kafka_model import KafkaDataSourceRequest
 from api.services import kafka_services
 from api.services.auth_services import get_user_for_write_operation
+from api.services.affinities_services.sync import sync_with_affinities
 
 router = APIRouter()
 
@@ -171,6 +172,9 @@ async def create_kafka_datasource(
             ckan_instance=ckan_instance,
             user_info=user_info,
         )
+        # Register in Affinities (non-blocking, errors are logged; #280)
+        await sync_with_affinities(dataset_id, ckan_instance=ckan_instance)
+
         return {"id": dataset_id}
 
     except Exception as exc:

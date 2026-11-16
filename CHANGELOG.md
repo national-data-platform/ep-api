@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.86] - 2026-11-16
+
+### Fixed
+- **Affinities follows the catalog** (#279, #280). Datasets and services were registered in Affinities once, at creation, and only by `POST /dataset` and `POST /services`. Renaming a dataset left its old title in Affinities; deleting it left the record, its relationship with the Endpoint and its triple behind; and datasets registered through `POST /url`, `/s3` or `/kafka` never reached Affinities at all.
+  - **Every create** (`POST /dataset`, `/url`, `/s3`, `/kafka`, `/services`) registers in Affinities, with the relationship and the triple, and stores the UUID as `ndp_affinity_uuid`. The registration code is in one place, `api/services/affinities_services/sync.py`, instead of copied in two routes.
+  - **Every update** (`PUT`/`PATCH` of `/dataset`, `/url`, `/s3`, `/kafka`, `/services`) replaces the record's title and metadata with the current ones. A dataset with no `ndp_affinity_uuid`, such as one created before this release, is registered on its next update, and one whose record Affinities no longer has is registered again.
+  - **Every delete** (`DELETE /resource`, `DELETE /resource/{name}`, and the datasets deleted with an organization) removes the record; Affinities removes its relationship and triple with it. For a service, the triple it was registered with is deleted too, since triples name services in a list Affinities does not cascade. A dataset deleted in CKAN is only marked deleted there, but it counts as deleted.
+  - As before, none of this fails the request: a problem reaching Affinities is logged. `POST /dataset/{id}/publish`, resource-only changes and changes made directly in the catalog do not reach Affinities; see `docs/affinities-integration.md`.
+  - `AffinitiesClient` gains `update_dataset`, `update_service`, `delete_dataset` and `delete_service`; `delete_organization` now returns the datasets it deleted.
+  - New tests in `tests/test_affinities_sync.py`, against a stand-in Affinities that keeps its records in memory. Verified with this branch against a real Affinities (PostgreSQL) and a MongoDB catalog: a URL dataset created through `POST /url` was registered, linked to the Endpoint and given its triple; `PATCH /url/{id}` changed its title and notes in Affinities without a second record; after its record was deleted in Affinities by hand, the next update registered it again; `DELETE /resource` left no record or triple. A service went through the same create, rename and delete, and no triple of it was left.
+
 ### Tests
 - **Two disabled test files run again** (#260): `tests/test_search_routes_get.py` (8 tests, `GET /search`) and `tests/test_metrics_organization.py` (6 tests). Both passed unchanged; they were only named `*.py.disabled`.
   - `test_pelican_routes.py.disabled` and `test_update_kafka_datasource.py.disabled` stay disabled. They no longer pass: the Pelican routes now require authentication, and the Kafka tests patch a `ckan_settings` the service no longer has. Both areas are rewritten by #389, so they are left until it is merged.

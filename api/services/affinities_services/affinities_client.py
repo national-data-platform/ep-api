@@ -460,6 +460,154 @@ class AffinitiesClient:
 
         return None
 
+    # Outcomes of the update and delete calls below. "missing" is told
+    # apart from "failed" because the caller acts on it: an update of a
+    # record Affinities no longer has registers the dataset again, and a
+    # delete of one is already done (issue #279).
+    OK = "ok"
+    MISSING = "missing"
+    FAILED = "failed"
+
+    async def _change(
+        self,
+        method: str,
+        endpoint: str,
+        json_data: dict[str, Any] | None = None,
+    ) -> str:
+        """
+        Send a PUT or DELETE and say how it went.
+
+        Returns
+        -------
+        str
+            ``OK``, ``MISSING`` when Affinities answered 404, or ``FAILED``
+            for anything else, which is logged.
+        """
+        if not self.is_enabled:
+            return self.FAILED
+
+        url = f"{self.base_url}{endpoint}"
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.request(method, url, json=json_data)
+        except Exception as e:
+            logger.error(f"Affinities request error: {method} {url} - {e}")
+            return self.FAILED
+
+        if response.status_code == 404:
+            return self.MISSING
+
+        if response.is_success:
+            return self.OK
+
+        logger.error(
+            f"Affinities request failed: {method} {url} - "
+            f"Status {response.status_code}: {response.text}"
+        )
+        return self.FAILED
+
+    async def update_dataset(
+        self,
+        dataset_uid: UUID | str,
+        title: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """
+        Replace a dataset's title and metadata in Affinities.
+
+        Returns
+        -------
+        str
+            ``OK``, ``MISSING`` or ``FAILED``; see :meth:`_change`.
+        """
+        data = {"title": title, "metadata": metadata or {}}
+        return await self._change("PUT", f"/datasets/{dataset_uid}", data)
+
+    async def update_service(
+        self,
+        service_uid: UUID | str,
+        service_type: str | None = None,
+        openapi_url: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """
+        Replace a service's type, OpenAPI URL and metadata in Affinities.
+
+        Returns
+        -------
+        str
+            ``OK``, ``MISSING`` or ``FAILED``; see :meth:`_change`.
+        """
+        data = {
+            "type": service_type,
+            "openapi_url": openapi_url,
+            "metadata": metadata or {},
+        }
+        return await self._change("PUT", f"/services/{service_uid}", data)
+
+    async def delete_dataset(self, dataset_uid: UUID | str) -> str:
+        """
+        Delete a dataset from Affinities.
+
+        Affinities removes the dataset's relationships and triples with it
+        (their foreign keys cascade).
+
+        Returns
+        -------
+        str
+            ``OK`` (also when it was already gone) or ``FAILED``.
+        """
+        outcome = await self._change("DELETE", f"/datasets/{dataset_uid}")
+        return self.OK if outcome == self.MISSING else outcome
+
+    async def delete_service(self, service_uid: UUID | str) -> str:
+        """
+        Delete a service and the triples registered for it.
+
+        The service's relationships cascade in Affinities, but a triple
+        holds services in a list, not a foreign key, so the triple
+        :meth:`register_service` created is found and deleted first. Only
+        triples naming this service alone and no dataset are removed:
+        anything else was not created by this Endpoint.
+
+        Returns
+        -------
+        str
+            ``OK`` (also when it was already gone) or ``FAILED``.
+        """
+        target = str(service_uid)
+        for triple_uid in await self._triples_of_service(target):
+            outcome = await self._change("DELETE", f"/affinities/{triple_uid}")
+            if outcome == self.FAILED:
+                return self.FAILED
+
+        outcome = await self._change("DELETE", f"/services/{target}")
+        return self.OK if outcome == self.MISSING else outcome
+
+    # Page size when listing triples, and an upper bound on the pages read,
+    # so a very large Affinities cannot make one delete take forever.
+    TRIPLE_PAGE_SIZE = 100
+    TRIPLE_PAGE_LIMIT = 200
+
+    async def _triples_of_service(self, service_uid: str) -> list[str]:
+        """List the triples that name ``service_uid`` alone and no dataset."""
+        found = []
+        for page in range(self.TRIPLE_PAGE_LIMIT):
+            skip = page * self.TRIPLE_PAGE_SIZE
+            triples = await self._request(
+                "GET", f"/affinities?skip={skip}&limit={self.TRIPLE_PAGE_SIZE}"
+            )
+            if not triples:
+                break
+            for triple in triples:
+                services = [str(uid) for uid in triple.get("service_uids") or []]
+                if services == [service_uid] and not triple.get("dataset_uid"):
+                    found.append(triple["triple_uid"])
+            if len(triples) < self.TRIPLE_PAGE_SIZE:
+                break
+        return found
+
 
 # Global client instance
 affinities_client = AffinitiesClient()
