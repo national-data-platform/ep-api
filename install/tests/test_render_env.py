@@ -24,8 +24,8 @@ EP_NAME=my_endpoint
 # OIDC_ISSUER=https://idp.example.org/realms/NDP
 # OIDC_CLIENT_ID=ndp-ep-ui
 
-ENABLE_GROUP_BASED_ACCESS=False
-GROUP_NAMES=
+ENABLE_ACCESS_REQUESTS=False
+OIDC_SERVICE_CLIENT_ID=
 """
 
 
@@ -39,7 +39,7 @@ def test_values_are_replaced():
 def test_untouched_variables_keep_their_documented_default():
     text, _, _ = render(EXAMPLE, {"ORGANIZATION": "Tarragona"})
     assert "EP_NAME=my_endpoint" in text
-    assert "ENABLE_GROUP_BASED_ACCESS=False" in text
+    assert "ENABLE_ACCESS_REQUESTS=False" in text
 
 
 def test_comments_survive():
@@ -347,3 +347,20 @@ def test_a_registration_supplies_the_staging_organization():
         "nothing checks that the staging catalog accepts that organization "
         "before the configuration is written"
     )
+
+
+def test_a_registration_supplies_the_client_that_decides_permissions():
+    """
+    Keycloak decides every permission through the gates of the Endpoint's own
+    client, ep-<config-id>; without OIDC_SERVICE_CLIENT_ID every guarded route
+    answers 403. A registration whose Keycloak step failed stores a
+    placeholder id, which must not be written: a client that does not exist
+    refuses everyone.
+    """
+    install_sh = (Path(__file__).resolve().parents[1] / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'if [[ "$fed_client_id" == "ep-${config_id}" ]]; then' in install_sh
+    assert 'put OIDC_SERVICE_CLIENT_ID "$fed_client_id"' in install_sh
+    assert 'put AUTHZ_REALM "$fed_realm"' in install_sh

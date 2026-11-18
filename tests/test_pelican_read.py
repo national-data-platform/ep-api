@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from api.config.swagger_settings import swagger_settings
 from api.services.pelican_services.read_file import read_object
 
 
@@ -133,23 +132,21 @@ class TestReadRoute:
     """Tests for GET /pelican/read."""
 
     @pytest.fixture(autouse=True)
-    def _group_based_access_off(self):
-        """
-        Pin group-based access off rather than inherit it from ``.env``;
-        the simulated users belong to no group (issue #268).
-        """
-        with patch.object(swagger_settings, "enable_group_based_access", False):
-            yield
+    def _keycloak(self, keycloak):
+        """Keycloak grants the simulated user viewer-area, the read gate."""
+        keycloak.grant("viewer")
+        self.keycloak = keycloak
 
     @staticmethod
-    def _client():
+    def _client(token="user-token"):
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
         from api.routes.pelican_routes import router
 
         app = FastAPI()
         app.include_router(router)
-        return app, TestClient(app)
+        headers = {"Authorization": f"Bearer {token}"} if token else None
+        return app, TestClient(app, headers=headers)
 
     @staticmethod
     def _as(roles):
@@ -160,10 +157,11 @@ class TestReadRoute:
             "username": "Test User",
         }
 
-    def _get(self, app, client, roles=("ndp_viewer",)):
+    def _get(self, app, client, level="viewer"):
         from api.services.auth_services import get_current_user
 
-        app.dependency_overrides[get_current_user] = self._as(list(roles))
+        self.keycloak.grant(level)
+        app.dependency_overrides[get_current_user] = self._as([])
         try:
             return client.get("/pelican/read", params={"path": "/public/data.csv"})
         finally:
@@ -213,7 +211,7 @@ class TestReadRoute:
     @patch("api.routes.pelican_routes.read_object")
     def test_requires_authentication(self, mock_read):
         """The new route inherits the router gate added for issue #261."""
-        _app, client = self._client()
+        _app, client = self._client(token=None)
 
         response = client.get("/pelican/read", params={"path": "/public/data.csv"})
 
@@ -221,10 +219,10 @@ class TestReadRoute:
         mock_read.assert_not_called()
 
     @patch("api.routes.pelican_routes.read_object")
-    def test_rejects_user_without_role(self, mock_read):
+    def test_rejects_user_without_level(self, mock_read):
         app, client = self._client()
 
-        response = self._get(app, client, roles=())
+        response = self._get(app, client, level=None)
 
         assert response.status_code == 403
         mock_read.assert_not_called()

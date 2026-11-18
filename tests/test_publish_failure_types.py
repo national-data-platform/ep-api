@@ -98,7 +98,7 @@ class TestRouteAnswersWithThatStatus:
             patch(
                 "api.routes.register_routes.publish_dataset.publish_dataset_to_preckan"
             ) as publish,
-            patch.object(swagger_settings, "enable_group_based_access", False),
+            patch.object(swagger_settings, "test_token", "testing_token"),
         ):
             publish.side_effect = exc
             return TestClient(app).post(

@@ -43,7 +43,7 @@ Reuse verdicts:
 | # | Component | Can be switched off today? | Verdict |
 |---|---|---|---|
 | 1 | Core API process (FastAPI, middleware, errors) | no | adapt |
-| 2 | Authentication and roles (AAI) | group gate only; auth itself no | as-is |
+| 2 | Authentication and roles (AAI) | entry check only; auth and gates no | as-is |
 | 3 | Identity-provider sign-in (OIDC, UI) | yes, `OIDC_ENABLED` | not applicable |
 | 4 | Local catalog (repository pattern: CKAN / MongoDB / none) | yes, `LOCAL_CATALOG_BACKEND=none` | adapt |
 | 5 | Global catalog search | no | not applicable |
@@ -94,20 +94,21 @@ leader lock is the existing way to keep a background loop to one worker.
 ### 2. Authentication and roles (AAI)
 
 **Facts**
-- Every protected route validates the bearer token by `POST AUTH_API_URL
-  {"token": …}` (`api/services/auth_services/get_current_user.py:60-61`); no
-  local JWT validation.
-- Tiers viewer / writer / admin, from `ndp_*` roles or
-  `group:<GROUP_NAMES entry | AFFINITIES_EP_UUID>:<tier>`; the identity
-  provider's `editor` tier counts as writer
-  (`api/services/auth_services/authorization_service.py`).
-- `ENABLE_GROUP_BASED_ACCESS` + `GROUP_NAMES` add a membership gate; the
-  installer sets them from the registration's group
-  (`install/install.sh:1099-1102`). The gate decides who may enter the
-  Endpoint (`GET /user/info`, which the UI calls at sign-in) and applies to
-  every write; writes also need the writer tier.
-- `TEST_TOKEN` bypasses the AAI and grants `ndp_admin`
-  (`get_current_user.py:44-56`).
+- Every protected route asks who the bearer token belongs to with
+  `POST <KEYCLOAK_URL>/api/information {"token": …}`
+  (`api/services/auth_services/get_current_user.py`); routes that need a
+  tier also send it to Keycloak for a decision. No local JWT validation.
+- Tiers viewer / writer / admin are decided by Keycloak: each guarded route
+  asks, with the caller's token, for the `viewer-area`, `editor-area` or
+  `admin-area` gate of the Endpoint's client `OIDC_SERVICE_CLIENT_ID`
+  (`ep-<config-id>`, set by the installer from the registration), which
+  follow the user's level in the Endpoint's group
+  (`api/services/auth_services/ep_access_gate.py`). The `roles` and
+  `groups` the AAI returns are not used.
+- With `OIDC_SERVICE_CLIENT_ID` set, `GET /user/info`, which the UI calls at
+  sign-in, requires a tier too.
+- `TEST_TOKEN` bypasses the AAI and passes every gate
+  (`get_current_user.py`, `ep_access_gate.py`).
 
 **Assessment** — *as-is*. Self-contained, configured by environment only, and
 the same trust model a connector node would need. The `TEST_TOKEN` default
@@ -117,7 +118,7 @@ should not travel to a minimal node.
 
 **Facts** — A PKCE login button in the UI, configured through `OIDC_*`
 variables injected by `entrypoint.sh` (`ui/src/services/oidc.js:49-70`); the
-token is still validated through `AUTH_API_URL`. The installer forces it off
+token is still sent to the AAI API like any other. The installer forces it off
 because the client a registration creates cannot be used for it
 (`install/install.sh:1046`, `1142-1148`).
 
@@ -274,12 +275,10 @@ Affinities is a product question.
 ### 16. Access requests
 
 **Facts** — Self-service requests stored in MongoDB, approved by an admin
-through AAI group/role calls made with the admin's own token. Since 0.34.46
-the group is the first `GROUP_NAMES` entry (on a registered install,
-`ndp_ep/ep-<config-id>`), falling back to `AFFINITIES_EP_UUID` only when
-there is none; with neither, approval answers 503
-(`api/services/access_request_services/access_request_service.py:63-88`,
-`142-171`).
+through an AAI group call made with the admin's own token. The group is
+`ndp_ep/<OIDC_SERVICE_CLIENT_ID>`, the one the Endpoint's client is linked to;
+without a client, approval answers 503
+(`api/services/access_request_services/access_request_service.py`).
 
 **Assessment** — *not applicable*: user management belongs to the full
 Endpoint or to the platform.

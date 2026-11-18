@@ -40,7 +40,7 @@ from api.services.affinities_services.sync import (
     forget_in_affinities,
     sync_with_affinities,
 )
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 EP_UUID = "550e8400-e29b-41d4-a716-446655440000"
 SETTINGS = "api.services.affinities_services.affinities_client.affinities_settings"
@@ -375,7 +375,7 @@ def client():
     app = FastAPI()
     for router in (register_router, update_router, delete_router):
         app.include_router(router)
-    app.dependency_overrides[get_user_for_write_operation] = lambda: {
+    app.dependency_overrides[ep_editor_gate] = lambda: {
         "username": "tester",
         "roles": ["admin"],
     }

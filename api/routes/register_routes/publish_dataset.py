@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 from api.services.dataset_services.publish_dataset import (
     PreCkanPublishError,
     publish_dataset_to_preckan,
@@ -133,7 +133,7 @@ router = APIRouter()
 )
 async def publish_dataset_endpoint(
     dataset_id: str = Path(..., description="ID or name of the dataset to publish"),
-    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Publish a dataset from the local catalog to PRE-CKAN.

@@ -35,16 +35,16 @@ service and reads your groups and roles from it (see
 
 **Who may enter** depends on how the Endpoint was set up:
 
-- On an Endpoint **registered with the NDP Federation** (the usual case),
-  group-based access is on: only members of the Endpoint's group, and holders
-  of the platform-wide `ndp_admin` role, may enter. Anyone else is refused at
-  sign-in and, if the Endpoint has access requests enabled, can ask for
-  access from that screen.
+- On an Endpoint **registered with the NDP Federation** (the usual case), you
+  need a level in the Endpoint's group — viewer, editor or admin — or the
+  platform-wide `ndp_admin` role. Anyone else is refused at sign-in and, if
+  the Endpoint has access requests enabled, can ask for access from that
+  screen.
 - On a **standalone** Endpoint, anyone the NDP authentication service accepts
-  may enter.
+  may enter, but nobody can create or change anything.
 
-Once in, a user without a role can search and browse; creating or changing
-anything needs the writer or admin role.
+Once in, a viewer can search and browse; creating or changing anything needs
+the writer or admin tier.
 
 ## The Search experience
 
@@ -80,9 +80,9 @@ A dataset can carry several kinds of resources:
 
 ## What if you want to publish?
 
-If you have no role, or only the viewer role, the Endpoint shows your search
-results but not the **`+ New`** menu, which is also where the S3 storage page
-is reached. To publish, you need the writer role — see
+As a viewer, the Endpoint shows your search results but not the **`+ New`**
+menu, which is also where the S3 storage page is reached. To publish, you need
+the writer tier — see
 [Requesting access and the role tiers](02-requesting-access-and-roles.md).
 
 ## Want to automate?

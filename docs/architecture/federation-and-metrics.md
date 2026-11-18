@@ -167,7 +167,7 @@ Response fields and what they become (`install/install.sh:1066-1148`):
 |---|---|---|
 | `organization` | `ORGANIZATION` (if non-empty) | `:1092` |
 | `ep_name` | `EP_NAME` (if non-empty) | `:1093` |
-| `group_name` | `ENABLE_GROUP_BASED_ACCESS=True`, `GROUP_NAMES=<group_name>` (`ndp_ep/ep-<config-id>`) | `:1095-1098` |
+| `client_id`, `client_secret`, `realm_name` | `OIDC_SERVICE_CLIENT_ID=<client_id>`, `OIDC_SERVICE_CLIENT_SECRET=<client_secret>` (never printed), `AUTHZ_REALM=<realm_name>`, only when the client is `ep-<config-id>` | `install/install.sh` |
 | `streaming` | `KAFKA_CONNECTION=True/False`; adds the `kafka` compose profile | `:1100-1104`, `:1379-1382` |
 | `jhub`, `jupyter_url` | `USE_JUPYTERLAB=True/False`, `JUPYTER_URL` | `:1106-1111` |
 | `pre_ckan_url` + `pre_ckan_key` (both present) | `PRE_CKAN_ENABLED=True`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY`, `PRE_CKAN_ORGANIZATION=ep-<config-id>` | `:1121-1134` |
@@ -222,7 +222,7 @@ Content-Type: application/json
 ```
 
 - Keys: `backend`, `want_s3`, `s3_endpoint`, `s3_secure`, `ep_api_port`,
-  `auth_api_url`, `want_access_requests`, `mongodb_url`, `ckan_url`
+  `idp_url` (read from the old `auth_api_url` too), `want_access_requests`, `mongodb_url`, `ckan_url`
   (`REMEMBERED_KEYS`, `install/remembered_settings.py:29-39`). Values are
   strings; credentials are deliberately excluded
   (`install/remembered_settings.py:24-28`).
@@ -468,8 +468,8 @@ reference: [configuration.md](../configuration.md).
 | `KAFKA_CONNECTION`, `KAFKA_HOST`, `KAFKA_PORT` | `False` (`kafka_settings.py:8-10`) | `True`, `kafka`, `9093` | from the registration's `streaming` | report flag, host, port |
 | `S3_ENABLED` | `False` (`minio_settings.py:7`) | `True` | from the S3 prompt | report flag |
 | `PRE_CKAN_ENABLED`, `PRE_CKAN_URL`, `PRE_CKAN_API_KEY`, `PRE_CKAN_ORGANIZATION` | `ckan_settings.py:14-18` | `False`, empty | from the registration (`pre_ckan_url`, `pre_ckan_key`, `ep-<config-id>`) | staging catalog; report flag |
-| `ENABLE_GROUP_BASED_ACCESS`, `GROUP_NAMES` | `False`, empty (`swagger_settings.py:26-27`) | `False`, empty | from the registration's `group_name` | who may enter and write; since 0.34.46 also the group an approved access request grants |
-| `AFFINITIES_ENABLED`, `AFFINITIES_URL`, `AFFINITIES_EP_UUID` | `False`, empty (`affinities_settings.py:30-33`) | `False`, empty | always `AFFINITIES_ENABLED=False`; UUID never set | Affinities registration of datasets/services; the UUID also feeds legacy per-Endpoint role names and, when `GROUP_NAMES` is empty, the access-request group |
+| `OIDC_SERVICE_CLIENT_ID`, `OIDC_SERVICE_CLIENT_SECRET`, `AUTHZ_REALM` | empty, empty, `NDP` (`swagger_settings.py`) | empty, empty, `NDP` | from the registration's client, secret and realm | the client whose gates decide who may enter and write; `ndp_ep/<OIDC_SERVICE_CLIENT_ID>` is the group an approved access request grants, and the secret signs the Endpoint in to the AAI API to grant it |
+| `AFFINITIES_ENABLED`, `AFFINITIES_URL`, `AFFINITIES_EP_UUID` | `False`, empty (`affinities_settings.py:30-33`) | `False`, empty | always `AFFINITIES_ENABLED=False`; UUID never set | Affinities registration of datasets/services; the UUID also feeds the Pelican event client id fallback |
 
 Installer-only switches (not in `.env`): `--federation-url`, `--env prod|test`,
 `--config-id` (`install/install.sh:78-89`, `230-235`).
@@ -505,16 +505,15 @@ outage of a few minutes can make an Endpoint look absent for an hour.
 - Reports identify the Endpoint only by `organization` + `ep_name` (+
   `public_ip`), which the operator can change by editing `.env`.
 - The config id is not stored on the machine: it appears only embedded in
-  `GROUP_NAMES` (`ndp_ep/ep-<config-id>`) and `PRE_CKAN_ORGANIZATION`
+  `OIDC_SERVICE_CLIENT_ID` (`ep-<config-id>`) and `PRE_CKAN_ORGANIZATION`
   (`ep-<config-id>`); `.env.install-state` keeps only CKAN values
   (`install/install.sh:1322-1325`).
 - The Affinities uid the registration creates is never read — it is not among
   the fields the installer takes from `GET /ep/<config-id>`
   (`install/install.sh:1080-1090`) — so `AFFINITIES_EP_UUID` stays empty.
-  Access-request approval no longer depends on it: since 0.34.46 it grants on
-  the first `GROUP_NAMES` entry and falls back to `AFFINITIES_EP_UUID` only
-  when there is none (`_endpoint_group`,
-  `api/services/access_request_services/access_request_service.py:63-88`).
+  Access-request approval does not depend on it: it grants on
+  `ndp_ep/<OIDC_SERVICE_CLIENT_ID>` (`_endpoint_group`,
+  `api/services/access_request_services/access_request_service.py`).
 
 ### 4.5 Reports are not authenticated
 

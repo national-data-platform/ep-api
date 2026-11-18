@@ -1,41 +1,45 @@
 # Requesting access and the role tiers
 
-Two things decide what you can do on an Endpoint:
+What you can do on an Endpoint comes from your **level in the Endpoint's
+group** (`ndp_ep/ep-<config-id>`) in the NDP identity provider: `viewers`,
+`editors` or `admins`. It decides two things:
 
-- **Entry.** On an Endpoint registered with the NDP Federation, you must be a
-  member of the Endpoint's group (`ndp_ep/ep-<config-id>`) to get in at all,
-  unless you hold the platform-wide `ndp_admin` role. A standalone Endpoint
-  lets in anyone the NDP authentication service accepts.
-- **Role.** Once in, your role decides whether you can only look, or also
+- **Entry.** On an Endpoint registered with the NDP Federation you need one of
+  those levels to get in at all, unless you hold the platform-wide `ndp_admin`
+  role. A standalone Endpoint lets in anyone the NDP authentication service
+  accepts, but nobody can create or change anything on it.
+- **Tier.** Once in, your level decides whether you can only look, or also
   create and change things.
 
-Groups and roles live in the NDP authentication service and travel inside your
-NDP token. You do not keep a separate account per Endpoint.
+The Endpoint asks the identity provider (Keycloak) about your level on every
+request. You do not keep a separate account per Endpoint, and a new level
+applies straight away.
 
-## The three role tiers
+## The three tiers
 
-| Role | Can do |
+| Tier | Can do |
 |---|---|
 | 👁️ **Viewer** | Search and browse. Read-only. |
 | ✏️ **Writer** | Everything a viewer does, **plus** create, edit and delete organizations, datasets, services and resources, send datasets to the staging catalog, and use the **S3 storage** page. |
 | 🛠️ **Admin** | Everything a writer does, **plus** the admin-only pages: **Dashboard** and, when access requests are enabled, **Access Requests**. |
 
-The tiers are **hierarchical**: an admin does not also need a writer role
-assigned; a writer does not also need a viewer role assigned. You only need the
-**highest tier you want**.
+The tiers are **hierarchical**: an admin does not also need to be an editor;
+an editor does not also need to be a viewer. You only need the **highest tier
+you want**.
 
-A role can be given for one Endpoint — `group:<endpoint group>:<tier>`, for
-example `group:ndp_ep/ep-<config-id>:writer` — or platform-wide (`ndp_viewer`,
-`ndp_writer`, `ndp_admin`). The identity provider calls the write tier
-**editor**; the Endpoint treats `editor` and `writer` as the same tier.
+A tier is your level in the Endpoint's group: **viewers**, **editors** (the
+identity provider's name for writers) or **admins**. A level on a parent
+group, such as `ndp_ep`, can count on every Endpoint below it. The only
+platform-wide role that counts is `ndp_admin`; realm roles such as
+`ndp_writer` or `group:<group>:writer` grant nothing on their own.
 
-**Without a role**, a user who got in can search and browse but cannot create
-or modify anything.
+**Without a level** you cannot enter a registered Endpoint at all; catalog
+searches through the API stay public.
 
 ## Requesting access
 
 The request form appears when the Endpoint **refuses you at sign-in** — that
-is, on a registered Endpoint whose group you are not in:
+is, on a registered Endpoint where you have no level:
 
 1. Sign in at the Endpoint's address (`<endpoint-url>/ui/`).
 2. The Endpoint says you do not have permission to access it, and offers
@@ -50,8 +54,9 @@ provides one when you answer yes to *Enable access requests?*). Otherwise the
 form answers that access requests are disabled, and access has to be arranged
 with the Endpoint's administrator directly.
 
-A user who can already enter but has no role does not see the form; a role
-is then given by an administrator outside the Endpoint.
+A viewer who wants to write does not see the form, since they can already
+enter; an administrator raises their level directly, in the identity
+provider's group or through its AAI API.
 
 ## What the administrator does
 
@@ -60,24 +65,24 @@ requests and either **approves** the request as **Viewer**, **Writer** or
 **Admin** (Viewer is preselected), or **rejects** it, optionally with notes.
 
 Approving makes the change in the NDP authentication service with the
-administrator's own token: it adds you to the Endpoint's group and, for Writer
-or Admin, assigns that role on the group. Since Endpoint version 0.34.46 the
-group is the Endpoint's own Federation group, the first entry of its
-`GROUP_NAMES` setting. An Endpoint with no group configured — a standalone
-one — cannot approve requests. If the authentication service refuses the
-change, the request stays pending and the administrator can try again.
+administrator's own token: it adds you to the Endpoint's own Federation
+group at the level picked (Viewer, Editor for Writer, or Admin). An Endpoint
+with no Keycloak client — a standalone one — cannot approve requests. If the
+authentication service refuses the change, the request stays pending and the
+administrator can try again.
 
 Rejecting only records the decision.
 
 ## After approval
 
-The new group and role take effect when your **next token is issued** —
-typically on your next sign-in. If the Endpoint still refuses you or acts as
-if you had no role, sign out, get a fresh token and sign in again.
+The new level applies **straight away**: the Endpoint asks the identity
+provider on every request, so you only need to sign in again to get past the
+screen that refused you. You do not need a new token.
 
-The same applies if your role is removed or changed later.
+Taking a level away, or lowering it, can take until your current token
+expires to show.
 
-## Once you have a writer role
+## Once you are a writer
 
 The **`+ New`** menu appears in the navigation bar, and your own items on the
 **Search** page offer **Delete** and, for datasets, **Publish**. See

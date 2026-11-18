@@ -37,12 +37,11 @@ class AccessRequestApproveDecision(AccessRequestDecision):
     grant_type: Literal["viewer", "writer", "admin", "member"] = Field(
         ...,
         description=(
-            "Role tier to grant the user. "
-            "'viewer' adds the user to the endpoint group (the AAI's "
-            "default per-group assignment is viewer, so this is the "
-            "minimal grant). "
-            "'writer' additionally assigns the per-endpoint writer role. "
-            "'admin' additionally assigns the per-endpoint admin role. "
+            "Role tier to grant the user. Each adds the user to the "
+            "endpoint group at a permission level: "
+            "'viewer' as a viewer (the minimal grant), "
+            "'writer' as an editor, "
+            "'admin' as an admin. "
             "'member' is kept as a deprecated alias for 'viewer' so "
             "existing clients keep working."
         ),

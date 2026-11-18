@@ -8,8 +8,8 @@ from api.config import catalog_settings, ckan_settings
 from api.models.general_dataset_request_model import GeneralDatasetRequest
 from api.repositories import CKANRepository
 from api.services.affinities_services.sync import sync_with_affinities
-from api.services.auth_services import get_user_for_write_operation
 from api.services.dataset_services.general_dataset import create_general_dataset
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -157,7 +157,7 @@ async def create_general_dataset_endpoint(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Specify 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    user_info: Dict[str, Any] = Depends(get_user_for_write_operation),
+    user_info: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Create a new general dataset in CKAN.

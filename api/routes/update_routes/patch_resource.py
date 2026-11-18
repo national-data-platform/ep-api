@@ -8,7 +8,7 @@ from api.config import ckan_settings
 from api.models.resource_patch_model import ResourcePatchRequest
 from api.repositories import CKANRepository
 from api.services import dataset_services
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -83,7 +83,7 @@ async def patch_resource_endpoint(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    _: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Partially update a resource within a dataset.

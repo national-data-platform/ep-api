@@ -8,7 +8,7 @@ from api.config import catalog_settings, ckan_settings
 from api.repositories import CKANRepository
 from api.services import organization_services
 from api.services.affinities_services.sync import forget_in_affinities
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -61,7 +61,7 @@ async def delete_organization(
             "can clean them up explicitly before retrying."
         ),
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    _: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Endpoint to delete an organization in CKAN by its name.

@@ -12,25 +12,11 @@ from fastapi import HTTPException
 from api.services.auth_services import aai_client
 
 
-class TestAaiBaseUrl:
-    @patch("api.services.auth_services.aai_client.swagger_settings")
-    def test_strips_path_and_keeps_port(self, mock_settings):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
-        assert aai_client._aai_base_url() == "http://idp.example.com:5055"
-
-    @patch("api.services.auth_services.aai_client.swagger_settings")
-    def test_raises_when_url_is_empty(self, mock_settings):
-        mock_settings.auth_api_url = ""
-        with pytest.raises(HTTPException) as exc:
-            aai_client._aai_base_url()
-        assert exc.value.status_code == 502
-
-
 class TestAddUserToGroup:
     @patch("api.services.auth_services.aai_client.requests.post")
     @patch("api.services.auth_services.aai_client.swagger_settings")
     def test_happy_path_forwards_token(self, mock_settings, mock_post):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
 
         resp = MagicMock()
         resp.status_code = 200
@@ -42,16 +28,60 @@ class TestAddUserToGroup:
 
         assert result == {"message": "ok"}
         mock_post.assert_called_once_with(
-            "http://idp.example.com:5055/group/add-user",
+            "http://idp.example.com:5055/api/group/add-user",
             headers={"Authorization": "Bearer tok"},
-            json={"group_name": "some-group", "username": "yutian"},
+            json={"groupName": "some-group", "user": "yutian", "role": "viewer"},
             timeout=15,
         )
 
     @patch("api.services.auth_services.aai_client.requests.post")
     @patch("api.services.auth_services.aai_client.swagger_settings")
+    def test_client_assertion_is_sent_as_a_bearer_header(
+        self, mock_settings, mock_post
+    ):
+        """Groups under ndp_ep need the Endpoint's own client to vouch."""
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
+
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.content = b"{}"
+        resp.json.return_value = {}
+        mock_post.return_value = resp
+
+        aai_client.add_user_to_group(
+            "tok", "ndp_ep/ep-1", "uuid-1", "editor", client_assertion="client-tok"
+        )
+
+        mock_post.assert_called_once_with(
+            "http://idp.example.com:5055/api/group/add-user",
+            headers={
+                "Authorization": "Bearer tok",
+                "X-Client-Assertion": "Bearer client-tok",
+            },
+            json={"groupName": "ndp_ep/ep-1", "user": "uuid-1", "role": "editor"},
+            timeout=15,
+        )
+
+    @patch("api.services.auth_services.aai_client.requests.post")
+    @patch("api.services.auth_services.aai_client.swagger_settings")
+    def test_partial_success_is_not_success(self, mock_settings, mock_post):
+        """207 means some users were not added; never mark that approved."""
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
+
+        resp = MagicMock()
+        resp.status_code = 207
+        resp.content = b'{"warning":"Some users could not be added"}'
+        resp.json.return_value = {"warning": "Some users could not be added"}
+        mock_post.return_value = resp
+
+        with pytest.raises(HTTPException) as exc:
+            aai_client.add_user_to_group("tok", "g", "u")
+        assert exc.value.status_code == 502
+
+    @patch("api.services.auth_services.aai_client.requests.post")
+    @patch("api.services.auth_services.aai_client.swagger_settings")
     def test_forbidden_response_surfaces_as_403(self, mock_settings, mock_post):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
 
         resp = MagicMock()
         resp.status_code = 403
@@ -66,23 +96,26 @@ class TestAddUserToGroup:
 
     @patch("api.services.auth_services.aai_client.requests.post")
     @patch("api.services.auth_services.aai_client.swagger_settings")
-    def test_unauthorized_response_surfaces_as_401(self, mock_settings, mock_post):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+    def test_unauthorized_response_surfaces_as_502(self, mock_settings, mock_post):
+        """The admin's token was already accepted; a 401 here is about the
+        Endpoint's client assertion, and must not sign the admin out."""
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
 
         resp = MagicMock()
         resp.status_code = 401
-        resp.content = b'{"detail":"Missing token"}'
-        resp.json.return_value = {"detail": "Missing token"}
+        resp.content = b'{"detail":"Missing X-Client-Assertion"}'
+        resp.json.return_value = {"detail": "Missing X-Client-Assertion"}
         mock_post.return_value = resp
 
         with pytest.raises(HTTPException) as exc:
             aai_client.add_user_to_group("tok", "some-group", "yutian")
-        assert exc.value.status_code == 401
+        assert exc.value.status_code == 502
+        assert "X-Client-Assertion" in exc.value.detail
 
     @patch("api.services.auth_services.aai_client.requests.post")
     @patch("api.services.auth_services.aai_client.swagger_settings")
     def test_not_found_surfaces_as_404(self, mock_settings, mock_post):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
 
         resp = MagicMock()
         resp.status_code = 404
@@ -97,7 +130,7 @@ class TestAddUserToGroup:
     @patch("api.services.auth_services.aai_client.requests.post")
     @patch("api.services.auth_services.aai_client.swagger_settings")
     def test_unexpected_status_surfaces_as_502(self, mock_settings, mock_post):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
 
         resp = MagicMock()
         resp.status_code = 500
@@ -112,7 +145,7 @@ class TestAddUserToGroup:
     @patch("api.services.auth_services.aai_client.requests.post")
     @patch("api.services.auth_services.aai_client.swagger_settings")
     def test_transport_error_becomes_502(self, mock_settings, mock_post):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
         mock_post.side_effect = requests.exceptions.ConnectionError("boom")
 
         with pytest.raises(HTTPException) as exc:
@@ -120,11 +153,12 @@ class TestAddUserToGroup:
         assert exc.value.status_code == 502
 
 
-class TestAssignRole:
+class TestAddUserToGroupAtALevel:
     @patch("api.services.auth_services.aai_client.requests.post")
     @patch("api.services.auth_services.aai_client.swagger_settings")
-    def test_happy_path(self, mock_settings, mock_post):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+    def test_the_level_is_sent_as_role(self, mock_settings, mock_post):
+        """The AAI puts the user in that level's subgroup, which the gates read."""
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
 
         resp = MagicMock()
         resp.status_code = 200
@@ -132,25 +166,87 @@ class TestAssignRole:
         resp.json.return_value = {}
         mock_post.return_value = resp
 
-        aai_client.assign_role("tok", "writer", "yutian", "ep-group")
+        aai_client.add_user_to_group("tok", "ep-group", "yutian", "editor")
 
         mock_post.assert_called_once_with(
-            "http://idp.example.com:5055/role/assign",
+            "http://idp.example.com:5055/api/group/add-user",
             headers={"Authorization": "Bearer tok"},
-            json={
-                "role_name": "writer",
-                "username": "yutian",
-                "group_name": "ep-group",
-            },
+            json={"groupName": "ep-group", "user": "yutian", "role": "editor"},
             timeout=15,
         )
+
+
+class TestClientLogin:
+    @patch("api.services.auth_services.aai_client.requests.post")
+    @patch("api.services.auth_services.aai_client.swagger_settings")
+    def test_returns_the_access_token(self, mock_settings, mock_post):
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
+
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            "access_token": "client-tok",
+            "expires_in": 300,
+            "token_type": "Bearer",
+        }
+        mock_post.return_value = resp
+
+        assert aai_client.client_login("ep-1", "s3cret") == "client-tok"
+        mock_post.assert_called_once_with(
+            "http://idp.example.com:5055/api/client/login",
+            json={"client_id": "ep-1", "secret": "s3cret"},
+            timeout=15,
+        )
+
+    @pytest.mark.parametrize("code", [400, 401])
+    @patch("api.services.auth_services.aai_client.requests.post")
+    @patch("api.services.auth_services.aai_client.swagger_settings")
+    def test_refused_credentials_are_a_configuration_error(
+        self, mock_settings, mock_post, code
+    ):
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
+
+        resp = MagicMock()
+        resp.status_code = code
+        resp.json.return_value = {"error": "Invalid credentials or server error"}
+        mock_post.return_value = resp
+
+        with pytest.raises(HTTPException) as exc:
+            aai_client.client_login("ep-1", "s3cret")
+        assert exc.value.status_code == 503
+        assert "OIDC_SERVICE_CLIENT_SECRET" in exc.value.detail
+        assert "s3cret" not in exc.value.detail
+
+    @patch("api.services.auth_services.aai_client.requests.post")
+    @patch("api.services.auth_services.aai_client.swagger_settings")
+    def test_an_answer_without_a_token_surfaces_as_502(self, mock_settings, mock_post):
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
+
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"access_token": None}
+        mock_post.return_value = resp
+
+        with pytest.raises(HTTPException) as exc:
+            aai_client.client_login("ep-1", "s3cret")
+        assert exc.value.status_code == 502
+
+    @patch("api.services.auth_services.aai_client.requests.post")
+    @patch("api.services.auth_services.aai_client.swagger_settings")
+    def test_transport_error_becomes_502(self, mock_settings, mock_post):
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
+        mock_post.side_effect = requests.exceptions.ConnectionError("boom")
+
+        with pytest.raises(HTTPException) as exc:
+            aai_client.client_login("ep-1", "s3cret")
+        assert exc.value.status_code == 502
 
 
 class TestListGroupMembers:
     @patch("api.services.auth_services.aai_client.requests.get")
     @patch("api.services.auth_services.aai_client.swagger_settings")
     def test_happy_path(self, mock_settings, mock_get):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
 
         resp = MagicMock()
         resp.status_code = 200
@@ -161,16 +257,16 @@ class TestListGroupMembers:
 
         assert result == {"yutian": ["viewer"]}
         mock_get.assert_called_once_with(
-            "http://idp.example.com:5055/group/members",
+            "http://idp.example.com:5055/api/group/members",
             headers={"Authorization": "Bearer tok"},
-            params={"group_name": "g"},
+            params={"groupName": "g"},
             timeout=15,
         )
 
     @patch("api.services.auth_services.aai_client.requests.get")
     @patch("api.services.auth_services.aai_client.swagger_settings")
     def test_empty_group_returns_empty_dict(self, mock_settings, mock_get):
-        mock_settings.auth_api_url = "http://idp.example.com:5055/information"
+        mock_settings.aai_api_url = "http://idp.example.com:5055/api"
 
         resp = MagicMock()
         resp.status_code = 200

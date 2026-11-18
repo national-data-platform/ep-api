@@ -164,8 +164,9 @@ def test_a_registration_without_a_client_writes_none(federation, stub_path):
 
     env, _ = _run(stub_path, url)
 
-    assert "OIDC_SERVICE_CLIENT_ID" not in env
-    assert "OIDC_SERVICE_CLIENT_SECRET" not in env
+    # example.env lists both keys, so they are present but empty.
+    assert env.get("OIDC_SERVICE_CLIENT_ID", "") == ""
+    assert env.get("OIDC_SERVICE_CLIENT_SECRET", "") == ""
 
 
 def test_the_placeholder_client_of_a_failed_registration_is_not_kept(
@@ -177,5 +178,5 @@ def test_the_placeholder_client_of_a_failed_registration_is_not_kept(
 
     env, output = _run(stub_path, url)
 
-    assert "OIDC_SERVICE_CLIENT_ID" not in env
+    assert env.get("OIDC_SERVICE_CLIENT_ID", "") == ""
     assert "default-ep-client" in output

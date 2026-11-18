@@ -65,9 +65,9 @@ way.
    Settings are read at startup, so restart the container after changing
    them (`docker compose up -d` recreates it when `.env` changed).
 
-`AFFINITIES_EP_UUID` is also used outside this integration — in role names,
-in the group gate, as the access-request group when `GROUP_NAMES` is empty and
-as the Pelican event client id fallback — even with `AFFINITIES_ENABLED=False`.
+`AFFINITIES_EP_UUID` is also used outside this integration — as the Pelican
+event client id fallback — even with `AFFINITIES_ENABLED=False`. It plays no part in
+permissions, which Keycloak decides.
 See [configuration.md](configuration.md#affinities_ep_uuid).
 
 ## How It Works

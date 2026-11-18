@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from api.config import catalog_settings, ckan_settings
 from api.repositories import CKANRepository
 from api.services import dataset_services
-from api.services.auth_services import get_user_for_write_operation
+from api.services.auth_services import ep_editor_gate
 
 router = APIRouter()
 
@@ -51,7 +51,7 @@ async def delete_resource_from_dataset(
     server: Literal["local", "pre_ckan"] = Query(
         "local", description="Choose 'local' or 'pre_ckan'. Defaults to 'local'."
     ),
-    _: Dict[str, Any] = Depends(get_user_for_write_operation),
+    _: Dict[str, Any] = Depends(ep_editor_gate),
 ):
     """
     Delete a single resource from a dataset.

@@ -45,8 +45,7 @@ choices are:
    already run (see [S3 object storage](#s3-object-storage)).
 4. **Register with the Federation** (only without a configuration id) —
    answer yes and give your token; this is what lists the Endpoint on the
-   platform and creates its Keycloak group, which the group-based access
-   control is keyed on. Registering asks for the organization, Endpoint name,
+   platform and creates its Keycloak client and group, whose permission gates decide who may read, write and administer it. Registering asks for the organization, Endpoint name,
    a contact email, whether to list the Endpoint on the platform, and the
    optional features below. Answer no for a standalone Endpoint: you are asked
    only for the organization and Endpoint name, it will not be listed, and it

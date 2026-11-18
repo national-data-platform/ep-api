@@ -85,7 +85,6 @@ def get_status():
         "api_version": swagger_settings.swagger_version,
         "organization": swagger_settings.organization,
         "ep_name": swagger_settings.ep_name,
-        "group_based_access": swagger_settings.enable_group_based_access,
         "local_catalog_backend": catalog_settings.local_catalog_backend,
         "backend_connected": check_backend_connection(),
         "pre_ckan_enabled": ckan_settings.pre_ckan_enabled,
@@ -96,7 +95,7 @@ def get_status():
         # UI can hide the page on deployments where every call would 503
         # (issue #270).
         "access_requests_enabled": swagger_settings.enable_access_requests,
-        "auth_api_url": swagger_settings.auth_api_url,
+        "keycloak_url": swagger_settings.keycloak_url,
         "metrics_endpoint": swagger_settings.metrics_endpoint,
         "metrics_interval_seconds": swagger_settings.metrics_interval_seconds,
         "is_public": swagger_settings.is_public,

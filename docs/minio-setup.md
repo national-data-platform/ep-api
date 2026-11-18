@@ -110,7 +110,7 @@ curl -s http://localhost:8002/ready
 # The S3 connection as the UI sees it ("s3_enabled", "s3_connected")
 curl -s http://localhost:8002/status/ -H "Authorization: Bearer $TOKEN"
 
-# List buckets (writer role required)
+# List buckets (writer tier required)
 curl -s http://localhost:8002/s3/buckets/ -H "Authorization: Bearer $TOKEN"
 
 # Create a bucket
@@ -141,8 +141,8 @@ The full set of S3 routes is in
   `S3_SECRET_KEY` is empty.
 - **`/s3/...` answers 404** — `S3_ENABLED` is not `True`, so the routes are
   not mounted.
-- **403** — the caller does not have the writer role, or does not pass the
-  group gate when `ENABLE_GROUP_BASED_ACCESS=True`.
+- **403** — Keycloak does not let the caller through `editor-area`: they are
+  not an editor or admin of the Endpoint's group.
 - **Signature or TLS errors** — check `S3_SECURE` against the service's scheme
   and `S3_REGION` against the bucket region.
 - **The `ndp-minio` container does not start** — check that host ports 9002
