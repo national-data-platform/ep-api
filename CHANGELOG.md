@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-18
+
+### Fixed
+- **S3 Management shows the write controls only to the Endpoint's admins** (#399). Since 1.0.0, creating and deleting buckets, uploading and deleting objects need the `admin-area` gate. The page still showed those controls to editors, who only learned from the 403 that they could not use them.
+  - The page reads `effective_role` from `/user/info`. Admins see the controls as before.
+  - Everyone else gets a read-only view, with a notice: they can list, download, see metadata and generate download links.
+  - If the role cannot be read, the view is read-only too.
+  - New tests in `ui/src/pages/S3Management.test.js`.
+  - Verified against a real Keycloak 26.5.1 and MinIO, with a client with gates and one without (Federation 1.x): on both, `/user/info` reports `admin` and `writer`, the admin creates a bucket (201), and the editor lists (200) but cannot create (403).
+
 ## [1.0.0] - 2026-11-18
 
 Permissions move to Keycloak. How to upgrade, and what changes for each kind of Endpoint client, is in [docs/upgrading-to-1.0.md](docs/upgrading-to-1.0.md).

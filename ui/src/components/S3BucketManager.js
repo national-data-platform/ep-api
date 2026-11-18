@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import { s3BucketAPI } from '../services/api';
 
-const S3BucketManager = ({ onBucketSelect, selectedBucket }) => {
+// canWrite: whether the user may create and delete buckets, which needs the
+// Endpoint's admin tier (#399). Editors get a read-only list.
+const S3BucketManager = ({ onBucketSelect, selectedBucket, canWrite = false }) => {
   const [buckets, setBuckets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -183,18 +185,20 @@ const S3BucketManager = ({ onBucketSelect, selectedBucket }) => {
               <RefreshCw size={16} />
               Refresh
             </button>
-            <button
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              className="btn btn-primary"
-            >
-              <Plus size={16} />
-              {showCreateForm ? 'Cancel' : 'Create Bucket'}
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setShowCreateForm(!showCreateForm)}
+                className="btn btn-primary"
+              >
+                <Plus size={16} />
+                {showCreateForm ? 'Cancel' : 'Create Bucket'}
+              </button>
+            )}
           </div>
         </div>
 
         {/* Create Bucket Form */}
-        {showCreateForm && (
+        {canWrite && showCreateForm && (
           <div style={{ 
             borderTop: '1px solid #e2e8f0', 
             padding: '1rem',
@@ -294,7 +298,7 @@ const S3BucketManager = ({ onBucketSelect, selectedBucket }) => {
               <>
                 <FolderOpen size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
                 <p>No S3 buckets found</p>
-                <p>Create your first bucket using the button above</p>
+                {canWrite && <p>Create your first bucket using the button above</p>}
               </>
             )}
           </div>
@@ -377,18 +381,20 @@ const S3BucketManager = ({ onBucketSelect, selectedBucket }) => {
                           )}
                         </button>
                         
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteBucket(bucket);
-                          }}
-                          className="btn btn-danger"
-                          style={{ padding: '0.375rem 0.75rem' }}
-                          title="Delete bucket"
-                        >
-                          <Trash2 size={14} />
-                          <span style={{ fontSize: '0.75rem' }}>Delete</span>
-                        </button>
+                        {canWrite && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteBucket(bucket);
+                            }}
+                            className="btn btn-danger"
+                            style={{ padding: '0.375rem 0.75rem' }}
+                            title="Delete bucket"
+                          >
+                            <Trash2 size={14} />
+                            <span style={{ fontSize: '0.75rem' }}>Delete</span>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

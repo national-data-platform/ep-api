@@ -21,7 +21,9 @@ import {
 } from 'lucide-react';
 import { s3ObjectAPI, s3PresignedAPI } from '../services/api';
 
-const S3ObjectManager = ({ selectedBucket }) => {
+// canWrite: whether the user may upload and delete objects, which needs the
+// Endpoint's admin tier (#399). Editors can list, download and share links.
+const S3ObjectManager = ({ selectedBucket, canWrite = false }) => {
   const [objects, setObjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -340,21 +342,25 @@ const S3ObjectManager = ({ selectedBucket }) => {
               <RefreshCw size={16} />
               Refresh
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="btn btn-primary"
-              disabled={uploading}
-            >
-              <Upload size={16} />
-              Upload Files
-            </button>
+            {canWrite && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn btn-primary"
+                  disabled={uploading}
+                >
+                  <Upload size={16} />
+                  Upload Files
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -386,6 +392,7 @@ const S3ObjectManager = ({ selectedBucket }) => {
         )}
 
         {/* Drag and Drop Area */}
+        {canWrite && (
         <div
           ref={dragRef}
           onDragEnter={handleDragEnter}
@@ -417,6 +424,7 @@ const S3ObjectManager = ({ selectedBucket }) => {
             }
           </p>
         </div>
+        )}
 
         {/* Objects List */}
         {loading ? (
@@ -547,14 +555,16 @@ const S3ObjectManager = ({ selectedBucket }) => {
                           <Link size={12} />
                         </button>
                         
-                        <button
-                          onClick={() => handleDelete(object)}
-                          className="btn btn-danger"
-                          style={{ padding: '0.25rem 0.5rem' }}
-                          title="Delete file"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {canWrite && (
+                          <button
+                            onClick={() => handleDelete(object)}
+                            className="btn btn-danger"
+                            style={{ padding: '0.25rem 0.5rem' }}
+                            title="Delete file"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
