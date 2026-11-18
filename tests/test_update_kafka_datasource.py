@@ -1,4 +1,4 @@
-# tests/test_kafka_update_service.py
+# tests/test_update_kafka_datasource.py
 import json
 from unittest.mock import MagicMock, patch
 
@@ -10,12 +10,12 @@ from api.services.kafka_services.update_kafka import patch_kafka, update_kafka
 class TestUpdateKafka:
     """Test cases for update_kafka function."""
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_update_kafka_success_all_params(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_update_kafka_success_all_params(self, mock_catalog_settings):
         """Test successful Kafka dataset update with all parameters."""
         # Mock CKAN instance and dataset data
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -77,8 +77,8 @@ class TestUpdateKafka:
         assert extras_dict["custom_field"] == "custom_value"
         assert extras_dict["existing_extra"] == "existing_value"  # Preserved
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_update_kafka_with_custom_ckan_instance(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_update_kafka_with_custom_ckan_instance(self, mock_catalog_settings):
         """Test update_kafka with custom CKAN instance."""
         custom_ckan = MagicMock()
         existing_dataset = {
@@ -101,13 +101,13 @@ class TestUpdateKafka:
         assert result == "kafka-dataset-123"
         custom_ckan.action.package_show.assert_called_once_with(id="kafka-dataset-123")
         # Should not use default ckan_settings.ckan
-        mock_ckan_settings.ckan.action.package_show.assert_not_called()
+        mock_catalog_settings.local_catalog.package_show.assert_not_called()
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_update_kafka_reserved_keys_error(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_update_kafka_reserved_keys_error(self, mock_catalog_settings):
         """Test update_kafka with reserved keys in extras."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -125,11 +125,11 @@ class TestUpdateKafka:
                 extras={"name": "invalid", "port": "invalid", "custom": "valid"},
             )
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_update_kafka_fetch_error(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_update_kafka_fetch_error(self, mock_catalog_settings):
         """Test update_kafka when fetching dataset fails."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
         mock_ckan.action.package_show.side_effect = Exception("Dataset not found")
 
         with pytest.raises(
@@ -137,11 +137,11 @@ class TestUpdateKafka:
         ):
             update_kafka(dataset_id="nonexistent-dataset")
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_update_kafka_update_error(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_update_kafka_update_error(self, mock_catalog_settings):
         """Test update_kafka when updating dataset fails."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -159,11 +159,11 @@ class TestUpdateKafka:
         ):
             update_kafka(dataset_id="kafka-dataset-123", dataset_name="new_name")
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_update_kafka_partial_kafka_params(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_update_kafka_partial_kafka_params(self, mock_catalog_settings):
         """Test update_kafka with partial Kafka-specific parameters."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -196,11 +196,11 @@ class TestUpdateKafka:
         assert extras_dict["port"] == "9092"  # Preserved
         assert extras_dict["topic"] == "old_topic"  # Preserved
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_update_kafka_no_extras_provided(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_update_kafka_no_extras_provided(self, mock_catalog_settings):
         """Test update_kafka without extras but with other parameters."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -233,11 +233,11 @@ class TestUpdateKafka:
 class TestPatchKafka:
     """Test cases for patch_kafka function."""
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_patch_kafka_success(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_patch_kafka_success(self, mock_catalog_settings):
         """Test successful Kafka dataset patch with partial updates."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -284,11 +284,11 @@ class TestPatchKafka:
         assert extras_dict["mapping"] == json.dumps(mapping_data)  # Added
         assert extras_dict["new_field"] == "new_value"  # Added
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_patch_kafka_reserved_keys_error(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_patch_kafka_reserved_keys_error(self, mock_catalog_settings):
         """Test patch_kafka with reserved keys in extras."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -306,11 +306,11 @@ class TestPatchKafka:
                 extras={"id": "invalid", "mapping": "also_invalid"},
             )
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_patch_kafka_fetch_error(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_patch_kafka_fetch_error(self, mock_catalog_settings):
         """Test patch_kafka when fetching dataset fails."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
         mock_ckan.action.package_show.side_effect = Exception("Dataset not found")
 
         with pytest.raises(
@@ -318,11 +318,11 @@ class TestPatchKafka:
         ):
             patch_kafka(dataset_id="nonexistent-dataset", dataset_title="New Title")
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_patch_kafka_update_error(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_patch_kafka_update_error(self, mock_catalog_settings):
         """Test patch_kafka when updating dataset fails."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -340,11 +340,11 @@ class TestPatchKafka:
         ):
             patch_kafka(dataset_id="kafka-dataset-123", dataset_title="New Title")
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_patch_kafka_all_kafka_params(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_patch_kafka_all_kafka_params(self, mock_catalog_settings):
         """Test patch_kafka with all Kafka-specific parameters."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -383,11 +383,11 @@ class TestPatchKafka:
         assert extras_dict["processing"] == json.dumps(processing_data)
         assert extras_dict["existing"] == "preserved"  # Original preserved
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_patch_kafka_no_changes(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_patch_kafka_no_changes(self, mock_catalog_settings):
         """Test patch_kafka with no actual changes (all None parameters)."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",
@@ -411,11 +411,11 @@ class TestPatchKafka:
         assert len(update_call_args["extras"]) == 1
         assert update_call_args["extras"][0]["key"] == "existing"
 
-    @patch("api.services.kafka_services.update_kafka.ckan_settings")
-    def test_patch_kafka_individual_fields(self, mock_ckan_settings):
+    @patch("api.services.kafka_services.update_kafka.catalog_settings")
+    def test_patch_kafka_individual_fields(self, mock_catalog_settings):
         """Test patch_kafka updating individual fields separately."""
         mock_ckan = MagicMock()
-        mock_ckan_settings.ckan = mock_ckan
+        mock_catalog_settings.local_catalog = mock_ckan.action
 
         existing_dataset = {
             "id": "kafka-dataset-123",

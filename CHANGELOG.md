@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests
+- **The last two test files of #260 run again.** Both had stayed disabled because they no longer passed.
+  - `tests/test_update_kafka_datasource.py` (14 tests): it patched a `ckan_settings` the Kafka update service no longer has. It now patches the configured local catalog (`catalog_settings.local_catalog`) the service writes to.
+  - `tests/test_pelican_routes_http.py` (20 tests, formerly `test_pelican_routes.py.disabled`): it called the Pelican routes through `api.main`, where they now need a permission gate and are mounted only with `PELICAN_ENABLED`. The routes are now mounted on a bare app with the gates passed, so the file covers what each route does. Who may call them stays in `tests/test_pelican_routes.py`.
+
 ## [1.0.1] - 2026-11-18
 
 ### Fixed
