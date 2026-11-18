@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { Database, Info, AlertTriangle } from 'lucide-react';
 import S3BucketManager from '../components/S3BucketManager';
 import S3ObjectManager from '../components/S3ObjectManager';
-import { statusAPI } from '../services/api';
+import { isAccessRequestAdmin, statusAPI, userAPI } from '../services/api';
 
 const S3Management = () => {
   const [selectedBucket, setSelectedBucket] = useState(null);
@@ -14,6 +14,25 @@ const S3Management = () => {
   // should say: with one, direct S3 bypasses it (use S3 Resources to register);
   // without one, there is simply nothing to register into.
   const [hasLocalCatalog, setHasLocalCatalog] = useState(false);
+  // Creating and deleting buckets, uploading and deleting objects need the
+  // Endpoint's admin tier (#399); editors get a read-only view.
+  // null while /user/info is pending, so admins never see the notice flash.
+  const [canWrite, setCanWrite] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    userAPI
+      .getUserInfo()
+      .then((response) => {
+        if (!cancelled) setCanWrite(isAccessRequestAdmin(response.data));
+      })
+      .catch(() => {
+        if (!cancelled) setCanWrite(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,15 +141,32 @@ const S3Management = () => {
         </div>
       </div>
 
+      {canWrite === false && (
+        <div className="alert" style={{
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          color: '#334155',
+          marginBottom: '1.5rem'
+        }}>
+          <Info size={20} />
+          <div style={{ fontSize: '0.875rem' }}>
+            Read-only: you can list, download and share files. Creating and
+            deleting buckets, uploading and deleting files need the Endpoint's
+            admin role.
+          </div>
+        </div>
+      )}
+
       {/* Bucket Management Section */}
-      <S3BucketManager 
+      <S3BucketManager
         onBucketSelect={setSelectedBucket}
         selectedBucket={selectedBucket}
+        canWrite={canWrite === true}
       />
 
       {/* Object Management Section */}
       <div style={{ marginTop: '1.5rem' }}>
-        <S3ObjectManager selectedBucket={selectedBucket} />
+        <S3ObjectManager selectedBucket={selectedBucket} canWrite={canWrite === true} />
       </div>
 
       {/* Usage Information */}
