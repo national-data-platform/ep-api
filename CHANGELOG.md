@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-18
+
+Permissions move to Keycloak. How to upgrade, and what changes for each kind of Endpoint client, is in [docs/upgrading-to-1.0.md](docs/upgrading-to-1.0.md).
+
 ### Changed
 - **Keycloak decides every permission.** Each guarded route asks Keycloak, with the caller's own token, whether they pass a gate of the Endpoint's client (`OIDC_SERVICE_CLIENT_ID`, `ep-<config-id>`): `admin-area`, `editor-area` or `viewer-area`, which follow the user's level (`admins`, `editors`, `viewers`) in the Endpoint's group `ndp_ep/ep-<config-id>`. It is the same decision call the Federation makes. The `roles` and `groups` the AAI API reports no longer count. The route dependencies are the gates themselves, `ep_admin_gate`, `ep_editor_gate` and `ep_viewer_gate` in `api/services/auth_services/ep_access_gate.py`; `authorization_service.py` and its role-name matchers are removed. `/user/info` reports `effective_role` from the gates and, when `OIDC_SERVICE_CLIENT_ID` is set, lets in only users with a level.
 - **One identity-provider setting, `KEYCLOAK_URL`.** The AAI API (`<KEYCLOAK_URL>/api`) and the realm (`<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`) are derived from it. `AUTH_API_URL` is still read when it is not set, keeping only its host. This also fixes username/password login and access-request approval, which were sent to paths that answer 404.

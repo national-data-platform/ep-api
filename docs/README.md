@@ -46,6 +46,8 @@ People who install, configure and run an Endpoint.
   production security checklist.
 - [roles-and-permissions.md](roles-and-permissions.md) — the tiers, how
   Keycloak decides them and how to grant them.
+- [upgrading-to-1.0.md](upgrading-to-1.0.md) — upgrading an Endpoint from
+  0.34.x to 1.0.0, and what changes in who can do what.
 - [compatibility-shims.md](compatibility-shims.md) — code that keeps this
   release working with older Federation and AAI versions, and when each
   piece can be removed.
