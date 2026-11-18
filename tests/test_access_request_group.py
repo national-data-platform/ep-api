@@ -62,22 +62,20 @@ def test_the_endpoint_client_vouches_for_the_call():
     aai.client_login.assert_called_once_with("ep-123", "s3cret")
 
 
-def test_without_a_secret_approval_is_refused_with_503():
-    """The AAI refuses a write to an ndp_ep group without the Endpoint's
-    assertion, so say which setting is missing instead of asking it."""
-    aai = MagicMock()
-    with (
-        patch.object(swagger_settings, "oidc_service_client_id", "ep-123"),
-        patch.object(swagger_settings, "oidc_service_client_secret", SecretStr("")),
-        patch(f"{MODULE}.aai_client", aai),
-        pytest.raises(HTTPException) as refused,
-    ):
-        service._grant_via_aai("admin-token", "viewer", "alice-uuid")
+def test_without_a_secret_approval_goes_without_the_assertion():
+    """Endpoints installed before the service client have no secret (#433).
+    The AAI in production does not check the calling app yet, so they still
+    approve, without X-Client-Assertion."""
+    aai = _grant("writer", "ep-123", "")
 
-    assert refused.value.status_code == 503
-    assert "OIDC_SERVICE_CLIENT_SECRET" in refused.value.detail
     aai.client_login.assert_not_called()
-    aai.add_user_to_group.assert_not_called()
+    aai.add_user_to_group.assert_called_once_with(
+        "admin-token",
+        "ndp_ep/ep-123",
+        "alice-uuid",
+        "editor",
+        client_assertion=None,
+    )
 
 
 def test_without_a_client_approval_is_refused_with_503():

@@ -143,28 +143,34 @@ def _grant_via_aai(
     group calls the writer tier "editor").
 
     The Endpoint's own client vouches for the call as ``X-Client-Assertion``,
-    which the AAI needs to change a group under ``ndp_ep``, so approval
-    answers 503 if OIDC_SERVICE_CLIENT_SECRET is not set.
+    which the AAI needs to change a group under ``ndp_ep``. Without
+    OIDC_SERVICE_CLIENT_SECRET the call goes without it (#433).
     """
     group = _endpoint_group()
     secret = swagger_settings.oidc_service_client_secret.get_secret_value()
 
-    if not secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "OIDC_SERVICE_CLIENT_SECRET is not set; cannot grant access. "
-                "Re-running the installer adds it."
-            ),
+    # COMPATIBILITY SHIM (issue #433): Endpoints installed before the
+    # service client existed have no secret. The AAI in production does not
+    # check the calling app yet, so they approve without the assertion; once
+    # the AAI does (sci-ndp/ndp-keycloak-aai#12), re-running the installer
+    # adds the secret. Remove this branch then (docs/compatibility-shims.md).
+    client_assertion = None
+    if secret:
+        client_assertion = aai_client.client_login(
+            swagger_settings.oidc_service_client_id, secret
+        )
+    else:
+        logger.warning(
+            "OIDC_SERVICE_CLIENT_SECRET is not set: approving without a client "
+            "assertion. AAI versions that check the calling app will refuse "
+            "it; re-running the installer adds the secret."
         )
     aai_client.add_user_to_group(
         admin_token,
         group,
         user_sub,
         _GROUP_LEVEL[grant_type],
-        client_assertion=aai_client.client_login(
-            swagger_settings.oidc_service_client_id, secret
-        ),
+        client_assertion=client_assertion,
     )
 
 

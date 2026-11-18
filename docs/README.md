@@ -46,6 +46,9 @@ People who install, configure and run an Endpoint.
   production security checklist.
 - [roles-and-permissions.md](roles-and-permissions.md) — the tiers, how
   Keycloak decides them and how to grant them.
+- [compatibility-shims.md](compatibility-shims.md) — code that keeps this
+  release working with older Federation and AAI versions, and when each
+  piece can be removed.
 - [affinities-integration.md](affinities-integration.md) — enabling the
   optional Affinities registration of datasets and services.
 - [minio-setup.md](minio-setup.md) — setting up S3-compatible storage, with
