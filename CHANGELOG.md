@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-20
+
 ### Added
-- **NDP sign-in with the Endpoint's own client.** With `OIDC_ENABLED=True` and the new `OIDC_REDIRECT_URI`, the login button signs in with `OIDC_SERVICE_CLIENT_ID`; the new `POST /user/oidc/token` redeems the code with its secret, for that address only. Works over plain http.
+- **NDP sign-in with the Endpoint's own client** (#436). With `OIDC_ENABLED=True` and the new `OIDC_REDIRECT_URI`, the login button signs in with `OIDC_SERVICE_CLIENT_ID`; the new `POST /user/oidc/token` redeems the code with its secret, for that address only. Works over plain http.
 
 ### Removed
 - **Sign-in with a separate public client.** `OIDC_CLIENT_ID` and `OIDC_ISSUER` are ignored; NDP has no public client an Endpoint can use.
