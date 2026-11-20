@@ -16,7 +16,7 @@ def _no_identity_env(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
-def test_both_urls_are_derived_from_the_host(monkeypatch):
+def test_the_urls_are_derived_from_the_host(monkeypatch):
     monkeypatch.setenv("KEYCLOAK_URL", "https://idp-test.example.org")
     monkeypatch.setenv("AUTHZ_REALM", "Other")
 
@@ -24,6 +24,9 @@ def test_both_urls_are_derived_from_the_host(monkeypatch):
 
     assert settings.aai_api_url == "https://idp-test.example.org/api"
     assert settings.keycloak_realm_url == "https://idp-test.example.org/realms/Other"
+    assert settings.keycloak_token_url == (
+        "https://idp-test.example.org/realms/Other/protocol/openid-connect/token"
+    )
 
 
 def test_the_default_is_the_national_data_platform():

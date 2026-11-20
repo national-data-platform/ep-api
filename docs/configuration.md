@@ -140,7 +140,8 @@ The identity provider's host. The EP derives the two URLs it needs from it:
   On routes that need a tier, Keycloak's decision
   call checks the token too.
 - `<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`, the **realm** permissions are asked
-  of (see `OIDC_SERVICE_CLIENT_ID`).
+  of (see `OIDC_SERVICE_CLIENT_ID`), and the one users sign in to with
+  [Identity provider sign-in](#identity-provider-sign-in-optional-off-by-default).
 
 The `roles` and `groups` the AAI API returns are shown by `/user/info` but
 **not used for permissions**. `AUTH_API_URL`, the old name (the full
@@ -220,28 +221,42 @@ token and paste it by hand.
 
 Turning this on adds a **third** button that sends the user to the identity
 provider's own login page, where those providers appear. It uses the OAuth
-Authorization Code flow with PKCE against a **public** client, so no client
-secret is shipped with the Endpoint.
+Authorization Code flow with the Endpoint's own client, the confidential
+client a Federation registration creates,
+[`OIDC_SERVICE_CLIENT_ID`](#oidc_service_client_id), whose secret stays on the
+server. Users sign in to the realm the client is in, `AUTHZ_REALM` on
+[`KEYCLOAK_URL`](#keycloak_url). Turning it on takes `OIDC_ENABLED=True`,
+[`OIDC_REDIRECT_URI`](#oidc_redirect_uri), and the client's id and secret.
 
-The other two methods are unchanged and remain available either way.
+How a sign-in goes:
+
+1. The button sends the browser to the realm's login page with the client id,
+   `OIDC_REDIRECT_URI` and a random `state` (plus PKCE on https).
+2. The user signs in there (CILogon, ORCID, …). Keycloak redirects the browser
+   to `OIDC_REDIRECT_URI` with a one-time code.
+3. The UI checks `state` and sends the code to `POST /user/oidc/token`.
+4. The API redeems the code at Keycloak's token endpoint with the client's
+   secret and `OIDC_REDIRECT_URI`, and returns only the access token.
+5. The UI uses the token like a pasted one: `/user/info` checks it, and the
+   client's permission gates set the role.
+
+See [the sequence diagram](sequence-diagrams/signing-in-through-ndp.md). The
+other two methods are unchanged and remain available either way.
 
 #### `OIDC_ENABLED`
 *Optional · default: `False`.*
 Master switch. While `False`, the login screen behaves exactly as before and
-none of the values below are read. **Where:** you decide.
+none of the other sign-in settings are read. **Where:** you decide.
 
-#### `OIDC_ISSUER`
+#### `OIDC_REDIRECT_URI`
 *Required when `OIDC_ENABLED=True`.*
-The realm URL, e.g. `https://idp.nationaldataplatform.org/realms/NDP`. The
-authorization, token and userinfo endpoints are read from this realm's OpenID
-discovery document, so no provider-specific URL is hardcoded — moving from a
-local Keycloak to production is just a change of this value.
-**Where:** your AAI/Keycloak administrator.
-
-#### `OIDC_CLIENT_ID`
-*Required when `OIDC_ENABLED=True`.*
-The client registered for **this** Endpoint (see the requirements below).
-**Where:** your AAI/Keycloak administrator.
+This deployment's callback URL as users' browsers reach it,
+`<scheme>://<host>[:<port>]<ROOT_PATH>/ui/auth/callback`, e.g.
+`https://my-endpoint.example.org/ep-api/ui/auth/callback`; the UI recognizes
+no other path as the return from the login page. The API redeems codes for
+this URL only, so a code the identity provider sent anywhere else cannot be
+redeemed with this Endpoint's secret: the clients the Federation creates
+accept any redirect URI. **Where:** you decide.
 
 #### `OIDC_SCOPE`
 *Optional · default: `openid profile email`.*
@@ -253,36 +268,28 @@ provider-neutral on purpose: only the deployment knows which providers its
 realm offers. Naming providers the realm does **not** have is worse than
 saying nothing, so `OIDC_HELP_TEXT` shows no second line while empty.
 
-### What your identity provider administrator must register
+### What the client needs in Keycloak
 
-1. **A public client with PKCE (S256).** Public rather than confidential so
-   that no client secret has to be distributed with the Endpoint, which is
-   self-hosted by many institutions.
-2. **This deployment's callback URL** as a valid redirect URI on that client:
-   `<scheme>://<host>[:<port>]<ROOT_PATH>/ui/auth/callback` — for example
-   `https://my-endpoint.example.org/ep-api/ui/auth/callback`. The Endpoint
-   derives this from the browser's address and `ROOT_PATH`, so you never
-   configure it, but it must match what is registered.
+The client a Federation registration creates already has the first two.
+
+1. **The standard (authorization code) flow.**
+2. **This deployment's callback URL, `OIDC_REDIRECT_URI`, as a valid redirect
+   URI.** The clients the Federation creates accept any redirect URI (`*`).
 3. **The `sub` claim in access tokens.** The AAI API looks the user up by
    `sub`. Since Keycloak 24 that claim comes from the built-in `basic` client
    scope, and a realm imported from an older export may not have `basic` among
    its default scopes — in which case a freshly created client silently mints
    tokens without `sub`. Assign the scope to the client explicitly.
 
-### Two things that commonly go wrong
+### Over plain http
 
-**`OIDC_ISSUER` must be the realm on `KEYCLOAK_URL`, the same identity provider.**
-The token is minted by one and validated by the other. If they disagree, the
-user's `sub` will not exist on the validating side and sign-in fails at the
-last step — after a successful login, which makes it look like a credentials
-problem when it is not.
-
-**The UI must be served over https.** Browsers only expose the crypto API that
-PKCE needs in secure contexts. On a plain-http or bare-IP deployment the button
-is shown **disabled** with an explanation rather than silently falling back to
-the weaker `plain` challenge method; the other two sign-in methods still work
-there. `localhost` counts as a secure context, so an SSH tunnel is enough for
-testing.
+Sign-in works, without PKCE: browsers only expose the crypto API that PKCE
+needs in secure contexts (https, `localhost`). The login page then sends the
+code only to `OIDC_REDIRECT_URI`, and the UI redeems it at once and checks
+`state`, but a code that leaked on the way could be redeemed by whoever holds
+it until it is used or expires (one use, about a minute). Over plain http the
+access token crosses the network unencrypted anyway, as passwords and pasted
+tokens do.
 
 ### The Endpoint's service client (set by the installer)
 
@@ -298,9 +305,9 @@ group, `ndp_ep/ep-<config-id>`, only when the call carries a token of that
 group's own client in `X-Client-Assertion`, unless the approving admin holds
 `ndp_admin`. Without the secret, or with a wrong one, approval answers 503.
 
-It is a different client from the sign-in one above: `OIDC_CLIENT_ID` is a
-public client that the browser uses, and `OIDC_SERVICE_CLIENT_*` never reach
-the browser.
+With `OIDC_ENABLED=True`, users also sign in with it
+(see [Identity provider sign-in](#identity-provider-sign-in-optional-off-by-default)).
+The browser then learns its id; its secret never reaches the browser.
 
 #### `OIDC_SERVICE_CLIENT_SECRET`
 *Optional · default: empty · secret.*

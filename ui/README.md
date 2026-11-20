@@ -34,8 +34,14 @@ At every container start, [entrypoint.sh](../entrypoint.sh) writes
 | `rootPath` | `ROOT_PATH` |
 | `affinitiesEpUuid` | `AFFINITIES_EP_UUID` |
 | `oidcEnabled` | `OIDC_ENABLED` (default `False`) |
-| `oidcIssuer`, `oidcClientId`, `oidcScope` | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_SCOPE` |
+| `oidcClientId`, `oidcIssuer` | `OIDC_SERVICE_CLIENT_ID` and `<KEYCLOAK_URL>/realms/<AUTHZ_REALM>`; the API redeems the code (`POST /user/oidc/token`) |
+| `oidcRedirectUri` | `OIDC_REDIRECT_URI` |
+| `oidcScope` | `OIDC_SCOPE` |
 | `oidcButtonLabel`, `oidcHelpText` | `OIDC_BUTTON_LABEL`, `OIDC_HELP_TEXT` |
+
+While `OIDC_ENABLED` is off, or `OIDC_SERVICE_CLIENT_SECRET` is empty,
+`oidcClientId`, `oidcIssuer` and `oidcRedirectUri` are empty: `config.js` is
+served to anyone, signed in or not.
 
 It also rewrites the `/ui/` asset paths in `index.html` to
 `${ROOT_PATH}/ui/`. These variables are documented in

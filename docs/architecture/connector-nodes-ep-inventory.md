@@ -116,11 +116,13 @@ should not travel to a minimal node.
 
 ### 3. Identity-provider sign-in (OIDC, UI)
 
-**Facts** — A PKCE login button in the UI, configured through `OIDC_*`
-variables injected by `entrypoint.sh` (`ui/src/services/oidc.js:49-70`); the
-token is still sent to the AAI API like any other. The installer forces it off
-because the client a registration creates cannot be used for it
-(`install/install.sh:1046`, `1142-1148`).
+**Facts** — A login button in the UI that sends the user to the identity
+provider's login page (authorization code flow), configured through `OIDC_*`
+variables injected by `entrypoint.sh` (`ui/src/services/oidc.js:51-61`). The
+API redeems the code with the secret of the Endpoint's own client
+(`POST /user/oidc/token`); the token is then sent to the AAI API like any
+other. The installer leaves it off, as it does not know the address users
+reach the Endpoint at (`OIDC_REDIRECT_URI`; `install/install.sh:1858`).
 
 **Assessment** — *not applicable*: a UI feature.
 

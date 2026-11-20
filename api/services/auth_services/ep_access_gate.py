@@ -72,10 +72,10 @@ def keycloak_decision(token: str, gate: str) -> Optional[bool]:
     Raises 401 when Keycloak rejects the token and 502 when it is
     unreachable or fails.
     """
-    realm = swagger_settings.keycloak_realm_url
+    token_url = swagger_settings.keycloak_token_url
     try:
         response = requests.post(
-            f"{realm}/protocol/openid-connect/token",
+            token_url,
             headers={"Authorization": f"Bearer {token}"},
             data={
                 "grant_type": _UMA_GRANT,
@@ -86,7 +86,7 @@ def keycloak_decision(token: str, gate: str) -> Optional[bool]:
             timeout=10,
         )
     except requests.RequestException as e:
-        logger.error("Keycloak unreachable at %s: %s", realm, e)
+        logger.error("Keycloak unreachable at %s: %s", token_url, e)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The identity provider is unavailable.",

@@ -4,8 +4,11 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Form
 
-from api.models.token_model import UserLoginRequest
-from api.services.auth_services import authenticate_with_credentials
+from api.models.token_model import OidcCodeExchangeRequest, UserLoginRequest
+from api.services.auth_services import (
+    authenticate_with_credentials,
+    exchange_authorization_code,
+)
 
 router = APIRouter()
 
@@ -151,3 +154,45 @@ async def token(
         the access token.
     """
     return authenticate_with_credentials(username, password)
+
+
+@router.post(
+    "/user/oidc/token",
+    response_model=Dict[str, Any],
+    summary="Finish signing in on the identity provider's page",
+    description=(
+        "The last step of signing in on the identity provider's own login "
+        "page with this Endpoint's service client (`OIDC_SERVICE_CLIENT_ID`). "
+        "The UI sends the authorization code the provider sent back and, "
+        "when the sign-in used PKCE, its verifier; the Endpoint redeems the "
+        "code with the client's secret, which never reaches the browser, for "
+        "`OIDC_REDIRECT_URI` only, and returns the access token.\n\n"
+        "Answers 503 unless `OIDC_ENABLED`, `OIDC_REDIRECT_URI`, "
+        "`OIDC_SERVICE_CLIENT_ID` and `OIDC_SERVICE_CLIENT_SECRET` are all set."
+    ),
+    responses={
+        200: {
+            "description": "Signed in",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "token_type": "Bearer",
+                        "expires_in": 18000,
+                    }
+                }
+            },
+        },
+        400: {"description": "The identity provider refused the code"},
+        502: {"description": "The identity provider is unavailable"},
+        503: {
+            "description": (
+                "Not set up on this Endpoint, or the identity provider "
+                "refused its client"
+            )
+        },
+    },
+)
+async def oidc_token(payload: OidcCodeExchangeRequest) -> Dict[str, Any]:
+    """Redeem an authorization code with the Endpoint's service client."""
+    return exchange_authorization_code(payload.code, payload.code_verifier)

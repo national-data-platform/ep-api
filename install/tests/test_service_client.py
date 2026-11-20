@@ -6,9 +6,8 @@ Registering an Endpoint creates a confidential Keycloak client,
 ``ep-<config-id>``, and the Federation hands its id and secret to the
 Endpoint's owner. The installer read the id, printed it and dropped both, so
 the Endpoint had no way to get a client-credentials token. They now go to
-``OIDC_SERVICE_CLIENT_ID`` / ``OIDC_SERVICE_CLIENT_SECRET``, which are separate
-from the browser sign-in client (``OIDC_CLIENT_ID``), and the secret is never
-printed.
+``OIDC_SERVICE_CLIENT_ID`` / ``OIDC_SERVICE_CLIENT_SECRET``, and the secret is
+never printed.
 
 Each test runs the real installer with ``--dry-run`` against a Federation
 served from this process; ``docker`` is a stub and ``curl`` only reaches
@@ -149,13 +148,13 @@ def test_the_secret_is_never_printed(federation, stub_path):
     assert env["OIDC_SERVICE_CLIENT_SECRET"] != SECRET
 
 
-def test_the_sign_in_client_is_left_alone(federation, stub_path):
-    """The service client is confidential; browser sign-in needs a public one."""
+def test_sign_in_is_left_off(federation, stub_path):
+    """Signing in with the client needs the address users reach the Endpoint
+    at (OIDC_REDIRECT_URI), which the installer does not know."""
     url = federation(dict(BASE, client_id=f"ep-{CONFIG_ID}", client_secret=SECRET))
 
     env, _ = _run(stub_path, url)
 
-    assert "OIDC_CLIENT_ID" not in env
     assert env["OIDC_ENABLED"] == "False"
 
 

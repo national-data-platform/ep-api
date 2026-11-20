@@ -215,8 +215,8 @@ PRE_CKAN_ORGANIZATION=<the organization that key may write to>
 - Use `http://<host>:<port>`; a bare IP address has no certificate for
   `https://`. Use the host's real IP or `localhost`, not a container or pod
   address.
-- Identity-provider sign-in (`OIDC_ENABLED`) needs https; on plain http the
-  UI shows the button disabled. `localhost` counts as secure.
+- Identity-provider sign-in (`OIDC_ENABLED`) works, without PKCE; set
+  `OIDC_REDIRECT_URI` to the `http://` address users open.
 - `GET /status/kafka-details` returns `KAFKA_HOST` and `KAFKA_PORT` exactly as
   configured, and streaming clients connect to that address. A client outside
   the Docker network cannot resolve the internal name `kafka:9093`.
@@ -248,7 +248,7 @@ guarded route answers 403.
 
 | Routes | Requirement |
 |---|---|
-| `GET`/`POST /search`, `GET /organization`, `GET /resource/{id}`, `GET /resources/search`, `/services/redirect/...`, `/health`, `/ready`, `POST /user/login`, `POST /token`, `/docs` | none |
+| `GET`/`POST /search`, `GET /organization`, `GET /resource/{id}`, `GET /resources/search`, `/services/redirect/...`, `/health`, `/ready`, `POST /user/login`, `POST /token`, `POST /user/oidc/token`, `/docs` | none |
 | `/status/`, `/status/version`, `/status/metrics`, `/status/jupyter`, `/status/kafka-details`, `POST /user/access-requests` | any valid token |
 | `GET /user/info` | valid token, plus `viewer-area` when `OIDC_SERVICE_CLIENT_ID` is set (the entry check) |
 | `GET /pelican/*` | viewer (`viewer-area`) |

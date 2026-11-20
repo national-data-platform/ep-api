@@ -49,13 +49,16 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("keycloak_url", "auth_api_url"),
     )
     # The confidential Keycloak client the Federation created for this
-    # Endpoint (ep-<config-id>). Its gates decide every permission, and its
+    # Endpoint (ep-<config-id>). Its gates decide every permission, its
     # client-credentials tokens vouch for the Endpoint to the AAI API (issue
-    # #412). Not the browser sign-in client (OIDC_CLIENT_ID, read by the UI
-    # only). AUTHZ_REALM is the realm it is in.
+    # #412), and with OIDC_ENABLED users sign in with it: the API redeems
+    # their codes for OIDC_REDIRECT_URI only (POST /user/oidc/token).
+    # AUTHZ_REALM is the realm it is in.
     oidc_service_client_id: str = ""
     oidc_service_client_secret: SecretStr = SecretStr("")
     authz_realm: str = "NDP"
+    oidc_enabled: bool = False
+    oidc_redirect_uri: str = ""
     # Read only to derive OIDC_SERVICE_CLIENT_ID for an Endpoint installed
     # before it existed: its .env names the group, ndp_ep/ep-<config-id>, and
     # not the client. Without this, upgrading such an Endpoint refused every
@@ -115,6 +118,11 @@ class Settings(BaseSettings):
     def keycloak_realm_url(self) -> str:
         """The realm permission decisions are asked of."""
         return f"{self.keycloak_url}/realms/{self.authz_realm}"
+
+    @property
+    def keycloak_token_url(self) -> str:
+        """The realm's token endpoint: permission decisions and NDP sign-in."""
+        return f"{self.keycloak_realm_url}/protocol/openid-connect/token"
 
 
 swagger_settings = Settings()

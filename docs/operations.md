@@ -344,8 +344,9 @@ the install state, writes it to `.env` and restarts the Endpoint with it.
   every host interface. Do not expose the MongoDB and MinIO ports, or the
   admin consoles, to the public network.
 - **TLS.** The container serves plain HTTP on port 80; TLS is terminated by
-  whatever is in front of it. Identity-provider sign-in in the UI needs https
-  (see `OIDC_*` in [configuration.md](configuration.md)).
+  whatever is in front of it. Over plain http, tokens and passwords cross the
+  network unencrypted, and identity-provider sign-in goes without PKCE (see
+  `OIDC_*` in [configuration.md](configuration.md)).
 - **Certificate verification.** Keep `CKAN_VERIFY_SSL` and
   `PRE_CKAN_VERIFY_SSL` true except for a CKAN with a self-signed certificate
   (the installer sets `CKAN_VERIFY_SSL=False` for the CKAN it installs, and

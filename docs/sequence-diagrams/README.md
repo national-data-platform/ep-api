@@ -13,6 +13,7 @@ vertical lifeline and time runs downwards.
 | [Installing an Endpoint registered with the Federation](installing-registered-no-catalog.md) | The same install, registered: what the Federation creates on your behalf in Keycloak, the staging catalog and Affinities, and what of it the Endpoint actually uses |
 | [Publishing a dataset](publishing-a-dataset.md) | Where a dataset goes — registered locally, promoted to the staging catalog (or written to it directly), and why the global one is read-only — with every switch that stops it and the status code it produces |
 | [Registering, reaching and publishing a service](registering-and-using-a-service.md) | A service registered in the catalog, reached through the Endpoint's proxy — which takes no token unless the service asks for one, and calls out from inside the container — and promoted for review |
+| [Signing in through NDP](signing-in-through-ndp.md) | The optional login button: the browser goes to the NDP login page and back with a code, the Endpoint's API trades it for a token with its client's secret, and the client's permission gates decide the role |
 
 For every call between an Endpoint and the Federation — registration,
 configuration bootstrap, remembered settings and metrics — in one place, see

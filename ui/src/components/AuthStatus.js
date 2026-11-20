@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, Unlock, LogOut, User } from 'lucide-react';
 import { authAPI } from '../services/api';
+import { markSignedOut } from '../services/oidc';
 
 /**
  * Auth Status component to show current authentication state
@@ -43,6 +44,7 @@ const AuthStatus = ({ onLoginClick }) => {
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       authAPI.logout();
+      markSignedOut();
       setIsAuthenticated(false);
       setTokenPreview('');
 
