@@ -3,7 +3,6 @@ import { Lock, AlertCircle, Eye, EyeOff, User, Send, CheckCircle, LogIn } from '
 import { accessRequestsAPI, authAPI } from '../services/api';
 import {
   isOidcEnabled,
-  isOidcSupported,
   isOidcCallback,
   beginOidcLogin,
   completeOidcLogin,
@@ -574,29 +573,18 @@ const AuthGuard = ({ children, onAuthenticated }) => {
               <button
                 type="button"
                 onClick={handleIdpSignIn}
-                disabled={redirectingToIdp || !isOidcSupported()}
-                title={
-                  isOidcSupported()
-                    ? getOidcLabels().buttonLabel
-                    : 'Requires a secure (https) connection'
-                }
+                disabled={redirectingToIdp}
+                title={getOidcLabels().buttonLabel}
                 style={{
                   width: '100%',
                   padding: '0.75rem 1rem',
-                  backgroundColor: !isOidcSupported()
-                    ? '#e2e8f0'
-                    : redirectingToIdp
-                      ? '#9ca3af'
-                      : '#2563eb',
-                  color: !isOidcSupported() ? '#94a3b8' : 'white',
+                  backgroundColor: redirectingToIdp ? '#9ca3af' : '#2563eb',
+                  color: 'white',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '0.9rem',
                   fontWeight: '600',
-                  cursor:
-                    redirectingToIdp || !isOidcSupported()
-                      ? 'not-allowed'
-                      : 'pointer',
+                  cursor: redirectingToIdp ? 'not-allowed' : 'pointer',
                   transition: 'all 0.3s ease',
                   display: 'flex',
                   alignItems: 'center',
@@ -604,13 +592,13 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                   gap: '0.5rem'
                 }}
                 onMouseOver={(e) => {
-                  if (!redirectingToIdp && isOidcSupported()) {
+                  if (!redirectingToIdp) {
                     e.currentTarget.style.backgroundColor = '#1d4ed8';
                     e.currentTarget.style.transform = 'translateY(-1px)';
                   }
                 }}
                 onMouseOut={(e) => {
-                  if (!redirectingToIdp && isOidcSupported()) {
+                  if (!redirectingToIdp) {
                     e.currentTarget.style.backgroundColor = '#2563eb';
                     e.currentTarget.style.transform = 'translateY(0)';
                   }
@@ -629,28 +617,15 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                 )}
               </button>
 
-              {isOidcSupported() ? (
-                getOidcLabels().helpText && (
-                  <p style={{
-                    margin: '0.5rem 0 0',
-                    fontSize: '0.75rem',
-                    color: '#64748b',
-                    textAlign: 'center',
-                    lineHeight: 1.4
-                  }}>
-                    {getOidcLabels().helpText}
-                  </p>
-                )
-              ) : (
+              {getOidcLabels().helpText && (
                 <p style={{
                   margin: '0.5rem 0 0',
                   fontSize: '0.75rem',
-                  color: '#b45309',
+                  color: '#64748b',
                   textAlign: 'center',
                   lineHeight: 1.4
                 }}>
-                  Unavailable over an insecure connection. Use an access token
-                  or your username and password below.
+                  {getOidcLabels().helpText}
                 </p>
               )}
 

@@ -1,6 +1,6 @@
 /**
- * OpenID Connect (Authorization Code + PKCE) sign-in against the identity
- * provider realm.
+ * OpenID Connect (Authorization Code) sign-in against the identity provider
+ * realm.
  *
  * This is an additional way into the UI, alongside the access-token and
  * username/password forms. It exists because users who authenticate through
@@ -8,9 +8,11 @@
  * have no password in the realm itself, so the credentials form cannot work
  * for them and pasting a token by hand is their only alternative.
  *
- * A public client with PKCE is used rather than a confidential one so that no
- * client secret has to be distributed with the Endpoint, which is self-hosted
- * by many institutions.
+ * It signs in with the Endpoint's own confidential client
+ * (OIDC_SERVICE_CLIENT_ID), whose secret stays on the server: the browser
+ * brings the code back and the API redeems it (POST /user/oidc/token). PKCE
+ * is added whenever the browser can compute it (https, localhost); over plain
+ * http the sign-in goes without it.
  *
  * The flow ends by handing the resulting access token to
  * ``authAPI.setAndValidateToken``, so validation, storage and the
@@ -21,6 +23,7 @@ import { authAPI, BASE_URL } from './api';
 
 const STORAGE_VERIFIER = 'oidcCodeVerifier';
 const STORAGE_STATE = 'oidcState';
+const STORAGE_REAUTH = 'oidcReauth';
 const CALLBACK_PATH = '/ui/auth/callback';
 
 /**
@@ -37,18 +40,19 @@ const parseBoolean = (value) =>
 /**
  * Read the OIDC settings injected at container start into config.js.
  *
- * Nothing here is hardcoded to a particular identity provider: the issuer
- * carries the realm URL, the endpoints are read from its discovery document,
- * and the wording is deployment-supplied so it can describe whichever
- * providers that realm actually offers.
+ * The issuer is the realm URL (KEYCLOAK_URL and AUTHZ_REALM), and the
+ * wording is deployment-supplied so it can describe whichever providers that
+ * realm actually offers.
  *
  * @returns {{enabled: boolean, issuer: string, clientId: string,
- *            scope: string, buttonLabel: string, helpText: string}}
+ *            redirectUri: string, scope: string, buttonLabel: string,
+ *            helpText: string}}
  */
 const getConfig = () => ({
   enabled: parseBoolean(window.__EP_CONFIG__?.oidcEnabled),
   issuer: (window.__EP_CONFIG__?.oidcIssuer ?? '').trim().replace(/\/+$/, ''),
   clientId: (window.__EP_CONFIG__?.oidcClientId ?? '').trim(),
+  redirectUri: (window.__EP_CONFIG__?.oidcRedirectUri ?? '').trim(),
   scope: (window.__EP_CONFIG__?.oidcScope ?? '').trim() || 'openid profile email',
   buttonLabel:
     (window.__EP_CONFIG__?.oidcButtonLabel ?? '').trim() ||
@@ -59,15 +63,16 @@ const getConfig = () => ({
 /**
  * Whether the deployment offers identity-provider sign-in.
  *
- * Off unless OIDC_ENABLED is switched on *and* the two values the flow cannot
- * work without are present, so a half-configured deployment shows nothing
- * rather than a button that fails on click.
+ * Off unless OIDC_ENABLED is switched on *and* the client, its realm and
+ * OIDC_REDIRECT_URI (the only redirect URI the API redeems codes for) are
+ * present, so a half-configured deployment shows nothing rather than a button
+ * that fails on click.
  *
  * @returns {boolean}
  */
 export const isOidcEnabled = () => {
-  const { enabled, issuer, clientId } = getConfig();
-  return Boolean(enabled && issuer && clientId);
+  const { enabled, issuer, clientId, redirectUri } = getConfig();
+  return Boolean(enabled && issuer && clientId && redirectUri);
 };
 
 /**
@@ -83,27 +88,17 @@ export const getOidcLabels = () => {
 };
 
 /**
- * Whether the browser can perform PKCE.
+ * Whether the browser can compute a PKCE challenge: ``crypto.subtle`` is only
+ * exposed in secure contexts (https, localhost).
  *
- * ``crypto.subtle`` is only exposed in secure contexts, so a deployment served
- * over plain http on a bare IP cannot compute an S256 challenge. Rather than
- * silently downgrading to the ``plain`` challenge method, the button is
- * disabled and the reason is shown — the other two sign-in methods still work.
+ * Without it the sign-in goes without PKCE. A code that leaked could then be
+ * redeemed by whoever holds it, until the UI redeems it (at once) or it
+ * expires; over plain http the token itself crosses the network unencrypted
+ * anyway, as passwords and pasted tokens do.
  *
  * @returns {boolean}
  */
-export const isOidcSupported = () =>
-  Boolean(window.isSecureContext && window.crypto?.subtle);
-
-/**
- * The redirect URI this deployment will use. It must be registered on the
- * client in the realm, so it is also surfaced in the UI to make configuration
- * mistakes diagnosable.
- *
- * @returns {string}
- */
-export const getRedirectUri = () =>
-  `${window.location.origin}${BASE_URL}${CALLBACK_PATH}`;
+const canDoPkce = () => Boolean(window.isSecureContext && window.crypto?.subtle);
 
 /**
  * Base64url-encode bytes without padding, as required for PKCE.
@@ -144,29 +139,19 @@ const deriveChallenge = async (verifier) => {
 };
 
 /**
- * Fetch the realm's discovery document so the endpoints do not have to be
- * hardcoded to a particular identity provider's URL layout.
- *
- * @returns {Promise<Object>}
+ * Note that the user signed out of this Endpoint, as the AAI console does: the
+ * identity provider's session stays (other NDP sites stay signed in), but the
+ * next sign-in here asks for credentials (prompt=login) instead of coming
+ * straight back as the same user.
  */
-const discover = async () => {
-  const { issuer } = getConfig();
-  const response = await fetch(`${issuer}/.well-known/openid-configuration`);
-
-  if (!response.ok) {
-    throw new Error(
-      `Could not reach the identity provider (HTTP ${response.status}). ` +
-        'Check that OIDC_ISSUER is correct.'
-    );
-  }
-
-  return response.json();
+export const markSignedOut = () => {
+  localStorage.setItem(STORAGE_REAUTH, '1');
 };
 
 /**
- * Start the sign-in: build a PKCE challenge, remember the verifier and state,
- * and send the browser to the realm's login page — where the federated
- * providers configured on the realm are offered.
+ * Start the sign-in: remember the state and, when the browser can, a PKCE
+ * verifier, and send the browser to the realm's login page — where the
+ * federated providers configured on the realm are offered.
  *
  * @returns {Promise<void>} Resolves as the browser navigates away.
  */
@@ -174,39 +159,45 @@ export const beginOidcLogin = async () => {
   if (!isOidcEnabled()) {
     throw new Error('No identity provider is configured for this Endpoint.');
   }
-  if (!isOidcSupported()) {
-    throw new Error(
-      'Signing in through the identity provider requires a secure (https) ' +
-        'connection. Use an access token or your username and password instead.'
-    );
-  }
 
-  const { clientId, scope } = getConfig();
-  const config = await discover();
-
-  const verifier = randomString();
+  const { issuer, clientId, redirectUri, scope } = getConfig();
   const state = randomString(16);
 
-  // sessionStorage, not localStorage: the verifier is single-use and must not
-  // outlive the tab or leak into other sessions.
-  sessionStorage.setItem(STORAGE_VERIFIER, verifier);
+  // sessionStorage, not localStorage: the state and verifier are single-use
+  // and must not outlive the tab or leak into other sessions.
   sessionStorage.setItem(STORAGE_STATE, state);
 
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
-    redirect_uri: getRedirectUri(),
+    redirect_uri: redirectUri,
     scope,
     state,
-    code_challenge: await deriveChallenge(verifier),
-    code_challenge_method: 'S256',
   });
+  if (localStorage.getItem(STORAGE_REAUTH)) {
+    params.set('prompt', 'login');
+  }
 
-  window.location.assign(`${config.authorization_endpoint}?${params.toString()}`);
+  // Over plain http the browser cannot compute PKCE (see canDoPkce).
+  if (canDoPkce()) {
+    const verifier = randomString();
+    sessionStorage.setItem(STORAGE_VERIFIER, verifier);
+    params.set('code_challenge', await deriveChallenge(verifier));
+    params.set('code_challenge_method', 'S256');
+  } else {
+    sessionStorage.removeItem(STORAGE_VERIFIER);
+  }
+
+  // The realm's login page: Keycloak's authorization endpoint, as the API
+  // uses its token endpoint (keycloak_token_url).
+  window.location.assign(
+    `${issuer}/protocol/openid-connect/auth?${params.toString()}`
+  );
 };
 
 /**
  * Whether the current URL is the identity provider redirecting back to us.
+ * OIDC_REDIRECT_URI must end in CALLBACK_PATH: no other path is recognized.
  *
  * @returns {boolean}
  */
@@ -225,6 +216,21 @@ export const isOidcCallback = () => {
 const clearCallbackUrl = () => {
   window.history.replaceState({}, document.title, `${BASE_URL}/ui/`);
 };
+
+/**
+ * Have the API redeem the code with the client's secret, which the browser
+ * never sees.
+ *
+ * @param {string} code
+ * @param {string|null} verifier null when signed in without PKCE.
+ * @returns {Promise<Response>}
+ */
+const redeemCode = (code, verifier) =>
+  fetch(`${BASE_URL}/user/oidc/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(verifier ? { code, code_verifier: verifier } : { code }),
+  });
 
 /**
  * Complete the sign-in: exchange the authorization code for tokens, then hand
@@ -258,33 +264,22 @@ export const completeOidcLogin = async () => {
       'Sign-in could not be verified. Please try again.'
     );
   }
-  if (!verifier) {
+
+  let data = {};
+  let ok = false;
+  try {
+    const response = await redeemCode(code, verifier);
+    data = await response.json().catch(() => ({}));
+    ok = response.ok;
+  } catch (error) {
     clearCallbackUrl();
-    throw new Error('Sign-in session has expired. Please try again.');
+    throw error;
   }
 
-  const { clientId } = getConfig();
-  const config = await discover();
-
-  const response = await fetch(config.token_endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: clientId,
-      code,
-      redirect_uri: getRedirectUri(),
-      code_verifier: verifier,
-    }).toString(),
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok || !data.access_token) {
+  if (!ok || !data.access_token) {
     clearCallbackUrl();
     throw new Error(
-      data.error_description ||
-        data.error ||
+      (typeof data.detail === 'string' && data.detail) ||
         'The identity provider did not issue a token.'
     );
   }
@@ -295,13 +290,16 @@ export const completeOidcLogin = async () => {
   try {
     const userInfo = await authAPI.setAndValidateToken(data.access_token);
     clearCallbackUrl();
+    localStorage.removeItem(STORAGE_REAUTH);
     return userInfo;
   } catch (error) {
     clearCallbackUrl();
 
     // A 403 is a real authorization decision: keep it as-is so the caller can
-    // offer the access-request form.
+    // offer the access-request form. Signing in again then asks for
+    // credentials, so the user can pick another account.
     if (error.deniedToken) {
+      markSignedOut();
       throw error;
     }
 

@@ -16,6 +16,7 @@ import {
   Plus
 } from 'lucide-react';
 import { isAccessRequestAdmin, statusAPI, userAPI } from '../services/api';
+import { markSignedOut } from '../services/oidc';
 
 /**
  * Enhanced navigation component similar to nationaldataplatform.org
@@ -141,6 +142,7 @@ const Navigation = () => {
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       localStorage.removeItem('authToken');
+      markSignedOut();
       window.location.href = `${window.__EP_CONFIG__?.rootPath ?? ''}/ui/`;
     }
   };

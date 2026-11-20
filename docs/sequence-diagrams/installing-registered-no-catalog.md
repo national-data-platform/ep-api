@@ -141,9 +141,10 @@ variables the standalone install sets plus `OIDC_SERVICE_CLIENT_ID`,
 | `METRICS_ENDPOINT` | `<federation-url>/metrics/` | The Federation this run registered with (the same line as in a standalone install) |
 
 `OIDC_ENABLED` stays `False` even though a client was created for this
-Endpoint: the client is confidential, so the UI's browser sign-in (PKCE,
-which needs a public client) cannot use it. The installer does not offer it;
-the client serves as the service client, `OIDC_SERVICE_CLIENT_ID`, instead.
+Endpoint: signing in with it needs the address users reach the Endpoint at
+(`OIDC_REDIRECT_URI`), which the installer does not know. The client serves as
+the service client, `OIDC_SERVICE_CLIENT_ID`; setting `OIDC_ENABLED=True` and
+`OIDC_REDIRECT_URI` by hand lets users sign in with it too.
 
 ## What this Endpoint does
 

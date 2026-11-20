@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -37,4 +37,20 @@ class UserLoginRequest(BaseModel):
         min_length=1,
         description="The password for authentication.",
         json_schema_extra={"example": "s3cret"},
+    )
+
+
+class OidcCodeExchangeRequest(BaseModel):
+    code: str = Field(
+        ...,
+        min_length=1,
+        description="The authorization code the identity provider sent back.",
+    )
+    # RFC 7636: 43 to 128 characters. None when the sign-in was started
+    # without PKCE, which browsers cannot compute over plain http.
+    code_verifier: Optional[str] = Field(
+        None,
+        min_length=43,
+        max_length=128,
+        description="The PKCE code verifier, when the sign-in used PKCE.",
     )

@@ -93,9 +93,12 @@ start it:
 
 1. Writes `/app/ui/build/config.js`, which defines `window.__EP_CONFIG__` for
    the UI from the environment: `rootPath` (`ROOT_PATH`), `affinitiesEpUuid`
-   (`AFFINITIES_EP_UUID`), and the identity-provider sign-in settings
-   `OIDC_ENABLED` (default `False`), `OIDC_ISSUER`, `OIDC_CLIENT_ID`,
-   `OIDC_SCOPE`, `OIDC_BUTTON_LABEL`, `OIDC_HELP_TEXT`.
+   (`AFFINITIES_EP_UUID`), and the identity-provider sign-in settings:
+   `OIDC_ENABLED` (default `False`), `OIDC_SCOPE`, `OIDC_BUTTON_LABEL`,
+   `OIDC_HELP_TEXT` and, while sign-in is on and the client's secret is set,
+   the client `OIDC_SERVICE_CLIENT_ID`, its realm
+   `<KEYCLOAK_URL>/realms/<AUTHZ_REALM>` and `OIDC_REDIRECT_URI`. The secret
+   is never written there.
 2. Rewrites every `"/ui/` reference in the built `index.html` to
    `"${ROOT_PATH}/ui/`.
 3. Generates the nginx site `/etc/nginx/sites-available/default` from

@@ -10,4 +10,8 @@ from .aai_client import (  # noqa: F401
     list_group_members,
 )
 from .get_current_user import get_current_user, security  # noqa: F401
-from .user_login import authenticate_with_credentials  # noqa: F401
+
+from .user_login import (  # noqa: F401
+    authenticate_with_credentials,
+    exchange_authorization_code,
+)

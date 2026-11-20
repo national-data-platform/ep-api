@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **NDP sign-in with the Endpoint's own client.** With `OIDC_ENABLED=True` and the new `OIDC_REDIRECT_URI`, the login button signs in with `OIDC_SERVICE_CLIENT_ID`; the new `POST /user/oidc/token` redeems the code with its secret, for that address only. Works over plain http.
+
+### Removed
+- **Sign-in with a separate public client.** `OIDC_CLIENT_ID` and `OIDC_ISSUER` are ignored; NDP has no public client an Endpoint can use.
+
 ### Tests
 - **The last two test files of #260 run again.** Both had stayed disabled because they no longer passed.
   - `tests/test_update_kafka_datasource.py` (14 tests): it patched a `ckan_settings` the Kafka update service no longer has. It now patches the configured local catalog (`catalog_settings.local_catalog`) the service writes to.

@@ -517,15 +517,14 @@ are what gets tested.
 - **JupyterHub is not provisioned.** A registration that asks for it sets
   `USE_JUPYTERLAB` and `JUPYTER_URL` so the UI links to it; no JupyterHub is
   started.
-- **Identity-provider sign-in is not offered**, and the installer leaves
-  `OIDC_ENABLED=False`. The client a registration creates is confidential, so
-  the browser's code exchange (PKCE, which needs a public client) is refused,
-  and its tokens carry no `sub` claim, which the AAI API looks the user up by.
-  The installer keeps it as the Endpoint's service client instead
-  (`OIDC_SERVICE_CLIENT_ID`, whose gates decide permissions, and
-  `OIDC_SERVICE_CLIENT_SECRET`, never printed), and leaves
-  `OIDC_CLIENT_ID` alone. A deployment with a working public client can switch
-  sign-in on by hand. See [docs/configuration.md](../docs/configuration.md).
+- **Identity-provider sign-in is not switched on**: the installer leaves
+  `OIDC_ENABLED=False`, as it does not know the URL users reach the Endpoint
+  at. It saves the client a registration creates as the Endpoint's service
+  client (`OIDC_SERVICE_CLIENT_ID`, whose gates decide permissions, and
+  `OIDC_SERVICE_CLIENT_SECRET`, never printed), and users can sign in with it:
+  set `OIDC_ENABLED=True` and `OIDC_REDIRECT_URI` by hand. Its tokens must
+  carry the `sub` claim, which the AAI API looks the user up by. See
+  [docs/configuration.md](../docs/configuration.md).
 - **The JupyterHub and Kafka installs of the old NDP-EP `setup.sh` are not
   done.** That script started a JupyterHub (sci-ndp/jhub) with Keycloak login,
   using the registration's client secret, and a Kafka broker. Neither came

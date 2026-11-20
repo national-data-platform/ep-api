@@ -2000,12 +2000,10 @@ PY
 
   put IS_PUBLIC "$([[ "$fed_public" == "true" ]] && echo True || echo False)"
 
-  # The client the registration creates is confidential, so the UI's browser
-  # sign-in (PKCE, which needs a public client) cannot use it; see
-  # docs/configuration.md. It is what decides every permission, though:
-  # Keycloak answers for its gates. Only this Endpoint's
-  # own client is used. A registration whose Keycloak step failed stores a
-  # placeholder id, and a client that does not exist would refuse everyone.
+  # The client the registration creates decides every permission: Keycloak
+  # answers for its gates. Only this Endpoint's own client is used. A
+  # registration whose Keycloak step failed stores a placeholder id, and a
+  # client that does not exist would refuse everyone.
   if [[ "$fed_client_id" == "ep-${config_id}" ]]; then
     put OIDC_SERVICE_CLIENT_ID "$fed_client_id"
     put AUTHZ_REALM "$fed_realm"
@@ -2017,11 +2015,11 @@ PY
 
   # The registration creates a confidential Keycloak client for this Endpoint
   # (ep-<config-id>). The backend gets client-credentials tokens with it, so
-  # it is kept as the service client (issue #412). It is not the browser
-  # sign-in client: OIDC_CLIENT_ID is left alone. The secret is a credential
-  # and is never printed. A registration whose Keycloak step failed names the
-  # shared placeholder client instead, which is not this Endpoint's
-  # (sci-ndp/ndp-federation#138).
+  # it is kept as the service client (issue #412). Users can sign in with it
+  # too once OIDC_ENABLED and OIDC_REDIRECT_URI are set by hand. The secret is
+  # a credential and is never printed. A registration whose Keycloak step
+  # failed names the shared placeholder client instead, which is not this
+  # Endpoint's (sci-ndp/ndp-federation#138).
   if [[ "$fed_client_id" == "default-ep-client" ]]; then
     warn "The registration has no Keycloak client of its own (it names 'default-ep-client'):"
     warn "creating it failed on the Federation. Ask the platform team to create it, then re-run the installer."

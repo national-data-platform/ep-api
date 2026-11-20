@@ -3,17 +3,35 @@
 # Generate runtime config for the React UI. AFFINITIES_EP_UUID lets the
 # UI highlight the user's group that ties them to this endpoint without
 # having to look the value up against the deployment env manually.
-# OIDC_ENABLED gates the "sign in through the identity provider" button; it
-# defaults to False so a deployment that says nothing keeps the login screen
-# it had before. The realm URL, client and wording all come from the
-# environment so nothing about a particular identity provider is baked in.
+# OIDC_ENABLED gates the "sign in" button; it defaults to False
+# so a deployment that says nothing keeps the login screen it had before.
+
+# Optional sign-in uses the Endpoint's own confidential client, OIDC_SERVICE_CLIENT_ID.
+oidc_enabled=False
+oidc_client_id=""
+oidc_issuer=""
+oidc_redirect_uri=""
+# The spellings the UI reads as on (the API does too).
+case "$(printf '%s' "$OIDC_ENABLED" | tr '[:upper:]' '[:lower:]')" in
+  true|1|yes|on)
+    oidc_enabled=True
+    if [ -n "$OIDC_SERVICE_CLIENT_ID" ] && [ -n "$OIDC_SERVICE_CLIENT_SECRET" ]; then
+      oidc_client_id="$OIDC_SERVICE_CLIENT_ID"
+      idp_host="$(printf '%s' "${KEYCLOAK_URL:-${AUTH_API_URL:-https://idp.nationaldataplatform.org}}" \
+        | sed -E 's#^([A-Za-z]+://[^/]+).*#\1#')"
+      oidc_issuer="${idp_host}/realms/${AUTHZ_REALM:-NDP}"
+      oidc_redirect_uri="${OIDC_REDIRECT_URI}"
+    fi
+    ;;
+esac
 cat > /app/ui/build/config.js <<EOF
 window.__EP_CONFIG__ = {
   rootPath: "${ROOT_PATH}",
   affinitiesEpUuid: "${AFFINITIES_EP_UUID}",
-  oidcEnabled: "${OIDC_ENABLED:-False}",
-  oidcIssuer: "${OIDC_ISSUER}",
-  oidcClientId: "${OIDC_CLIENT_ID}",
+  oidcEnabled: "${oidc_enabled}",
+  oidcIssuer: "${oidc_issuer}",
+  oidcClientId: "${oidc_client_id}",
+  oidcRedirectUri: "${oidc_redirect_uri}",
   oidcScope: "${OIDC_SCOPE}",
   oidcButtonLabel: "${OIDC_BUTTON_LABEL}",
   oidcHelpText: "${OIDC_HELP_TEXT}"
