@@ -63,7 +63,7 @@ def test_a_run_is_logged_next_to_the_checkout(checkout):
     assert result.returncode != 0
     assert log.exists(), result.stdout + result.stderr
     text = log.read_text(encoding="utf-8")
-    assert "Federation: https://federation.ndp.utah.edu/test" in text
+    assert "Federation: https://test.federation.ndp.utah.edu" in text
 
 
 def test_the_header_says_what_ran(checkout):
@@ -72,7 +72,7 @@ def test_the_header_says_what_ran(checkout):
     text = (checkout["root"] / "install.log").read_text(encoding="utf-8")
     assert "install.sh run" in text
     assert "args: --config-id FAKE --env test --dry-run" in text
-    assert "federation: https://federation.ndp.utah.edu/test" in text
+    assert "federation: https://test.federation.ndp.utah.edu" in text
     assert "version:" in text
     assert "user:" in text
 
@@ -157,7 +157,7 @@ def test_terminal_output_is_unchanged(checkout):
     """The log is a copy: what the operator sees still arrives, on both streams."""
     result = _run(checkout, "--config-id", "FAKE", "--env", "test")
 
-    assert "Federation: https://federation.ndp.utah.edu/test" in result.stdout
+    assert "Federation: https://test.federation.ndp.utah.edu" in result.stdout
     assert "[fail]" in result.stderr
 
 

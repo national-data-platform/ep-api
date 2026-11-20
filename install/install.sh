@@ -146,7 +146,7 @@ fi
 
 REPO_ROOT="$_here"
 FEDERATION_URL_DEFAULT="https://federation.ndp.utah.edu"
-FEDERATION_URL_TEST="https://federation.ndp.utah.edu/test"
+FEDERATION_URL_TEST="https://test.federation.ndp.utah.edu"
 # The identity providers matching each Federation (issue #365).
 IDP_URL_DEFAULT="https://idp.nationaldataplatform.org"
 IDP_URL_TEST="https://idp-test.nationaldataplatform.org"

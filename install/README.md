@@ -29,7 +29,7 @@ Each release (since 0.34.64) carries the installer and its checksum as assets:
 that release, and it can be checked before it runs:
 
 ```bash
-V=v1.0.1   # the release to install
+V=v1.0.2   # the release to install
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/install.sh"
 curl -fsSLO "https://github.com/national-data-platform/ep-api/releases/download/$V/SHA256SUMS"
 sha256sum -c SHA256SUMS && bash install.sh [options]
@@ -68,7 +68,7 @@ same Endpoint without registering again.
 
 The Federation defaults to production (`https://federation.ndp.utah.edu`),
 where registering creates a real Keycloak client; the installer says so before
-asking. `--env test` selects `https://federation.ndp.utah.edu/test`, and
+asking. `--env test` selects `https://test.federation.ndp.utah.edu`, and
 `--federation-url` any other. The URL in use is printed at the start of every
 run.
 
