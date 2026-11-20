@@ -27,7 +27,7 @@ import pytest
 INSTALLER = Path(__file__).resolve().parents[1] / "install.sh"
 
 PROD = "https://federation.ndp.utah.edu"
-TEST = "https://federation.ndp.utah.edu/test"
+TEST = "https://test.federation.ndp.utah.edu"
 
 
 def _working_bash():

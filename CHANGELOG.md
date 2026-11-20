@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tests/test_update_kafka_datasource.py` (14 tests): it patched a `ckan_settings` the Kafka update service no longer has. It now patches the configured local catalog (`catalog_settings.local_catalog`) the service writes to.
   - `tests/test_pelican_routes_http.py` (20 tests, formerly `test_pelican_routes.py.disabled`): it called the Pelican routes through `api.main`, where they now need a permission gate and are mounted only with `PELICAN_ENABLED`. The routes are now mounted on a bare app with the gates passed, so the file covers what each route does. Who may call them stays in `tests/test_pelican_routes.py`.
 
+## [1.0.2] - 2026-11-20
+
+### Changed
+- **`install.sh --env test` uses `https://test.federation.ndp.utah.edu`** (#437), the URL the platform team gives for the test Federation and the one `helm.sh --env test` (sci-ndp/ndp-ep-helm) already uses. It was `https://federation.ndp.utah.edu/test`, which reaches the same service, so Endpoints that remembered it keep working. The URL is printed at the start of every run and written to `install.log`.
+
 ## [1.0.1] - 2026-11-18
 
 ### Fixed
