@@ -87,7 +87,7 @@ to protect `GET /ep/{config_id}`. No client secret is involved.
 | Keycloak answers | The EP answers |
 | ---------------- | -------------- |
 | `200 {"result": true}` | the request goes through |
-| `400` "Client does not support permissions", or `400 invalid_resource` (the client has no gates) | decided from the user's roles, see below |
+| `400` "Client does not support permissions", or `400 invalid_resource` (the client has no gates) | `403`, see below |
 | `403` (denied), any other `400` (such as an unknown client), anything else | `403` |
 | `401` (token not accepted) | `401` |
 | `5xx` or unreachable | `502` |
@@ -96,20 +96,12 @@ to protect `GET /ep/{config_id}`. No client secret is involved.
 
 Only clients created by Federation 2.0.0 or later, or adopted with the
 AAI's `tools/adopt_client.py`, have the gates. For any other client
-Keycloak answers `400` as in the table, and the EP decides as releases
-before the gates did, from the `roles` and `groups` the AAI API reports
-(`api/services/auth_services/legacy_roles.py`):
-
-| Gate | Passes with |
-| ---- | ----------- |
-| `admin-area` | `ndp_admin`, `group:<group>:admin` |
-| `editor-area` | the above, `ndp_writer`, `ndp_editor`, `group:<group>:editor`, `group:<group>:writer` |
-| `viewer-area` | the above, `ndp_viewer`, `group:<group>:viewer`, membership of `<group>` or its subgroups |
-
-`<group>` is `ndp_ep/<OIDC_SERVICE_CLIENT_ID>` and each `GROUP_NAMES` entry.
-The log says so once (`has no permission gates`). Once the client is
-adopted the gates decide, with no change on the Endpoint. This is a
-compatibility shim, listed in [compatibility-shims.md](compatibility-shims.md).
+Keycloak answers `400` as in the table, and the EP refuses every request
+with `403`; the log says once that the client `has no permission gates`
+and has to be adopted by the platform team. Realm roles such as
+`ndp_writer` or `group:<group>:<level>` are not read. Releases 1.0.0 to
+1.1.0 decided such clients from those roles instead; that compatibility
+code was removed in 1.2.0 (#441), for when every client is adopted.
 
 Without `OIDC_SERVICE_CLIENT_ID` nothing is asked: guarded routes answer `403`
 and `effective_role` is `none`.

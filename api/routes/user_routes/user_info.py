@@ -11,7 +11,7 @@ from api.services.metadata_services import hash_user_id
 router = APIRouter()
 
 
-def _effective_role(token: str, user_info: Dict[str, Any]) -> str:
+def _effective_role(token: str) -> str:
     """The highest gate the caller passes: admin, writer, viewer or none."""
     for gate, role in (
         ("admin-area", "admin"),
@@ -19,7 +19,7 @@ def _effective_role(token: str, user_info: Dict[str, Any]) -> str:
         ("viewer-area", "viewer"),
     ):
         try:
-            ep_access_gate(token, gate, user_info)
+            ep_access_gate(token, gate)
             return role
         except HTTPException as e:
             if e.status_code != status.HTTP_403_FORBIDDEN:
@@ -151,7 +151,7 @@ def get_user_info(
         403: If the user is not authorized to access this Endpoint
         502: If authentication service is unavailable
     """
-    role = _effective_role(token_data.credentials, user_info)
+    role = _effective_role(token_data.credentials)
     if swagger_settings.oidc_service_client_id and role == "none":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
