@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-23
+
+### Removed
+- **Role decisions for Endpoint clients without gates** (#441). Releases 1.0.0 to 1.1.0 let a Keycloak client created by Federation 1.x, which has no `admin-area`/`editor-area`/`viewer-area` gates, decide from the user's realm roles and groups (`ndp_admin`, `group:<group>:<level>`, `GROUP_NAMES`, group membership), the compatibility shim of #433. That code is gone, for when every client has been adopted (the Federation's `batch_adopt_clients.py`): on a client without gates every request is refused with `403`, and the log says once that the client `has no permission gates` and has to be adopted (the AAI's `tools/adopt_client.py`). `api/services/auth_services/legacy_roles.py` and its tests are removed; `tests/test_client_without_gates.py` covers the new behavior. `docs/roles-and-permissions.md`, `docs/upgrading-to-1.0.md` and `docs/compatibility-shims.md` updated.
+
 ## [1.1.0] - 2026-11-20
 
 ### Added

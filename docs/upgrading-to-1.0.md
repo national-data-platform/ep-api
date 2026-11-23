@@ -25,13 +25,13 @@ Then rebuild: `docker compose ... up -d --build`.
 
 ## Who can do what
 
-It depends on whether the Endpoint's Keycloak client has the gates (`admin-area`, `editor-area`, `viewer-area`). Clients created by Federation 2.0.0 or later have them; older ones get them when adopted with the AAI's `tools/adopt_client.py`, run by the platform team.
+Since 1.2.0 the client must have the gates: on a client without them every request is refused with `403` until it is adopted (#441). From 1.0.0 to 1.1.0 it depended on whether the Endpoint's Keycloak client had the gates (`admin-area`, `editor-area`, `viewer-area`). Clients created by Federation 2.0.0 or later have them; older ones get them when adopted with the AAI's `tools/adopt_client.py`, run by the platform team.
 
 | | Client without gates (Federation 1.x) | Client with gates |
 | - | - | - |
-| How it is decided | from the user's roles, as before 1.0.0 | by Keycloak, from the user's level in `ndp_ep/ep-<config-id>` |
+| How it is decided | refused with `403` since 1.2.0; from the user's roles in 1.0.0 to 1.1.0 | by Keycloak, from the user's level in `ndp_ep/ep-<config-id>` |
 | Log | `has no permission gates`, once | nothing |
-| Realm roles such as `ndp_writer` | still count | no longer count: the user needs the editor or admin level in the group |
+| Realm roles such as `ndp_writer` | count nothing since 1.2.0 (they counted in 1.0.0 to 1.1.0) | no longer count: the user needs the editor or admin level in the group |
 
 Nothing has to be done on the Endpoint when its client is adopted: the next request is decided by the gates.
 
@@ -45,9 +45,9 @@ Approving a request adds the user to `ndp_ep/<OIDC_SERVICE_CLIENT_ID>` at the re
 
 1. `GET /status/` reports `keycloak_url` with the identity provider's host.
 2. Signing in to the UI works, and `GET /user/info` returns your `effective_role` (`admin`, `writer` or `viewer`).
-3. The log says either nothing about gates (the client has them) or `has no permission gates` once (decided from roles; expected until the client is adopted).
+3. The log says nothing about gates. `has no permission gates` means the client was never adopted: since 1.2.0 everyone gets `403` until the platform team adopts it.
 4. An editor can create a dataset; only an admin can upload to S3.
 
 If everyone gets 403, check that `OIDC_SERVICE_CLIENT_ID` (or `GROUP_NAMES`) is set and names the Endpoint's own client.
 
-The compatibility code that keeps clients without gates working is listed, with when it can be removed, in [compatibility-shims.md](compatibility-shims.md).
+The compatibility code that kept clients without gates working (1.0.0 to 1.1.0) was removed in 1.2.0 (#441); the shims still in place are listed in [compatibility-shims.md](compatibility-shims.md).

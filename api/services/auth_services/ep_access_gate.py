@@ -10,20 +10,18 @@ three on a client the AAI created with ``/client/create``. :func:`ep_access_gate
 Federation's ``app/services/ep_access_gate.py``; the three ``ep_*_gate``
 functions are the route dependencies built on it.
 
-COMPATIBILITY SHIM (issue #433): a client created by Federation 1.x has no
-gates, and Keycloak answers "Client does not support permissions". Such an
-Endpoint decides from the user's roles instead, as before the gates (see
-:mod:`legacy_roles`), so it keeps working until its client is adopted.
+A client created by Federation 1.x and never adopted has no gates, and
+Keycloak answers "Client does not support permissions": every request is
+refused, and the log says once that the client has to be adopted (#441).
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import requests
 from fastapi import Depends, HTTPException, status
 
 from api.config.swagger_settings import swagger_settings
-from api.services.auth_services import legacy_roles
 from api.services.auth_services.get_current_user import get_current_user, security
 
 logger = logging.getLogger(__name__)
@@ -56,18 +54,18 @@ def _warn_no_gates() -> None:
     global _warned_no_gates
     if not _warned_no_gates:
         _warned_no_gates = True
-        logger.warning(
+        logger.error(
             "Keycloak client '%s' has no permission gates (created by "
-            "Federation 1.x); deciding from the user's roles instead. Adopt "
-            "the client to use the gates (issue #433).",
+            "Federation 1.x); every request is refused until the platform "
+            "team adopts the client (the AAI's tools/adopt_client.py).",
             swagger_settings.oidc_service_client_id,
         )
 
 
-def keycloak_decision(token: str, gate: str) -> Optional[bool]:
+def keycloak_decision(token: str, gate: str) -> bool:
     """
     Ask Keycloak whether the token's user passes ``gate`` on this Endpoint's
-    client: True or False, or None when the client has no gates (#433).
+    client. A client without gates refuses everyone (#441).
 
     Raises 401 when Keycloak rejects the token and 502 when it is
     unreachable or fails.
@@ -104,22 +102,18 @@ def keycloak_decision(token: str, gate: str) -> Optional[bool]:
             detail=f"The identity provider failed (HTTP {response.status_code}).",
         )
     if _client_has_no_gates(response):
-        return None
+        _warn_no_gates()
+        return False
     try:
         return response.status_code == 200 and response.json() == {"result": True}
     except ValueError:
         return False
 
 
-def ep_access_gate(
-    token: str, gate: str, user_info: Optional[Dict[str, Any]] = None
-) -> None:
+def ep_access_gate(token: str, gate: str) -> None:
     """
     Raise unless Keycloak lets the token's user through ``gate`` on this
     Endpoint's client. TEST_TOKEN, when set, passes every gate without asking.
-
-    On a client without gates (#433) the decision comes from ``user_info``'s
-    roles instead (:mod:`legacy_roles`); without ``user_info`` it is a denial.
 
     401: Keycloak rejects the token. 403: anything but a grant, including
     when OIDC_SERVICE_CLIENT_ID is not set. 502: Keycloak is unreachable or fails.
@@ -133,11 +127,7 @@ def ep_access_gate(
     if not swagger_settings.oidc_service_client_id:
         raise denied
 
-    decision = keycloak_decision(token, gate)
-    if decision is None:
-        _warn_no_gates()
-        decision = user_info is not None and legacy_roles.passes(user_info, gate)
-    if not decision:
+    if not keycloak_decision(token, gate):
         raise denied
 
 
@@ -146,7 +136,7 @@ def ep_admin_gate(
     token_data=Depends(security),
 ) -> Dict[str, Any]:
     """Let admins of the Endpoint through; returns the user."""
-    ep_access_gate(token_data.credentials, "admin-area", user_info)
+    ep_access_gate(token_data.credentials, "admin-area")
     return user_info
 
 
@@ -155,7 +145,7 @@ def ep_editor_gate(
     token_data=Depends(security),
 ) -> Dict[str, Any]:
     """Let editors and admins of the Endpoint through; returns the user."""
-    ep_access_gate(token_data.credentials, "editor-area", user_info)
+    ep_access_gate(token_data.credentials, "editor-area")
     return user_info
 
 
@@ -164,5 +154,5 @@ def ep_viewer_gate(
     token_data=Depends(security),
 ) -> Dict[str, Any]:
     """Let viewers, editors and admins of the Endpoint through; returns the user."""
-    ep_access_gate(token_data.credentials, "viewer-area", user_info)
+    ep_access_gate(token_data.credentials, "viewer-area")
     return user_info
