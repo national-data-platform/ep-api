@@ -101,7 +101,7 @@ with `403`; the log says once that the client `has no permission gates`
 and has to be adopted by the platform team. Realm roles such as
 `ndp_writer` or `group:<group>:<level>` are not read. Releases 1.0.0 to
 1.1.0 decided such clients from those roles instead; that compatibility
-code was removed once every client had been adopted (#441).
+code was removed in 1.2.0 (#441), for when every client is adopted.
 
 Without `OIDC_SERVICE_CLIENT_ID` nothing is asked: guarded routes answer `403`
 and `effective_role` is `none`.
